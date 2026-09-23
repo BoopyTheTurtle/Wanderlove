@@ -18,12 +18,12 @@ starts over.
 
 ## Repository layout
 
-| Path             | Contents                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------ |
-| `apps/web`       | The React + Vite app: screens, components, styles, and browser storage                                 |
-| `packages/core`  | Platform-neutral logic shared by every app: trails, test profiles, geo maths, and route generation      |
-| `docs/`          | Concept, demo spec, user-research interviews, and design mockups                                        |
-| `.github/`       | CI workflow, pull request template, and code owners                                                     |
+| Path            | Contents                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `apps/web`      | The React + Vite app: screens, components, styles, and browser storage                             |
+| `packages/core` | Platform-neutral logic shared by every app: trails, test profiles, geo maths, and route generation |
+| `docs/`         | Concept, demo spec, user-research interviews, and design mockups                                   |
+| `.github/`      | CI workflow, pull request template, and code owners                                                |
 
 `packages/core` holds no React, DOM, or storage code, so a future native app can import it unchanged.
 
@@ -31,15 +31,15 @@ starts over.
 
 Run these from the repository root.
 
-| Command                 | Does                                                        |
-| ----------------------- | ----------------------------------------------------------- |
-| `npm run dev`           | Starts the web app with hot reload                          |
-| `npm run build`         | Typechecks and builds the web app into `apps/web/dist`      |
-| `npm run typecheck`     | Typechecks every workspace                                  |
-| `npm run lint`          | Runs ESLint                                                 |
-| `npm run format`        | Formats every file with Prettier                            |
-| `npm test`              | Runs the Vitest suites                                      |
-| `npm run check`         | Runs typecheck, lint, format check, and tests — as CI does  |
+| Command             | Does                                                       |
+| ------------------- | ---------------------------------------------------------- |
+| `npm run dev`       | Starts the web app with hot reload                         |
+| `npm run build`     | Typechecks and builds the web app into `apps/web/dist`     |
+| `npm run typecheck` | Typechecks every workspace                                 |
+| `npm run lint`      | Runs ESLint                                                |
+| `npm run format`    | Formats every file with Prettier                           |
+| `npm test`          | Runs the Vitest suites                                     |
+| `npm run check`     | Runs typecheck, lint, format check, and tests — as CI does |
 
 ## External services
 

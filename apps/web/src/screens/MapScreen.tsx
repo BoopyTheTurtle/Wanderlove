@@ -11,7 +11,18 @@ import { CoupleAvatar } from "../components/CoupleAvatar";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import type { Profile } from "@wannadoo/core";
 import { BottomNav } from "../components/BottomNav";
-import { BellIcon, HeartIcon, CameraIcon, ClockIcon, FlagIcon, PinIcon, QuestionIcon, SlidersIcon, SparkIcon, TrendIcon } from "../components/Icons";
+import {
+  BellIcon,
+  HeartIcon,
+  CameraIcon,
+  ClockIcon,
+  FlagIcon,
+  PinIcon,
+  QuestionIcon,
+  SlidersIcon,
+  SparkIcon,
+  TrendIcon,
+} from "../components/Icons";
 
 export type RouteStatus = "loading" | "ready" | "error" | "active";
 
@@ -66,7 +77,14 @@ function ProgressRing({ pct }: { pct: number }) {
   const r = 27;
   const c = 2 * Math.PI * r;
   return (
-    <svg className="progress-ring" width="68" height="68" viewBox="0 0 68 68" role="img" aria-label={`${pct}% complete`}>
+    <svg
+      className="progress-ring"
+      width="68"
+      height="68"
+      viewBox="0 0 68 68"
+      role="img"
+      aria-label={`${pct}% complete`}
+    >
       <circle cx="34" cy="34" r={r} className="ring-track" />
       <circle
         cx="34"
@@ -143,10 +161,8 @@ export function MapScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const unlocked =
-    currentStop && position ? isWithinRadius(position, currentStop, currentStop.radiusMeters) : false;
-  const distance =
-    currentStop && position ? Math.round(haversineDistanceMeters(position, currentStop)) : null;
+  const unlocked = currentStop && position ? isWithinRadius(position, currentStop, currentStop.radiusMeters) : false;
+  const distance = currentStop && position ? Math.round(haversineDistanceMeters(position, currentStop)) : null;
 
   const distanceLabel = unlocked
     ? "You've arrived"
@@ -179,7 +195,12 @@ export function MapScreen({
             </button>
           )}
         </div>
-        <button type="button" className="icon-button bare" aria-label="Notifications" title="Notifications — coming soon">
+        <button
+          type="button"
+          className="icon-button bare"
+          aria-label="Notifications"
+          title="Notifications — coming soon"
+        >
           <BellIcon size={21} />
           <span className="notif-dot" />
         </button>
@@ -198,13 +219,25 @@ export function MapScreen({
       </div>
 
       <div className="map-card">
-        <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={false} className="leaflet-live-map">
+        <MapContainer
+          center={center}
+          zoom={15}
+          zoomControl={false}
+          attributionControl={false}
+          className="leaflet-live-map"
+        >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <FitToRoute trail={trail} />
           {trail?.path && <Polyline positions={trail.path} pathOptions={{ className: "route-line" }} />}
           {trail?.start && <Marker position={[trail.start.lat, trail.start.lng]} icon={startIcon()} />}
           {stops.map((stop, i) => {
-            const state = !active ? "preview" : progress[stop.id] ? "done" : stop.id === currentStop?.id ? "current" : "locked";
+            const state = !active
+              ? "preview"
+              : progress[stop.id]
+                ? "done"
+                : stop.id === currentStop?.id
+                  ? "current"
+                  : "locked";
             return (
               <Marker key={stop.id} position={[stop.lat, stop.lng]} icon={pinIcon(state, i)}>
                 <Popup>{stop.name}</Popup>
@@ -217,7 +250,9 @@ export function MapScreen({
         <button type="button" className="map-fab" onClick={onBack} aria-label="Change trail" title="Change trail">
           <SlidersIcon size={18} />
         </button>
-        <span className="map-trail-name">{trail ? trail.name : status === "error" ? "No route" : "Finding a route…"}</span>
+        <span className="map-trail-name">
+          {trail ? trail.name : status === "error" ? "No route" : "Finding a route…"}
+        </span>
       </div>
 
       {status === "loading" && (

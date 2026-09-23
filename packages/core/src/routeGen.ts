@@ -174,7 +174,9 @@ const MINOR_KINDS = new Set(["Artwork", "Museum", "Memorial", "Historic spot"]);
 
 function buildLoop(start: LatLng, places: Candidate[], budgetStraight: number): Candidate[] {
   const pool = weightedShuffle(
-    places.filter((p) => haversineDistanceMeters(start, p) > 120 && haversineDistanceMeters(start, p) < budgetStraight / 2),
+    places.filter(
+      (p) => haversineDistanceMeters(start, p) > 120 && haversineDistanceMeters(start, p) < budgetStraight / 2,
+    ),
   );
   const loop: Candidate[] = [];
   for (const cand of pool) {
@@ -201,7 +203,9 @@ async function routeOnFoot(points: LatLng[]): Promise<RoutedPath | null> {
   try {
     const res = await fetchWithTimeout(`${FOOT_ROUTER}/${coords}?overview=full&geometries=geojson`, {}, 12000);
     if (!res.ok) return null;
-    const json = (await res.json()) as { routes?: { distance: number; geometry: { coordinates: [number, number][] } }[] };
+    const json = (await res.json()) as {
+      routes?: { distance: number; geometry: { coordinates: [number, number][] } }[];
+    };
     const r = json.routes?.[0];
     if (!r) return null;
     return { distance: r.distance, path: r.geometry.coordinates.map(([lng, lat]) => [lat, lng]) };
@@ -214,7 +218,8 @@ async function routeOnFoot(points: LatLng[]): Promise<RoutedPath | null> {
 
 export async function generateRoute(start: LatLng, approximateStart: boolean): Promise<GeneratedRoute> {
   const places = await fetchPlaces(start);
-  if (places.length < MIN_STOPS) throw new Error("Not enough interesting places nearby for a route. Try somewhere a bit more central.");
+  if (places.length < MIN_STOPS)
+    throw new Error("Not enough interesting places nearby for a route. Try somewhere a bit more central.");
 
   let budget = MAX_ROUTE_METERS / WALK_FACTOR;
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -251,7 +256,10 @@ function dropCostliest(start: LatLng, loop: Candidate[]): Candidate[] {
   let bestIdx = 0;
   let bestLen = Infinity;
   loop.forEach((_, i) => {
-    const len = loopLength(start, loop.filter((__, j) => j !== i));
+    const len = loopLength(
+      start,
+      loop.filter((__, j) => j !== i),
+    );
     if (len < bestLen) {
       bestLen = len;
       bestIdx = i;
@@ -260,7 +268,13 @@ function dropCostliest(start: LatLng, loop: Candidate[]): Candidate[] {
   return loop.filter((_, i) => i !== bestIdx);
 }
 
-function toTrail(start: LatLng, loop: Candidate[], distance: number, path: [number, number][], estimated: boolean): Trail {
+function toTrail(
+  start: LatLng,
+  loop: Candidate[],
+  distance: number,
+  path: [number, number][],
+  estimated: boolean,
+): Trail {
   const prompts = [...PROMPT_BANK].sort(() => Math.random() - 0.5);
   const stops: Stop[] = loop.map((c, i) => {
     const n = String(i + 1).padStart(2, "0");

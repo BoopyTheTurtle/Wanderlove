@@ -121,7 +121,15 @@ export function ChallengeScreen({
             </div>
           </div>
           <span className="level-badge" aria-hidden="true">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round">
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            >
               <path d="m3 19 6-10 4 6 2-3 6 7z" />
             </svg>
           </span>

@@ -4,7 +4,11 @@ import type { Profile } from "@wannadoo/core";
 export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null; size?: number }) {
   if (!profile) {
     return (
-      <span className="profile-avatar empty" style={{ width: size, height: size, fontSize: size * 0.4 }} aria-label="No partner yet">
+      <span
+        className="profile-avatar empty"
+        style={{ width: size, height: size, fontSize: size * 0.4 }}
+        aria-label="No partner yet"
+      >
         ?
       </span>
     );

@@ -42,8 +42,8 @@ export function CompleteScreen({
       <p className="eyebrow">Trail complete</p>
       <h2>You made it, together.</h2>
       <p className="complete-wit">
-        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the
-        same way again.
+        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the same way
+        again.
       </p>
 
       <div className="album-stack">

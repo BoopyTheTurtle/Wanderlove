@@ -9,7 +9,7 @@ describe("haversineDistanceMeters", () => {
 
   it("matches a known distance within 1%", () => {
     // Freedom Monument → Riga Castle, roughly 1.02 km apart
-    const d = haversineDistanceMeters({ lat: 56.9516, lng: 24.1133 }, { lat: 56.9510, lng: 24.0976 });
+    const d = haversineDistanceMeters({ lat: 56.9516, lng: 24.1133 }, { lat: 56.951, lng: 24.0976 });
     expect(d).toBeGreaterThan(940);
     expect(d).toBeLessThan(990);
   });

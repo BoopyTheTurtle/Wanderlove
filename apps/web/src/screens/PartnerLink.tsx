@@ -156,9 +156,7 @@ export function PartnerLink({
           <button type="submit" className="btn-primary" disabled={!query.trim()}>
             Link partner
           </button>
-          <p className="hint">
-            Test partner: {method === "username" ? `@${testPartner.username}` : testPartner.email}
-          </p>
+          <p className="hint">Test partner: {method === "username" ? `@${testPartner.username}` : testPartner.email}</p>
         </form>
       )}
 
@@ -181,7 +179,11 @@ export function PartnerLink({
             <i />
             <i />
           </div>
-          <button type="button" className="btn-primary light" onClick={() => link(profileFromQr(qrPayload(testPartner)))}>
+          <button
+            type="button"
+            className="btn-primary light"
+            onClick={() => link(profileFromQr(qrPayload(testPartner)))}
+          >
             Simulate scan ({testPartner.name})
           </button>
           <button type="button" className="btn-outline-light" onClick={() => setScanning(false)}>

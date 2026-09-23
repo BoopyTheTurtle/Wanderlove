@@ -46,9 +46,7 @@ export function Onboarding({ onSelectMode }: { onSelectMode: (modeId: string) =>
           <BrandMark /> Wanderclue
         </p>
         <h1>How do you wander together?</h1>
-        <p className="intro">
-          Choose a mood. We&rsquo;ll turn the city into something worth remembering.
-        </p>
+        <p className="intro">Choose a mood. We&rsquo;ll turn the city into something worth remembering.</p>
       </div>
 
       <div className="mode-list">
