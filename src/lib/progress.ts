@@ -1,4 +1,4 @@
-const STORAGE_KEY = "wanderclue_progress";
+const STORAGE_KEY = "wannadoo_progress";
 
 export type StopProgress = {
   completedAt: string;

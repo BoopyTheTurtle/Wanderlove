@@ -13,7 +13,7 @@ export const PROFILES: Profile[] = [
     id: "daniel",
     name: "Daniel",
     username: "daniel",
-    email: "daniel@wanderclue.test",
+    email: "daniel@wannadoo.test",
     initials: "D",
     color: "#2a9d8f",
   },
@@ -21,7 +21,7 @@ export const PROFILES: Profile[] = [
     id: "emma",
     name: "Emma",
     username: "emma",
-    email: "emma@wanderclue.test",
+    email: "emma@wannadoo.test",
     initials: "E",
     color: "#ff7a8a",
   },
@@ -38,10 +38,10 @@ export function findProfile(query: string, by: "username" | "email"): Profile | 
 }
 
 export function qrPayload(profile: Profile): string {
-  return `wanderclue://link/${profile.username}`;
+  return `wannadoo://link/${profile.username}`;
 }
 
 export function profileFromQr(payload: string): Profile | null {
-  const match = payload.match(/^wanderclue:\/\/link\/(.+)$/);
+  const match = payload.match(/^wannadoo:\/\/link\/(.+)$/);
   return match ? findProfile(match[1], "username") : null;
 }

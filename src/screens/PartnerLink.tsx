@@ -77,21 +77,24 @@ export function PartnerLink({
 
   return (
     <div className="screen light-screen partner-screen">
-      <StatusBar />
+      <div className="adventure-top">
+        <img className="adventure-bg" src="/adventure-bg.jpg" alt="" />
+        <StatusBar light />
 
-      <div className="partner-hero">
-        <ProfileAvatar profile={me} size={72} />
-        <span className="link-dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <ProfileAvatar profile={null} size={72} />
-      </div>
+        <div className="partner-copy">
+          <h1>Are you ready for an adventure?</h1>
+          <h2 className="partner-sub">Choose your partner</h2>
+        </div>
 
-      <div className="partner-copy">
-        <h1>Are you ready for an adventure?</h1>
-        <h2 className="partner-sub">Choose your partner</h2>
+        <div className="partner-hero">
+          <ProfileAvatar profile={me} size={64} />
+          <span className="link-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <ProfileAvatar profile={null} size={64} />
+        </div>
       </div>
 
       <div className="segmented partner-tabs" role="tablist">

@@ -17,7 +17,7 @@ export function CompleteScreen({
   const [left, main, right] = [photos[0], photos[photos.length - 1] ?? photos[0], photos[1] ?? photos[0]];
 
   async function handleShare() {
-    const shareData = { title: trail.name, text: `We finished the ${trail.name} trail on Wanderclue.` };
+    const shareData = { title: trail.name, text: `We finished the ${trail.name} trail on Wannadoo.` };
     if (navigator.share) {
       try {
         await navigator.share(shareData);

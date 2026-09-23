@@ -280,6 +280,22 @@ img { display: block; }
 .partner-copy .eyebrow { margin: 18px 0 6px; }
 .partner-sub { color: var(--teal); font-size: 17px; font-weight: 700; letter-spacing: 0; }
 .partner-copy p:not(.eyebrow) { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.adventure-top { position: relative; height: 390px; display: flex; flex-direction: column; margin-bottom: 4px; }
+.adventure-top > *:not(.adventure-bg) { position: relative; z-index: 1; }
+.adventure-bg { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; -webkit-mask-image: linear-gradient(transparent 0, #000 16%, #000 62%, transparent 96%); mask-image: linear-gradient(transparent 0, #000 16%, #000 62%, transparent 96%); }
+.adventure-top .partner-copy { padding-top: 10px; }
+.adventure-top .partner-copy h1,
+.adventure-top .partner-sub {
+  color: #fff;
+  text-shadow: 0 2px 12px #0a2f2b80;
+}
+.adventure-top .partner-sub { color: #e3fbf6; }
+.adventure-top .partner-hero { margin-top: auto; padding: 0 0 14px; }
+.adventure-top .profile-avatar.empty { background: #ffffffd9; }
+.adventure-top .link-dots i { background: #fff; box-shadow: 0 0 6px #ffd166; }
+.partner-screen:has(.adventure-top) .partner-tabs { background: #ffffffe6; }
+.partner-screen:has(.adventure-top) .text-button { color: #fff; }
+.partner-screen:has(.adventure-top) .dev-switch { color: #cdeee8; border-color: #cdeee880; }
 .partner-tabs { margin-bottom: 12px; }
 .partner-tabs button { font-size: 13px; }
 .partner-actions { padding: 12px 24px; }
@@ -330,3 +346,68 @@ img { display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Shared evolving green background: lives on the phone so it keeps drifting across screen changes */
+.phone {
+  --on-bg: #ffffff;
+  --on-bg-muted: #cdeee8;
+  background: linear-gradient(165deg, #58b3ae 0%, #4caaa5 18%, #43a19b 34%, #37948e 52%, #2d8781 68%, #37948e 84%, #43a19b 100%);
+  background-size: 100% 400%;
+  animation: bg-drift 70s ease-in-out infinite alternate;
+}
+@keyframes bg-drift {
+  from { background-position: 50% 0%; }
+  to { background-position: 50% 100%; }
+}
+.phone .screen { background: transparent; }
+
+/* Text that sits directly on the green */
+.status-bar { color: var(--on-bg); }
+.brand-mark, .wordmark { color: var(--on-bg); }
+.whoami-head h2, .onboarding-head h1, .page-head h2, .home-title h1 { color: var(--on-bg); }
+.whoami-head p, .intro, .onboarding-foot, .home-title p, .page-head .eyebrow { color: var(--on-bg-muted); }
+.dev-pill { background: #0f3d38; }
+.icon-button.bare { color: var(--on-bg); }
+.notif-dot { border-color: #43a19b; }
+.chip { background: #ffffff1f; border-color: #ffffff40; color: var(--on-bg); }
+.chip.selected { background: #fff; border-color: #fff; color: var(--teal-dark); }
+.segmented { background: #ffffffe6; }
+.link-chip { background: #ffffff26; color: var(--on-bg); }
+.dev-reset { background: #ffffff1f; border-color: #ffffff66; color: var(--on-bg); }
+.dev-reset:hover { color: #fff; border-color: #fff; }
+.level-strip b { color: var(--on-bg); }
+.level-strip span { color: var(--on-bg-muted); }
+.level-strip .bar { background: #ffffff33; }
+.level-strip .bar span { background: linear-gradient(90deg, #cdeee8, #fff); }
+.text-button { color: var(--on-bg); }
+.dev-switch { color: var(--on-bg-muted); border-color: #cdeee880; }
+.complete-screen { background: transparent; }
+.onboarding-avatar, .complete-avatar { box-shadow: 0 8px 24px #0a2f2b55; }
+.card, .mode-card, .trail-card { box-shadow: 0 8px 24px #0a2f2b33; }
+.partner-copy h1 { color: var(--on-bg); }
+.partner-copy p:not(.eyebrow) { color: var(--on-bg); }
+.partner-copy .eyebrow { color: var(--on-bg-muted); }
+.partner-actions .btn-primary { background: #fff; color: var(--teal-dark); box-shadow: 0 8px 20px #0a2f2b33; }
+
+/* Generated routes */
+.route-line { stroke: #1f7d72; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 8; fill: none; }
+.start-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 4px solid var(--teal-dark); box-sizing: border-box; box-shadow: 0 2px 6px #1b343150; }
+.map-pin.preview { background: var(--teal-mid); }
+.map-pin.preview b, .map-pin.locked b { font-size: 13px; }
+.route-card { margin: 0 20px 14px; padding: 16px; display: grid; gap: 7px; }
+.route-card h3 { font-size: 18px; font-weight: 800; }
+.route-note { color: #b0664a; font-size: 12px; font-weight: 600; }
+.route-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.loading-bar { height: 4px; border-radius: 4px; margin-top: 6px; background: linear-gradient(90deg, var(--teal-soft) 0%, var(--teal) 50%, var(--teal-soft) 100%); background-size: 200% 100%; animation: loading-slide 1.2s linear infinite; }
+@keyframes loading-slide { to { background-position: -200% 0; } }
+.stop-list { margin: 0 20px 14px; padding: 8px 16px; display: grid; }
+.stop-row { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.stop-row:last-child { border-bottom: 0; }
+.stop-num { width: 24px; height: 24px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-dark); display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+.stop-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stop-kind { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.next-side .btn-small.ghost { padding: 6px 10px; font-size: 11px; }
+.surprise-art { height: 120px; position: relative; display: grid; place-items: center; color: #fff; background: radial-gradient(circle at 30% 30%, var(--teal-mid), var(--teal-dark)); }
+.continue-card { grid-template-columns: 56px 1fr auto; }
+.continue-icon { width: 56px; height: 56px; border-radius: 16px; background: var(--teal-soft); color: var(--teal-dark); display: grid; place-items: center; }
+.continue-card .mode-copy small { color: var(--teal); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }

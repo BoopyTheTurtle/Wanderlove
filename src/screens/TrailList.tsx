@@ -1,15 +1,22 @@
 import { StatusBar } from "../components/PhoneFrame";
-import { BackIcon, ClockIcon, HeartIcon, PinIcon, SparkIcon } from "../components/Icons";
+import { BackIcon, ChevronIcon, ClockIcon, CompassIcon, HeartIcon, PinIcon, SparkIcon } from "../components/Icons";
 import type { Trail } from "../data/trail";
+import { MAX_ROUTE_METERS } from "../lib/routeGen";
 
 export function TrailList({
-  trail,
+  curated,
+  activeTrail,
   onBack,
-  onSelectTrail,
+  onContinue,
+  onSelectSurprise,
+  onSelectCurated,
 }: {
-  trail: Trail;
+  curated: Trail;
+  activeTrail: Trail | null;
   onBack: () => void;
-  onSelectTrail: () => void;
+  onContinue: () => void;
+  onSelectSurprise: () => void;
+  onSelectCurated: () => void;
 }) {
   return (
     <div className="screen light-screen">
@@ -40,10 +47,49 @@ export function TrailList({
       </div>
 
       <div className="trail-list">
-        <button type="button" className="trail-card" onClick={onSelectTrail}>
+        {activeTrail && (
+          <button type="button" className="mode-card continue-card" onClick={onContinue}>
+            <span className="continue-icon">
+              <CompassIcon size={24} />
+            </span>
+            <span className="mode-copy">
+              <small>In progress</small>
+              <strong>{activeTrail.name}</strong>
+            </span>
+            <span className="mode-arrow">
+              <ChevronIcon size={18} />
+            </span>
+          </button>
+        )}
+
+        <button type="button" className="trail-card surprise-card" onClick={onSelectSurprise}>
+          <div className="surprise-art" aria-hidden="true">
+            <SparkIcon size={40} />
+            <span className="tag-pill on-image">
+              <SparkIcon size={12} /> New every time
+            </span>
+          </div>
+          <div className="trail-copy">
+            <p className="eyebrow">From where you are</p>
+            <h3>Surprise Route</h3>
+            <p className="trail-desc">
+              A random walking loop of 4–6 spots near you. Don&rsquo;t like it? Roll a new one before you start.
+            </p>
+            <div className="meta-row">
+              <span className="meta-pill">
+                <PinIcon size={13} /> Up to {(MAX_ROUTE_METERS / 1000).toFixed(1)} km
+              </span>
+              <span className="meta-pill">
+                <ClockIcon size={13} /> 40–70 min
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" className="trail-card" onClick={onSelectCurated}>
           <div className="trail-image">
-            <img src={trail.coverImage} alt="" />
-            {trail.curatorPick && (
+            <img src={curated.coverImage} alt="" />
+            {curated.curatorPick && (
               <span className="tag-pill on-image">
                 <SparkIcon size={12} /> Curator pick
               </span>
@@ -53,15 +99,15 @@ export function TrailList({
             </span>
           </div>
           <div className="trail-copy">
-            <p className="eyebrow">{trail.location}</p>
-            <h3>{trail.name}</h3>
-            <p className="trail-desc">{trail.description}</p>
+            <p className="eyebrow">{curated.location}</p>
+            <h3>{curated.name}</h3>
+            <p className="trail-desc">{curated.description}</p>
             <div className="meta-row">
               <span className="meta-pill">
-                <ClockIcon size={13} /> {trail.durationMinutes} min
+                <ClockIcon size={13} /> {curated.durationMinutes} min
               </span>
               <span className="meta-pill">
-                <PinIcon size={13} /> {trail.stopCount} stops
+                <PinIcon size={13} /> {curated.stopCount} stops
               </span>
             </div>
           </div>

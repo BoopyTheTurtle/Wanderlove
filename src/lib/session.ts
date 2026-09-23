@@ -1,4 +1,4 @@
-const STORAGE_KEY = "wanderclue_session";
+const STORAGE_KEY = "wannadoo_session";
 
 export type Session = {
   meId: string | null;
