@@ -1,5 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Trail, Stop } from "../data/trail";
+import type { Progress } from "../lib/progress";
+import { StatusBar } from "../components/PhoneFrame";
+import { BackIcon, CameraIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,18 +16,20 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export function ChallengeScreen({
   trail,
   stop,
+  progress,
   onBack,
   onCapture,
 }: {
   trail: Trail;
   stop: Stop;
+  progress: Progress;
   onBack: () => void;
   onCapture: (stopId: string, photoDataUrl: string) => void;
 }) {
-  const [flipped, setFlipped] = useState(false);
   const [busy, setBusy] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const stopIndex = trail.stops.indexOf(stop);
+  const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+  const pct = Math.round((completedCount / trail.stops.length) * 100);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -40,71 +45,87 @@ export function ChallengeScreen({
 
   return (
     <div className="screen challenge-screen">
-      <div className="challenge-nav">
-        <button type="button" onClick={onBack}>
-          {"←"}
+      <div className="challenge-hero">
+        <img src={stop.image} alt="" />
+        <span className="hero-shade" />
+        <StatusBar light />
+        <button type="button" className="hero-button back" onClick={onBack} aria-label="Back to map">
+          <BackIcon size={20} />
         </button>
-        <div>
-          <span>Stop</span>
-          <strong>
-            {stopIndex + 1} of {trail.stops.length}
-          </strong>
-        </div>
-        <span>{flipped ? "Revealed" : "Sealed"}</span>
+        <span className="hero-button like" aria-hidden="true">
+          <HeartIcon size={18} />
+        </span>
+        <span className="hero-pin" aria-hidden="true">
+          <HeartIcon size={20} filled />
+        </span>
       </div>
 
-      <div className={`flip-scene ${flipped ? "is-flipped" : ""}`}>
-        <div className="flip-card">
-          <button
-            type="button"
-            className="card-face card-back"
-            onClick={() => setFlipped(true)}
-            aria-label="Reveal challenge"
-          >
-            <span className="card-corner">{stopIndex + 1}</span>
-            <span className="card-corner bottom">{stopIndex + 1}</span>
-            <div className="compass-rose">
-              <i />
-              <b>TAP TO REVEAL</b>
-            </div>
-            <div className="card-back-title">{stop.name}</div>
-            <small>You&rsquo;ve arrived. Open it together.</small>
-          </button>
+      <div className="challenge-sheet">
+        <section className="card task-card">
+          <span className="tag-pill">
+            <FlagIcon size={12} /> Task
+          </span>
+          <h2>{stop.name}</h2>
+          <p className="task-desc">Answer the prompt together, out loud, then take a photo of the two of you.</p>
 
-          <div className="card-face card-front">
-            <div className="challenge-photo">
-              <img src={stop.image} alt="" />
-              <span className="challenge-label">{stop.eyebrow}</span>
-            </div>
-            <div className="revealed-copy">
-              <p className="eyebrow">Conversation prompt</p>
-              <h2>{stop.name}</h2>
-              <p>Answer it together, out loud, before you take the photo.</p>
-              <div className="prompt-card">
-                <span className="prompt-icon">{"💬"}</span>
-                <div>
-                  <span>Prompt</span>
-                  <strong>{stop.prompt}</strong>
-                </div>
-              </div>
-            </div>
-            <div className="challenge-actions">
-              <label className="camera-button">
-                <span>{"📷"}</span>
-                {busy ? "Saving…" : "Capture the moment"}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileChange}
-                  style={{ display: "none" }}
-                />
-              </label>
-              <p className="reveal-hint">This unlocks the next stop on the map.</p>
+          <div className="prompt-box">
+            <ChatIcon size={18} />
+            <p>{stop.prompt}</p>
+          </div>
+
+          <div className="meta-row">
+            <span className="meta-pill">
+              <PinIcon size={13} /> Stop {stopIndex + 1} of {trail.stops.length}
+            </span>
+            <span className="meta-pill">{stop.eyebrow.replace(/^Stop \d+\s*—?\s*/, "") || "Challenge"}</span>
+          </div>
+
+          <label className="btn-primary">
+            <CameraIcon size={18} />
+            {busy ? "Saving…" : "Capture the moment"}
+            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} hidden />
+          </label>
+          <p className="hint">This unlocks the next stop on the map.</p>
+        </section>
+
+        <section className="card quiz-card" aria-disabled="true">
+          <div>
+            <span className="tag-pill quiz">
+              <QuestionIcon size={12} /> Quiz
+            </span>
+            <h3>Couple Quiz</h3>
+            <p>Test how well you know each other.</p>
+          </div>
+          <div className="quiz-art" aria-hidden="true">
+            <span>
+              <HeartIcon size={16} filled />
+            </span>
+            <span>?</span>
+            <span>
+              <HeartIcon size={12} filled />
+            </span>
+          </div>
+          <button type="button" className="btn-soft" disabled>
+            Coming soon
+          </button>
+        </section>
+
+        <section className="level-strip">
+          <div>
+            <b>Trail progress</b>
+            <span>
+              {completedCount} / {trail.stops.length} stops
+            </span>
+            <div className="bar">
+              <span style={{ width: `${pct}%` }} />
             </div>
           </div>
-        </div>
+          <span className="level-badge" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round">
+              <path d="m3 19 6-10 4 6 2-3 6 7z" />
+            </svg>
+          </span>
+        </section>
       </div>
     </div>
   );

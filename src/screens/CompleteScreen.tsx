@@ -1,4 +1,6 @@
 import { StatusBar } from "../components/PhoneFrame";
+import { CoupleAvatar } from "../components/CoupleAvatar";
+import { CompassIcon, ShareIcon } from "../components/Icons";
 import type { Trail } from "../data/trail";
 import type { Progress } from "../lib/progress";
 
@@ -27,23 +29,21 @@ export function CompleteScreen({
 
   return (
     <div className="screen complete-screen">
-      <div className="color-flood" />
       <div className="confetti">
         {Array.from({ length: 20 }).map((_, i) => (
           <i key={i} />
         ))}
       </div>
       <StatusBar light />
-      <div className="complete-ornament">
-        <span />
-        <span style={{ width: 20 }}>{"✦"}</span>
-        <span />
+
+      <div className="complete-avatar">
+        <CoupleAvatar size={64} />
       </div>
       <p className="eyebrow">Trail complete</p>
       <h2>You made it, together.</h2>
       <p className="complete-wit">
-        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never
-        walk past the same way again.
+        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the
+        same way again.
       </p>
 
       <div className="album-stack">
@@ -62,23 +62,21 @@ export function CompleteScreen({
           <strong>{trail.stopCount}</strong>
           <span>Stops</span>
         </div>
-        <i />
         <div>
           <strong>{trail.durationMinutes}m</strong>
           <span>Time</span>
         </div>
-        <i />
         <div>
           <strong>{photos.length}</strong>
           <span>Photos</span>
         </div>
       </div>
 
-      <button type="button" className="complete-primary" onClick={onViewMap}>
-        View your map {"→"}
+      <button type="button" className="btn-primary light" onClick={onViewMap}>
+        <CompassIcon size={18} /> View your map
       </button>
-      <button type="button" className="complete-share" onClick={handleShare}>
-        Share the trail
+      <button type="button" className="btn-outline-light" onClick={handleShare}>
+        <ShareIcon size={16} /> Share the trail
       </button>
     </div>
   );
