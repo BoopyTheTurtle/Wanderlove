@@ -1,7 +1,7 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
 import { CompassIcon, ShareIcon } from "../components/Icons";
-import type { Trail } from "../data/trail";
+import type { Trail } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 
 export function CompleteScreen({

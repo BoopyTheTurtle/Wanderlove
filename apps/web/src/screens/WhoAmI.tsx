@@ -1,7 +1,7 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { ChevronIcon } from "../components/Icons";
-import { PROFILES } from "../data/profiles";
+import { PROFILES } from "@wannadoo/core";
 
 // Dev-only stand-in for sign-in: pick which test profile this device is.
 export function WhoAmI({ onPick }: { onPick: (profileId: string) => void }) {

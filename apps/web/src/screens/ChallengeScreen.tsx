@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Trail, Stop } from "../data/trail";
+import type { Trail, Stop } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, CameraIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";

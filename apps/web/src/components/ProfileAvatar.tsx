@@ -1,4 +1,4 @@
-import type { Profile } from "../data/profiles";
+import type { Profile } from "@wannadoo/core";
 
 // Placeholder avatar: initials on the profile's colour. Swap for the avatar creator later.
 export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null; size?: number }) {

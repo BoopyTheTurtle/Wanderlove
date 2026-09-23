@@ -1,15 +1,15 @@
 import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
-import type { Trail, Stop } from "../data/trail";
-import type { LatLng } from "../lib/geo";
-import { haversineDistanceMeters, isWithinRadius } from "../lib/geo";
+import type { Trail, Stop } from "@wannadoo/core";
+import type { LatLng } from "@wannadoo/core";
+import { haversineDistanceMeters, isWithinRadius } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
-import { FALLBACK_START, MAX_ROUTE_METERS } from "../lib/routeGen";
+import { FALLBACK_START, MAX_ROUTE_METERS } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
 import { ProfileAvatar } from "../components/ProfileAvatar";
-import type { Profile } from "../data/profiles";
+import type { Profile } from "@wannadoo/core";
 import { BottomNav } from "../components/BottomNav";
 import { BellIcon, HeartIcon, CameraIcon, ClockIcon, FlagIcon, PinIcon, QuestionIcon, SlidersIcon, SparkIcon, TrendIcon } from "../components/Icons";
 

@@ -34,7 +34,7 @@ Trail content lives in one static file, separate from app logic, so stops
 are trivial to replace once real Riga locations are picked:
 
 ```
-src/data/trail.ts
+packages/core/src/trail.ts
 {
   id, name, description,
   stops: [

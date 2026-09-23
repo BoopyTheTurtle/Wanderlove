@@ -7,15 +7,16 @@ import { ChallengeScreen } from "./screens/ChallengeScreen";
 import { CompleteScreen } from "./screens/CompleteScreen";
 import { WhoAmI } from "./screens/WhoAmI";
 import { PartnerLink } from "./screens/PartnerLink";
-import { getProfile } from "./data/profiles";
+import { getProfile } from "@wannadoo/core";
 import { loadSession, resetSession, saveSession } from "./lib/session";
 import type { Session } from "./lib/session";
-import { trail as curatedTrail } from "./data/trail";
-import type { Stop, Trail } from "./data/trail";
+import { trail as curatedTrail } from "@wannadoo/core";
+import type { Stop, Trail } from "@wannadoo/core";
 import { useLivePosition } from "./lib/useLivePosition";
 import { loadProgress, resetProgress, saveStopProgress } from "./lib/progress";
 import { clearActiveRoute, loadActiveRoute, saveActiveRoute } from "./lib/activeRoute";
-import { generateRoute, getStartPosition, withWalkingPath } from "./lib/routeGen";
+import { generateRoute, withWalkingPath } from "@wannadoo/core";
+import { getStartPosition } from "./lib/startPosition";
 
 type Route =
   | { name: "whoAmI" }
@@ -62,7 +63,6 @@ export default function App() {
   // No started route → every visit to the map gets a fresh one.
   useEffect(() => {
     if (route.name === "map" && !activeTrail && draft.status === "idle") void generateSurprise();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.name, activeTrail, draft.status]);
 
   // Leaving a started route loses its progress, so check first.

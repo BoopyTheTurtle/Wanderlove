@@ -1,7 +1,7 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, ChevronIcon, ClockIcon, CompassIcon, HeartIcon, PinIcon, SparkIcon } from "../components/Icons";
-import type { Trail } from "../data/trail";
-import { MAX_ROUTE_METERS } from "../lib/routeGen";
+import type { Trail } from "@wannadoo/core";
+import { MAX_ROUTE_METERS } from "@wannadoo/core";
 
 export function TrailList({
   curated,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { LatLng } from "./geo";
+import type { LatLng } from "@wannadoo/core";
 
 type LiveState = {
   position: LatLng | null;

@@ -1,4 +1,4 @@
-import type { Stop, Trail } from "../data/trail";
+import type { Stop, Trail } from "./trail";
 import type { LatLng } from "./geo";
 import { haversineDistanceMeters } from "./geo";
 
@@ -305,14 +305,3 @@ export async function withWalkingPath(trail: Trail): Promise<Trail> {
 // --- Location ---------------------------------------------------------------
 
 export const FALLBACK_START: LatLng = { lat: 56.9496, lng: 24.1052 }; // Riga Old Town
-
-export function getStartPosition(timeoutMs = 7000): Promise<{ position: LatLng; approximate: boolean }> {
-  return new Promise((resolve) => {
-    if (!("geolocation" in navigator)) return resolve({ position: FALLBACK_START, approximate: true });
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ position: { lat: pos.coords.latitude, lng: pos.coords.longitude }, approximate: false }),
-      () => resolve({ position: FALLBACK_START, approximate: true }),
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 },
-    );
-  });
-}

@@ -3,8 +3,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { CameraIcon, HeartIcon, UserIcon } from "../components/Icons";
-import { PROFILES, findProfile, profileFromQr, qrPayload } from "../data/profiles";
-import type { Profile } from "../data/profiles";
+import { PROFILES, findProfile, profileFromQr, qrPayload } from "@wannadoo/core";
+import type { Profile } from "@wannadoo/core";
 
 type Method = "qr" | "username" | "email";
 

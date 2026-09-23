@@ -1,0 +1,15 @@
+{
+  "name": "@wannadoo/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Platform-neutral Wannadoo logic: trails, profiles, geo maths and route generation.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

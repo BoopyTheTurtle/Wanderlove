@@ -1,4 +1,4 @@
-import type { Trail } from "../data/trail";
+import type { Trail } from "@wannadoo/core";
 
 // The route a couple has started. Unstarted routes are never saved, so a fresh one
 // is generated each visit.
