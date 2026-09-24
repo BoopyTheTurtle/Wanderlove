@@ -10,7 +10,6 @@ const CLUE_DATA: Record<string, { word: string; num: number }> = {
   "spikeri-square-clue3": { word: "BUILT", num: 3 },
   "spikeri-creative-quarter-clue4": { word: "ON", num: 4 },
   "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5 },
-  "spikeri-courtyard-final": { word: "REVEALED", num: 6 },
 };
 
 function readFileAsDataUrl(file: File): Promise<string> {

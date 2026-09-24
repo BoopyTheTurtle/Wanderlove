@@ -9,7 +9,6 @@ const CLUE_DATA: { id: string; word: string; num: number }[] = [
   { id: "spikeri-square-clue3", word: "BUILT", num: 3 },
   { id: "spikeri-creative-quarter-clue4", word: "ON", num: 4 },
   { id: "daugava-bench-clue5", word: "SMALL MOMENTS", num: 5 },
-  { id: "spikeri-courtyard-final", word: "✦", num: 6 },
 ];
 
 export function SherlockCompleteScreen({

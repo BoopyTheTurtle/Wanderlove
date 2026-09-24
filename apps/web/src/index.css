@@ -2154,12 +2154,14 @@ img {
   color: var(--sh-wine);
 }
 .sh-stamp-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 18px 12px;
   padding: 18px 16px 20px;
 }
 .sh-stamp-cell {
+  width: calc((100% - 24px) / 3);
   display: grid;
   justify-items: center;
   gap: 6px;

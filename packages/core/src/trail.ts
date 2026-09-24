@@ -39,14 +39,14 @@ export const trail: Trail = {
     "A love letter written over 100 years ago vanished in the Spīķeri district. Follow five clues together, crack codes, and uncover the secret message hidden along the Daugava.",
   curatorPick: true,
   durationMinutes: 75,
-  stopCount: 6,
+  stopCount: 5,
   coverImage: "/sherlock-challenge.jpg",
   stops: [
     {
       id: "spikeri-promenade-clue1",
       name: "Spīķeri Promenade",
-      lat: 56.9413654,
-      lng: 24.1147471,
+      lat: 56.9414308,
+      lng: 24.1166392,
       radiusMeters: 60,
       eyebrow: "Clue 01 — The First Meeting",
       prompt:
@@ -56,8 +56,8 @@ export const trail: Trail = {
     {
       id: "spikeri-warehouses-clue2",
       name: "Historic Spīķeri Warehouses",
-      lat: 56.9421424,
-      lng: 24.1151476,
+      lat: 56.9421652,
+      lng: 24.1155358,
       radiusMeters: 60,
       eyebrow: "Clue 02 — The Old Warehouse",
       prompt:
@@ -67,8 +67,8 @@ export const trail: Trail = {
     {
       id: "spikeri-square-clue3",
       name: "Spīķeri Square",
-      lat: 56.9417,
-      lng: 24.1142,
+      lat: 56.9429419,
+      lng: 24.1123862,
       radiusMeters: 60,
       eyebrow: "Clue 03 — Holmes' Observation Test",
       prompt:
@@ -78,8 +78,8 @@ export const trail: Trail = {
     {
       id: "spikeri-creative-quarter-clue4",
       name: "Creative Quarter",
-      lat: 56.9418,
-      lng: 24.1133,
+      lat: 56.942348,
+      lng: 24.1137619,
       radiusMeters: 60,
       eyebrow: "Clue 04 — The Hidden Message",
       prompt:
@@ -89,24 +89,13 @@ export const trail: Trail = {
     {
       id: "daugava-bench-clue5",
       name: "Sunset Bench by the Daugava",
-      lat: 56.9406,
-      lng: 24.1148,
+      lat: 56.9413577,
+      lng: 24.1148153,
       radiusMeters: 60,
       eyebrow: "Clue 05 — Sunset Bench",
       prompt:
         "One of you describes a simple structure to the other from memory — without using the words left, right, top, or bottom — until they can sketch it accurately.",
       image: "https://picsum.photos/seed/sherlock-daugava-bench/800/600",
-    },
-    {
-      id: "spikeri-courtyard-final",
-      name: "Spīķeri Courtyard",
-      lat: 56.9416,
-      lng: 24.115,
-      radiusMeters: 60,
-      eyebrow: "Final — The Lost Letter",
-      prompt:
-        "Arrange your five collected words in order — the lost letter's secret is revealed. Write one adventure you will have together in the next 12 months, seal it, and open it on your anniversary.",
-      image: "https://picsum.photos/seed/sherlock-spikeri-courtyard/800/600",
     },
   ],
 };
