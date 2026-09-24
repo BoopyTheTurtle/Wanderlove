@@ -51,7 +51,7 @@ export const trail: Trail = {
       eyebrow: "Clue 01 — The First Meeting",
       prompt:
         "Every love story begins with a first glance. Crack the code:\n❤️+❤️+❤️=15,\n❤️+⭐+⭐=11,\n⭐+🔑=7.\nWhat is 🔑+❤️×⭐?",
-      image: "https://picsum.photos/seed/sherlock-spikeri-promenade/800/600",
+      image: "/spikeri-warehouses.jpg",
     },
     {
       id: "spikeri-warehouses-clue2",
@@ -62,7 +62,7 @@ export const trail: Trail = {
       eyebrow: "Clue 02 — The Old Warehouse",
       prompt:
         "Some things survive for centuries, like these warehouses and the good in each other. Take turns: write three qualities you love in your partner, then pass the phone and let them answer back.",
-      image: "https://picsum.photos/seed/sherlock-spikeri-warehouses/800/600",
+      image: "/spikeri-warehouses.jpg",
     },
     {
       id: "spikeri-square-clue3",
@@ -73,7 +73,7 @@ export const trail: Trail = {
       eyebrow: "Clue 03 — Holmes' Observation Test",
       prompt:
         "Count the first-floor windows of the nearest building — give your partner that many compliments. Then study each other for 30 seconds: eye colour, shoes, one accessory. Switch roles.",
-      image: "https://picsum.photos/seed/sherlock-spikeri-square/800/600",
+      image: "/spikeri-warehouses.jpg",
     },
     {
       id: "spikeri-creative-quarter-clue4",
@@ -84,7 +84,7 @@ export const trail: Trail = {
       eyebrow: "Clue 04 — The Hidden Message",
       prompt:
         "Sherlock left a coded note: L ORYH BRX. Use his favourite Caesar Cipher — shift each letter 3 places back — and decode the message together.",
-      image: "https://picsum.photos/seed/sherlock-creative-quarter/800/600",
+      image: "/spikeri-warehouses.jpg",
     },
     {
       id: "daugava-bench-clue5",
@@ -95,7 +95,7 @@ export const trail: Trail = {
       eyebrow: "Clue 05 — Sunset Bench",
       prompt:
         "One of you describes a simple picture to the other from memory — without using the words left, right, top, or bottom — until they can sketch it accurately.",
-      image: "https://picsum.photos/seed/sherlock-daugava-bench/800/600",
+      image: "/daugava-sunset.jpg",
     },
   ],
 };
