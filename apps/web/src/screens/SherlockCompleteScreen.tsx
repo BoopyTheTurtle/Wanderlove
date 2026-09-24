@@ -5,9 +5,9 @@ import type { Progress } from "../lib/progress";
 
 const CLUE_DATA: { id: string; word: string; num: number }[] = [
   { id: "spikeri-promenade-clue1", word: "TRUE", num: 1 },
-  { id: "spikeri-warehouses-clue2", word: "LOVE IS", num: 2 },
-  { id: "spikeri-square-clue3", word: "BUILT", num: 3 },
-  { id: "spikeri-creative-quarter-clue4", word: "ON", num: 4 },
+  { id: "spikeri-warehouses-clue2", word: "LOVE", num: 2 },
+  { id: "spikeri-square-clue3", word: "IS BUILT", num: 3 },
+  { id: "spikeri-creative-quarter-clue4", word: "FROM", num: 4 },
   { id: "daugava-bench-clue5", word: "SMALL MOMENTS", num: 5 },
 ];
 
@@ -68,7 +68,7 @@ export function SherlockCompleteScreen({
         {allDone && (
           <div className="sh-reveal">
             <p className="sh-reveal-label">The Lost Letter Reveals…</p>
-            <blockquote className="sh-reveal-quote">"True love is built on small moments."</blockquote>
+            <blockquote className="sh-reveal-quote">"True love is built from small moments."</blockquote>
             <p className="sh-reveal-sub">
               Not grand gestures. Not perfect days. But thousands of shared laughs, walks, and adventures.
             </p>

@@ -2054,7 +2054,38 @@ img.profile-avatar {
 .sh-answer-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+}
+.sh-answer input.text {
+  flex: 1;
+  min-width: 0;
+  padding: 0 14px;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.sh-answer input.text::placeholder {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--sh-faded);
+}
+.sh-answer-check {
+  flex: none;
+  height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sh-orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sh-answer-check:disabled {
+  background: var(--sh-faded);
+  cursor: not-allowed;
 }
 /* Speech bubble that pops out of the answer field on a wrong guess */
 .sh-nope {
@@ -2067,7 +2098,9 @@ img.profile-avatar {
   padding: 9px 12px;
   border-radius: 14px;
   box-shadow: 3px 3px 0 var(--sh-coral);
-  transform-origin: left center;
+  justify-self: start;
+  margin-top: 6px;
+  transform-origin: 30px top;
   animation:
     sh-nope-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
     sh-nope-out 0.3s ease-in 2.1s forwards;
@@ -2075,11 +2108,10 @@ img.profile-avatar {
 .sh-nope::before {
   content: "";
   position: absolute;
-  left: -6px;
-  top: 50%;
+  left: 24px;
+  top: -6px;
   width: 12px;
   height: 12px;
-  margin-top: -6px;
   background: inherit;
   rotate: 45deg;
   border-radius: 2px;
@@ -2105,6 +2137,27 @@ img.profile-avatar {
     opacity: 0;
     transform: scale(0.9);
   }
+}
+
+/* Clue 3: they mark the task done themselves */
+.sh-btn-done {
+  height: 48px;
+  border: 2px solid var(--sh-wine);
+  border-radius: 14px;
+  background: var(--sh-card);
+  color: var(--sh-wine);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.12s;
+}
+.sh-btn-done:hover {
+  background: #fdebe3;
+}
+.sh-btn-done:active {
+  transform: scale(0.97);
 }
 
 /* Clue 2: compliment exchange */
@@ -2331,6 +2384,26 @@ img.profile-avatar {
   font-size: 12px;
   text-align: center;
   margin-top: -8px;
+}
+
+/* Words collected so far, under the progress row */
+.sh-collected {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: -6px;
+}
+.sh-collected-word {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--sh-card);
+  border: 1.5px dashed var(--sh-coral);
+  color: var(--sh-wine);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  animation: sh-bubble-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* ── Complete screen ── */

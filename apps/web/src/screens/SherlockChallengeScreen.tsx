@@ -5,14 +5,28 @@ import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, CameraIcon } from "../components/Icons";
 import { ComplimentExchange } from "./ComplimentExchange";
 
-// A clue with an `answer` or a `task` keeps its word hidden, and the camera locked, until it is solved.
-const CLUE_DATA: Record<string, { word: string; num: number; answer?: string; task?: "compliments" }> = {
-  "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19" },
-  "spikeri-warehouses-clue2": { word: "LOVE IS", num: 2, task: "compliments" },
-  "spikeri-square-clue3": { word: "BUILT", num: 3 },
-  "spikeri-creative-quarter-clue4": { word: "ON", num: 4 },
+type Clue = {
+  word: string;
+  num: number;
+  // A clue with an `answer` or a `task` keeps its word hidden, and the camera locked, until it is solved.
+  answer?: string;
+  // Number answers check themselves as they are typed; text answers are checked on submit.
+  answerType?: "number" | "text";
+  task?: "compliments" | "done";
+};
+
+const CLUE_DATA: Record<string, Clue> = {
+  "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19", answerType: "number" },
+  "spikeri-warehouses-clue2": { word: "LOVE", num: 2, task: "compliments" },
+  "spikeri-square-clue3": { word: "IS BUILT", num: 3, task: "done" },
+  "spikeri-creative-quarter-clue4": { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
   "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5 },
 };
+
+// Case and extra spaces don't count against an answer.
+function normalise(text: string) {
+  return text.trim().replace(/\s+/g, " ").toUpperCase();
+}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,9 +60,15 @@ export function SherlockChallengeScreen({
   const [nope, setNope] = useState(0);
   const clue = CLUE_DATA[stop.id];
   const [taskDone, setTaskDone] = useState(false);
-  const solved = clue?.answer ? guess === clue.answer : clue?.task ? taskDone : true;
-  const wrong = !solved && guess.length >= (clue?.answer?.length ?? 0);
+  const isText = clue?.answerType === "text";
+  const solved = clue?.answer ? normalise(guess) === normalise(clue.answer) : clue?.task ? taskDone : true;
+  const wrong = !solved && (isText ? nope > 0 : guess.length >= (clue?.answer?.length ?? 0));
   const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+  // Words from solved clues, plus this clue's once it is revealed, in trail order.
+  const collected = trail.stops
+    .filter((s) => progress[s.id] || (s.id === stop.id && solved))
+    .map((s) => CLUE_DATA[s.id]?.word)
+    .filter((w): w is string => !!w);
 
   useEffect(() => {
     if (!nope) return;
@@ -57,11 +77,21 @@ export function SherlockChallengeScreen({
   }, [nope]);
 
   function handleGuess(value: string) {
+    if (isText) {
+      setGuess(value);
+      setNope(0);
+      return;
+    }
     const digits = value.replace(/\D/g, "");
     setGuess(digits);
     const answer = clue?.answer ?? "";
     if (digits.length >= answer.length && digits !== answer) setNope((n) => n + 1);
     else setNope(0);
+  }
+
+  function handleCheck(e: React.FormEvent) {
+    e.preventDefault();
+    if (!solved && guess.trim()) setNope((n) => n + 1);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -103,28 +133,44 @@ export function SherlockChallengeScreen({
           <p className="sh-challenge-text">{stop.prompt}</p>
 
           {clue?.answer && (
-            <label className="sh-answer">
-              <span className="sh-answer-label">Your answer</span>
+            <form className="sh-answer" onSubmit={handleCheck}>
+              <label className="sh-answer-label" htmlFor="sh-answer-input">
+                Your answer
+              </label>
               <span className="sh-answer-row">
                 <input
+                  id="sh-answer-input"
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
+                  inputMode={isText ? "text" : "numeric"}
+                  pattern={isText ? undefined : "[0-9]*"}
+                  maxLength={isText ? 30 : undefined}
                   autoComplete="off"
-                  placeholder="?"
+                  autoCapitalize={isText ? "characters" : undefined}
+                  placeholder={isText ? "Decoded message" : "?"}
                   value={guess}
                   onChange={(e) => handleGuess(e.target.value)}
-                  className={solved ? "solved" : wrong ? "wrong" : ""}
+                  className={`${isText ? "text" : ""} ${solved ? "solved" : wrong ? "wrong" : ""}`}
                   aria-invalid={wrong}
                   readOnly={solved}
                 />
-                {nope > 0 && (
-                  <span key={nope} className="sh-nope" role="status">
-                    <span aria-hidden="true">🕵️</span> Not quite right, try again
-                  </span>
+                {isText && !solved && (
+                  <button type="submit" className="sh-answer-check" disabled={!guess.trim()}>
+                    Check
+                  </button>
                 )}
               </span>
-            </label>
+              {nope > 0 && (
+                <span key={nope} className="sh-nope" role="status">
+                  <span aria-hidden="true">🕵️</span> Not quite right, try again
+                </span>
+              )}
+            </form>
+          )}
+
+          {clue?.task === "done" && !taskDone && (
+            <button type="button" className="sh-btn-done" onClick={() => setTaskDone(true)}>
+              Done
+            </button>
           )}
 
           {clue?.task === "compliments" && (
@@ -173,6 +219,15 @@ export function SherlockChallengeScreen({
         <p className="sh-progress-label">
           {completedCount} of {trail.stops.length} clues solved
         </p>
+        {collected.length > 0 && (
+          <div className="sh-collected" aria-label="Words collected so far">
+            {collected.map((word) => (
+              <span key={word} className="sh-collected-word">
+                {word}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
