@@ -66,6 +66,8 @@ img {
   overflow: hidden;
   position: relative;
   box-shadow: 0 25px 70px #0f4d4533;
+  /* Makes the phone the containing block for position: fixed, so the bottom nav pins to it */
+  transform: translateZ(0);
 }
 @media (min-width: 500px) and (min-height: 900px) {
   .phone {
@@ -754,7 +756,7 @@ img {
 
 .bottom-nav {
   height: 78px;
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
