@@ -4,3 +4,5 @@ coverage
 package-lock.json
 docs/research
 docs/design
+.vite
+.claude/settings.local.json

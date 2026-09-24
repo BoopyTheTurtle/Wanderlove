@@ -13,3 +13,6 @@ coverage
 .idea
 
 .vercel
+
+.vite
+.claude/settings.local.json
