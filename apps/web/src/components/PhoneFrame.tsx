@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-export function PhoneFrame({ children }: { children: ReactNode }) {
+export function PhoneFrame({ theme, children }: { theme?: string; children: ReactNode }) {
   return (
     <div className="app-shell">
-      <div className="phone">{children}</div>
+      <div className={theme ? `phone theme-${theme}` : "phone"}>{children}</div>
     </div>
   );
 }

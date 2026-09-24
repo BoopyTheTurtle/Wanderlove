@@ -40,7 +40,7 @@ export const trail: Trail = {
   curatorPick: true,
   durationMinutes: 75,
   stopCount: 6,
-  coverImage: "https://picsum.photos/seed/sherlock-holmes-spikeri-cover/800/600",
+  coverImage: "/sherlock-challenge.jpg",
   stops: [
     {
       id: "spikeri-promenade-clue1",

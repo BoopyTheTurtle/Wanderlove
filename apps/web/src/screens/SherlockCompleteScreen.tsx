@@ -40,23 +40,30 @@ export function SherlockCompleteScreen({
 
       <div className="sh-complete-inner">
         {/* Field book header */}
-        <p className="sh-field-eyebrow">Your Field Book</p>
+        <p className="sh-field-eyebrow">Your field book</p>
         <h1 className="sh-field-title">Passport to us</h1>
-        <p className="sh-field-venue">VENUE · SPĪĶERI, RIGA</p>
 
         {/* Collected curiosities */}
-        <p className="sh-curiosities-label">Our collected curiosities</p>
-        <div className="sh-stamp-grid">
-          {CLUE_DATA.map(({ id, word, num }) => {
-            const done = !!progress[id];
-            return (
-              <div key={id} className={`sh-stamp-cell ${done ? "sh-stamp-cell--done" : "sh-stamp-cell--todo"}`}>
-                <span className="sh-stamp-cell-num">0{num}</span>
-                {done && <span className="sh-stamp-cell-word">{word}</span>}
-              </div>
-            );
-          })}
-        </div>
+        <section className="sh-passport">
+          <div className="sh-passport-head">
+            <span className="sh-passport-issue">Case no. 221B · Riga</span>
+            <span className="sh-curiosities-label">Our collected curiosities</span>
+          </div>
+          <div className="sh-stamp-grid">
+            {CLUE_DATA.map(({ id, word, num }) => {
+              const done = !!progress[id];
+              return (
+                <div key={id} className={`sh-stamp-cell ${done ? "sh-stamp-cell--done" : "sh-stamp-cell--todo"}`}>
+                  <span className="sh-stamp-cell-num">0{num}</span>
+                  <span className="sh-stamp-cell-word">{done ? word : "Still out there"}</span>
+                </div>
+              );
+            })}
+          </div>
+          <button type="button" className="sh-passport-foot" onClick={onViewMap}>
+            <CompassIcon size={16} /> Back to our map
+          </button>
+        </section>
 
         {/* Revealed message */}
         {allDone && (
@@ -70,9 +77,6 @@ export function SherlockCompleteScreen({
         )}
 
         {/* Actions */}
-        <button type="button" className="sh-btn-outline" onClick={onViewMap}>
-          <CompassIcon size={16} /> View your map
-        </button>
         <button type="button" className="sh-btn-ghost" onClick={handleShare}>
           <ShareIcon size={16} /> Share the trail
         </button>

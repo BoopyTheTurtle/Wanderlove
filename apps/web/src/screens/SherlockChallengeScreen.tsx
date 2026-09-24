@@ -53,21 +53,22 @@ export function SherlockChallengeScreen({
 
   return (
     <div className="screen sh-screen">
-      {/* Header */}
-      <div className="sh-header">
-        <StatusBar light />
+      <StatusBar />
+      <header className="sh-topbar">
         <button type="button" className="sh-back" onClick={onBack} aria-label="Back to map">
           <BackIcon size={20} />
         </button>
+        <p className="sh-kicker">Sherlock&rsquo;s casebook · Spīķeri</p>
+      </header>
 
-        <div className="sh-stamp-hero">
-          <div className="sh-stamp-ring">
-            <span className="sh-stamp-num">0{clue?.num ?? "?"}</span>
-          </div>
+      <div className="sh-title-row">
+        <div>
+          <p className="sh-clue-label">{stop.eyebrow}</p>
+          <h2 className="sh-location-name">{stop.name}</h2>
         </div>
-
-        <p className="sh-clue-label">{stop.eyebrow.toUpperCase()}</p>
-        <h2 className="sh-location-name">{stop.name}</h2>
+        <div className="sh-stamp-ring" aria-hidden="true">
+          <span className="sh-stamp-num">0{clue?.num ?? "?"}</span>
+        </div>
       </div>
 
       {/* Content */}
