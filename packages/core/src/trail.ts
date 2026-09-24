@@ -94,7 +94,7 @@ export const trail: Trail = {
       radiusMeters: 60,
       eyebrow: "Clue 05 — Sunset Bench",
       prompt:
-        "One of you describes a simple structure to the other from memory — without using the words left, right, top, or bottom — until they can sketch it accurately.",
+        "One of you describes a simple picture to the other from memory — without using the words left, right, top, or bottom — until they can sketch it accurately.",
       image: "https://picsum.photos/seed/sherlock-daugava-bench/800/600",
     },
   ],

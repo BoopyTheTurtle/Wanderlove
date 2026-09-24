@@ -20,7 +20,7 @@ const CLUE_DATA: Record<string, Clue> = {
   "spikeri-warehouses-clue2": { word: "LOVE", num: 2, task: "compliments" },
   "spikeri-square-clue3": { word: "IS BUILT", num: 3, task: "done" },
   "spikeri-creative-quarter-clue4": { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
-  "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5 },
+  "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5, task: "done" },
 };
 
 // Case and extra spaces don't count against an answer.
@@ -179,7 +179,7 @@ export function SherlockChallengeScreen({
 
           {clue && solved && (
             <div className="sh-reward">
-              <span className="sh-reward-label">🔑 Collect the word</span>
+              <span className="sh-reward-label">🔑 Collect the clue</span>
               <span className="sh-reward-word">{clue.word}</span>
             </div>
           )}

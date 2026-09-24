@@ -1,4 +1,5 @@
 import { StatusBar } from "../components/PhoneFrame";
+import { Confetti } from "../components/Confetti";
 import { ShareIcon, CompassIcon } from "../components/Icons";
 import type { Trail } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
@@ -10,6 +11,9 @@ const CLUE_DATA: { id: string; word: string; num: number }[] = [
   { id: "spikeri-creative-quarter-clue4", word: "FROM", num: 4 },
   { id: "daugava-bench-clue5", word: "SMALL MOMENTS", num: 5 },
 ];
+
+// The field-book palette: wine, coral, orange, rose and gold.
+const CONFETTI_COLORS = ["#8b2e45", "#f2806a", "#e8612c", "#f6dcd3", "#e9b44c"];
 
 export function SherlockCompleteScreen({
   trail,
@@ -35,6 +39,7 @@ export function SherlockCompleteScreen({
 
   return (
     <div className="screen sh-complete-screen">
+      {allDone && <Confetti colors={CONFETTI_COLORS} />}
       <StatusBar />
 
       <div className="sh-complete-inner">
