@@ -5,6 +5,8 @@ import { MapScreen } from "./screens/MapScreen";
 import type { RouteStatus } from "./screens/MapScreen";
 import { ChallengeScreen } from "./screens/ChallengeScreen";
 import { CompleteScreen } from "./screens/CompleteScreen";
+import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
+import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { WhoAmI } from "./screens/WhoAmI";
 import { PartnerLink } from "./screens/PartnerLink";
 import { getProfile } from "@wannadoo/core";
@@ -195,6 +197,17 @@ export default function App() {
         (() => {
           const stop = activeTrail.stops.find((s) => s.id === route.stopId);
           if (!stop) return null;
+          if (activeTrail.id === "sherlock-holmes-spikeri") {
+            return (
+              <SherlockChallengeScreen
+                trail={activeTrail}
+                stop={stop}
+                progress={progress}
+                onBack={() => setRoute({ name: "map" })}
+                onCapture={handleCapture}
+              />
+            );
+          }
           return (
             <ChallengeScreen
               trail={activeTrail}
@@ -206,9 +219,13 @@ export default function App() {
           );
         })()}
 
-      {route.name === "complete" && activeTrail && (
-        <CompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
-      )}
+      {route.name === "complete" &&
+        activeTrail &&
+        (activeTrail.id === "sherlock-holmes-spikeri" ? (
+          <SherlockCompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+        ) : (
+          <CompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+        ))}
     </PhoneFrame>
   );
 }
