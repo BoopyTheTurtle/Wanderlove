@@ -1752,6 +1752,517 @@ img {
   }
 }
 
+/* ───────────────────────────────────────────
+   Sherlock Holmes field-book theme
+   .theme-sherlock sits on .phone for the map, challenge and complete screens of
+   the "sherlock-holmes-spikeri" trail. It remaps the teal tokens so shared
+   screens turn red, then styles the .sh-* screens.
+─────────────────────────────────────────── */
+.phone.theme-sherlock {
+  --sh-paper: #fbf0e2;
+  --sh-card: #fff8ef;
+  --sh-ink: #3a1a22;
+  --sh-wine: #8b2e45;
+  --sh-wine-dark: #6e2236;
+  --sh-coral: #f2806a;
+  --sh-orange: #e8612c;
+  --sh-rose: #f6dcd3;
+  --sh-muted: #9a6b6b;
+  --sh-line: #ebd8c6;
+  --sh-faded: #dcc3b8;
+  --sh-offset: 5px 5px 0 var(--sh-coral);
+
+  --teal: var(--sh-wine);
+  --teal-dark: var(--sh-wine-dark);
+  --teal-mid: var(--sh-coral);
+  --teal-soft: var(--sh-rose);
+  --teal-wash: #fbe9e0;
+  --bg: var(--sh-paper);
+  --card: var(--sh-card);
+  --ink: var(--sh-ink);
+  --muted: var(--sh-muted);
+  --line: var(--sh-line);
+  --on-bg: var(--sh-wine);
+  --on-bg-muted: var(--sh-muted);
+
+  color: var(--sh-ink);
+  background: var(--sh-paper);
+  animation: none;
+}
+
+/* Map dashboard, recoloured */
+.theme-sherlock .home-title h1 {
+  font-size: 23px;
+  letter-spacing: -0.03em;
+}
+.theme-sherlock .home-title p {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.theme-sherlock .couple-avatar {
+  box-shadow: 0 0 0 2px var(--sh-coral);
+}
+.theme-sherlock .notif-dot {
+  border-color: var(--sh-paper);
+  background: var(--sh-orange);
+}
+.theme-sherlock .dev-reset {
+  background: transparent;
+  border-color: var(--sh-line);
+  color: var(--sh-muted);
+}
+.theme-sherlock .segmented {
+  background: var(--sh-card);
+  border: 1.5px solid var(--sh-wine);
+  box-shadow: none;
+}
+.theme-sherlock .segmented button.active {
+  box-shadow: none;
+}
+.theme-sherlock .card,
+.theme-sherlock .map-card {
+  border: 1.5px solid var(--sh-wine);
+  box-shadow: var(--sh-offset);
+}
+.theme-sherlock .map-card {
+  border-radius: 18px;
+}
+.theme-sherlock .leaflet-live-map {
+  background: #f3e2d3;
+}
+.theme-sherlock .leaflet-live-map .leaflet-tile-pane {
+  filter: grayscale(1) sepia(0.55) hue-rotate(-20deg) saturate(1.3) brightness(1.08) contrast(0.8);
+}
+.theme-sherlock .map-trail-name,
+.theme-sherlock .map-fab {
+  background: var(--sh-card);
+  color: var(--sh-wine);
+  box-shadow: none;
+  border: 1px solid var(--sh-line);
+}
+.theme-sherlock .route-line {
+  stroke: var(--sh-wine);
+}
+.theme-sherlock .map-pin.done {
+  background: var(--sh-orange);
+}
+.theme-sherlock .map-pin.current {
+  box-shadow:
+    0 0 0 8px #8b2e4530,
+    0 4px 12px #3a1a2250;
+  animation-name: sh-pin-pulse;
+}
+@keyframes sh-pin-pulse {
+  to {
+    box-shadow:
+      0 0 0 14px #8b2e4514,
+      0 4px 12px #3a1a2250;
+  }
+}
+.theme-sherlock .map-pin.locked {
+  background: var(--sh-faded);
+}
+.theme-sherlock .card-kicker {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.theme-sherlock .next-thumb {
+  border: 2px dashed var(--sh-coral);
+  padding: 2px;
+  background: var(--sh-card);
+}
+.theme-sherlock .stat-row.soon .stat-icon {
+  background: var(--sh-faded);
+}
+.theme-sherlock .stop-num {
+  background: transparent;
+  border: 1.5px dashed var(--sh-coral);
+  color: var(--sh-wine);
+  box-sizing: border-box;
+}
+.theme-sherlock .bottom-nav {
+  background: var(--sh-wine);
+  border-top: 3px solid var(--sh-coral);
+  padding: 0 0 16px;
+}
+.theme-sherlock .bottom-nav button {
+  color: #f3c9c2;
+}
+.theme-sherlock .bottom-nav button.active {
+  color: #fff;
+  background: var(--sh-orange);
+}
+.theme-sherlock .home-indicator {
+  background: #fff;
+}
+
+/* ── Challenge screen ── */
+.sh-screen {
+  color: var(--sh-ink);
+  padding-bottom: 28px;
+}
+.sh-screen .status-bar {
+  color: var(--sh-ink);
+}
+.sh-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 20px 0;
+}
+.sh-back {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: 1.5px solid var(--sh-wine);
+  border-radius: 50%;
+  background: var(--sh-card);
+  color: var(--sh-wine);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.sh-kicker {
+  color: var(--sh-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.sh-title-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 20px 22px;
+}
+.sh-clue-label {
+  color: var(--sh-orange);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.sh-location-name {
+  color: var(--sh-wine);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+/* Rubber stamp: dashed inner ring inside a solid outer ring */
+.sh-stamp-ring {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  border: 2.5px solid var(--sh-coral);
+  display: grid;
+  place-items: center;
+  rotate: -10deg;
+}
+.sh-stamp-num {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--sh-coral);
+  display: grid;
+  place-items: center;
+  color: var(--sh-wine);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.sh-sheet {
+  padding: 0 20px;
+  display: grid;
+  gap: 18px;
+}
+.sh-card {
+  background: var(--sh-card);
+  border: 1.5px solid var(--sh-wine);
+  border-radius: 18px;
+  box-shadow: var(--sh-offset);
+  padding: 20px 18px;
+  display: grid;
+  gap: 14px;
+}
+.sh-eyebrow-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sh-wine);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sh-line);
+}
+.sh-challenge-text {
+  color: var(--sh-ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+.sh-reward {
+  background: #fdebe3;
+  border: 1.5px dashed var(--sh-coral);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sh-reward-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sh-orange);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sh-reward-word {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--sh-wine);
+  letter-spacing: 0.04em;
+}
+.sh-btn-primary {
+  height: 52px;
+  border-radius: 14px;
+  background: var(--sh-wine);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.12s;
+}
+.sh-btn-primary:hover {
+  background: var(--sh-wine-dark);
+}
+.sh-btn-primary:active {
+  transform: scale(0.97);
+}
+.sh-hint {
+  color: var(--sh-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Mini stamp progress row */
+.sh-progress-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.sh-mini-stamp {
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1.5px dashed var(--sh-faded);
+  color: var(--sh-faded);
+}
+.sh-mini-stamp--done {
+  background: var(--sh-coral);
+  border: 2px solid var(--sh-coral);
+  color: #fff;
+}
+.sh-mini-stamp--current {
+  border: 2px dashed var(--sh-wine);
+  color: var(--sh-wine);
+  background: var(--sh-card);
+}
+.sh-progress-label {
+  color: var(--sh-muted);
+  font-size: 12px;
+  text-align: center;
+  margin-top: -8px;
+}
+
+/* ── Complete screen ── */
+.sh-complete-screen {
+  color: var(--sh-ink);
+}
+.sh-complete-screen .status-bar {
+  color: var(--sh-ink);
+}
+.sh-complete-inner {
+  padding: 8px 20px 32px;
+  display: grid;
+  gap: 14px;
+}
+.sh-field-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+  margin-top: 8px;
+}
+.sh-field-title {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--sh-wine);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+/* Passport card: dotted paper, stamp grid, wine footer */
+.sh-passport {
+  background:
+    radial-gradient(#f2806a33 1px, transparent 1.2px) 0 0 / 12px 12px,
+    var(--sh-card);
+  border: 1.5px solid var(--sh-wine);
+  border-radius: 18px;
+  box-shadow: var(--sh-offset);
+  overflow: hidden;
+  display: grid;
+}
+.sh-passport-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 16px 0 10px;
+  border-bottom: 1px solid var(--sh-coral);
+}
+.sh-passport-issue {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+}
+.sh-curiosities-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sh-wine);
+}
+.sh-stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 12px;
+  padding: 18px 16px 20px;
+}
+.sh-stamp-cell {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.sh-stamp-cell-num {
+  width: 70px;
+  height: 70px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 800;
+  border: 2.5px solid currentColor;
+  outline: 1.5px dashed currentColor;
+  outline-offset: -9px;
+}
+.sh-stamp-cell:nth-child(odd) .sh-stamp-cell-num {
+  rotate: -8deg;
+}
+.sh-stamp-cell:nth-child(even) .sh-stamp-cell-num {
+  rotate: 6deg;
+}
+.sh-stamp-cell-word {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sh-stamp-cell--done {
+  color: var(--sh-orange);
+}
+.sh-stamp-cell--done:nth-child(3n + 2) {
+  color: var(--sh-wine);
+}
+.sh-stamp-cell--todo {
+  color: var(--sh-faded);
+}
+.sh-passport-foot {
+  border: 0;
+  background: var(--sh-wine);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sh-passport-foot:hover {
+  background: var(--sh-wine-dark);
+}
+
+/* Revealed message */
+.sh-reveal {
+  background: var(--sh-card);
+  border: 1.5px solid var(--sh-wine);
+  border-radius: 18px;
+  box-shadow: var(--sh-offset);
+  padding: 20px 18px;
+  display: grid;
+  gap: 10px;
+  text-align: center;
+  margin-top: 6px;
+}
+.sh-reveal-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sh-orange);
+}
+.sh-reveal-quote {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--sh-wine);
+  line-height: 1.3;
+  font-style: italic;
+}
+.sh-reveal-sub {
+  color: var(--sh-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sh-btn-ghost {
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--sh-wine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--sh-coral);
+  text-underline-offset: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

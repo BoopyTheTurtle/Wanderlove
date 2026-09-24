@@ -5,6 +5,8 @@ import { MapScreen } from "./screens/MapScreen";
 import type { RouteStatus } from "./screens/MapScreen";
 import { ChallengeScreen } from "./screens/ChallengeScreen";
 import { CompleteScreen } from "./screens/CompleteScreen";
+import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
+import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { WhoAmI } from "./screens/WhoAmI";
 import { PartnerLink } from "./screens/PartnerLink";
 import { getProfile } from "@wannadoo/core";
@@ -45,6 +47,10 @@ export default function App() {
   const { position, simulated, setSimulatedPosition } = useLivePosition();
 
   const shownTrail = activeTrail ?? (draft.status === "ready" ? draft.trail : null);
+  // The Sherlock trail swaps the teal look for the red field-book theme from the map onwards.
+  const themeTrail =
+    route.name === "map" ? shownTrail : route.name === "challenge" || route.name === "complete" ? activeTrail : null;
+  const theme = themeTrail?.id === "sherlock-holmes-spikeri" ? "sherlock" : undefined;
   const mapStatus: RouteStatus = activeTrail ? "active" : draft.status === "idle" ? "loading" : draft.status;
   const activeDone = activeTrail ? activeTrail.stops.every((s) => progress[s.id]) : false;
 
@@ -134,7 +140,7 @@ export default function App() {
   }
 
   return (
-    <PhoneFrame>
+    <PhoneFrame theme={theme}>
       {route.name === "whoAmI" && (
         <WhoAmI
           onPick={(meId) => {
@@ -195,6 +201,17 @@ export default function App() {
         (() => {
           const stop = activeTrail.stops.find((s) => s.id === route.stopId);
           if (!stop) return null;
+          if (activeTrail.id === "sherlock-holmes-spikeri") {
+            return (
+              <SherlockChallengeScreen
+                trail={activeTrail}
+                stop={stop}
+                progress={progress}
+                onBack={() => setRoute({ name: "map" })}
+                onCapture={handleCapture}
+              />
+            );
+          }
           return (
             <ChallengeScreen
               trail={activeTrail}
@@ -206,9 +223,13 @@ export default function App() {
           );
         })()}
 
-      {route.name === "complete" && activeTrail && (
-        <CompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
-      )}
+      {route.name === "complete" &&
+        activeTrail &&
+        (activeTrail.id === "sherlock-holmes-spikeri" ? (
+          <SherlockCompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+        ) : (
+          <CompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+        ))}
     </PhoneFrame>
   );
 }

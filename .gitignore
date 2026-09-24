@@ -11,3 +11,8 @@ coverage
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+.vercel
+
+.vite
+.claude/settings.local.json
