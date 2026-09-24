@@ -50,7 +50,7 @@ export const trail: Trail = {
       radiusMeters: 60,
       eyebrow: "Clue 01 — The First Meeting",
       prompt:
-        "Every love story begins with a first glance. Crack the code: ❤️+❤️+❤️=15, ❤️+⭐+⭐=11, ⭐+🔑=7. What is 🔑+❤️×⭐?",
+        "Every love story begins with a first glance. Crack the code:\n❤️+❤️+❤️=15,\n❤️+⭐+⭐=11,\n⭐+🔑=7.\nWhat is 🔑+❤️×⭐?",
       image: "https://picsum.photos/seed/sherlock-spikeri-promenade/800/600",
     },
     {

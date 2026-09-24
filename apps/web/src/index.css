@@ -2005,6 +2005,102 @@ img {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.55;
+  white-space: pre-line;
+}
+.sh-answer {
+  display: grid;
+  gap: 6px;
+}
+.sh-answer:focus-within {
+  outline: none;
+}
+.sh-answer-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+}
+.sh-answer input {
+  width: 96px;
+  height: 48px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--sh-wine);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sh-wine);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+.sh-answer input:focus {
+  outline: 2px solid var(--sh-coral);
+  outline-offset: 2px;
+}
+.sh-answer input.wrong {
+  border-color: var(--sh-orange);
+  color: var(--sh-orange);
+}
+.sh-answer input.solved {
+  border-style: solid;
+  border-color: var(--sh-coral);
+  background: #fdebe3;
+}
+.sh-answer-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+/* Speech bubble that pops out of the answer field on a wrong guess */
+.sh-nope {
+  position: relative;
+  background: var(--sh-wine);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 9px 12px;
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--sh-coral);
+  transform-origin: left center;
+  animation:
+    sh-nope-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    sh-nope-out 0.3s ease-in 2.1s forwards;
+}
+.sh-nope::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  background: inherit;
+  rotate: 45deg;
+  border-radius: 2px;
+}
+@keyframes sh-nope-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06) rotate(2deg);
+  }
+  80% {
+    transform: scale(0.98) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes sh-nope-out {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
 }
 .sh-reward {
   background: #fdebe3;
@@ -2050,6 +2146,12 @@ img {
 }
 .sh-btn-primary:active {
   transform: scale(0.97);
+}
+.sh-btn-primary.disabled {
+  background: var(--sh-faded);
+  color: #fff8ef;
+  cursor: not-allowed;
+  transform: none;
 }
 .sh-hint {
   color: var(--sh-muted);

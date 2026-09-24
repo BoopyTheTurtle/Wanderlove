@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Trail, Stop } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, CameraIcon } from "../components/Icons";
 
-const CLUE_DATA: Record<string, { word: string; num: number }> = {
-  "spikeri-promenade-clue1": { word: "TRUE", num: 1 },
+// A clue with an `answer` keeps its word hidden until the couple types the answer.
+const CLUE_DATA: Record<string, { word: string; num: number; answer?: string }> = {
+  "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19" },
   "spikeri-warehouses-clue2": { word: "LOVE IS", num: 2 },
   "spikeri-square-clue3": { word: "BUILT", num: 3 },
   "spikeri-creative-quarter-clue4": { word: "ON", num: 4 },
@@ -35,8 +36,27 @@ export function SherlockChallengeScreen({
   onCapture: (stopId: string, photoDataUrl: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [guess, setGuess] = useState("");
+  // Bumped on every wrong guess so the popup replays each time.
+  const [nope, setNope] = useState(0);
   const clue = CLUE_DATA[stop.id];
+  const solved = !clue?.answer || guess === clue.answer;
+  const wrong = !solved && guess.length >= (clue?.answer?.length ?? 0);
   const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+
+  useEffect(() => {
+    if (!nope) return;
+    const timer = setTimeout(() => setNope(0), 2400);
+    return () => clearTimeout(timer);
+  }, [nope]);
+
+  function handleGuess(value: string) {
+    const digits = value.replace(/\D/g, "");
+    setGuess(digits);
+    const answer = clue?.answer ?? "";
+    if (digits.length >= answer.length && digits !== answer) setNope((n) => n + 1);
+    else setNope(0);
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -76,19 +96,53 @@ export function SherlockChallengeScreen({
           <span className="sh-eyebrow-label">The Challenge</span>
           <p className="sh-challenge-text">{stop.prompt}</p>
 
-          {clue && (
+          {clue?.answer && (
+            <label className="sh-answer">
+              <span className="sh-answer-label">Your answer</span>
+              <span className="sh-answer-row">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  placeholder="?"
+                  value={guess}
+                  onChange={(e) => handleGuess(e.target.value)}
+                  className={solved ? "solved" : wrong ? "wrong" : ""}
+                  aria-invalid={wrong}
+                  readOnly={solved}
+                />
+                {nope > 0 && (
+                  <span key={nope} className="sh-nope" role="status">
+                    <span aria-hidden="true">🕵️</span> Not quite right, try again
+                  </span>
+                )}
+              </span>
+            </label>
+          )}
+
+          {clue && solved && (
             <div className="sh-reward">
               <span className="sh-reward-label">🔑 Collect the word</span>
               <span className="sh-reward-word">{clue.word}</span>
             </div>
           )}
 
-          <label className="sh-btn-primary">
+          <label className={solved ? "sh-btn-primary" : "sh-btn-primary disabled"} aria-disabled={!solved}>
             <CameraIcon size={18} />
             {busy ? "Saving…" : "Capture the moment"}
-            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} hidden />
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              disabled={!solved}
+              hidden
+            />
           </label>
-          <p className="sh-hint">This seals the clue and unlocks the next stop.</p>
+          <p className="sh-hint">
+            {solved ? "This seals the clue and unlocks the next stop." : "Solve the code to unlock the camera."}
+          </p>
         </section>
 
         {/* Mini stamp progress */}
