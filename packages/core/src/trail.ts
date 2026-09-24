@@ -61,7 +61,7 @@ export const trail: Trail = {
       radiusMeters: 60,
       eyebrow: "Clue 02 — The Old Warehouse",
       prompt:
-        "Some things survive for centuries. Together, name three qualities that strengthen your relationship — then each write one thing you appreciate about the other and read them aloud.",
+        "Some things survive for centuries, like these warehouses and the good in each other. Take turns: write three qualities you love in your partner, then pass the phone and let them answer back.",
       image: "https://picsum.photos/seed/sherlock-spikeri-warehouses/800/600",
     },
     {

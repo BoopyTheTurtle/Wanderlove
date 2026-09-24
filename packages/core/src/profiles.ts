@@ -5,6 +5,8 @@ export type Profile = {
   email: string;
   initials: string;
   color: string;
+  // Public path of the avatar illustration; falls back to initials on `color` when absent.
+  avatar?: string;
 };
 
 // TEST PROFILES — placeholders until real accounts and the avatar creator exist.
@@ -16,6 +18,7 @@ export const PROFILES: Profile[] = [
     email: "daniel@wannadoo.test",
     initials: "D",
     color: "#2a9d8f",
+    avatar: "/avatar-daniel.png",
   },
   {
     id: "emma",
@@ -24,6 +27,7 @@ export const PROFILES: Profile[] = [
     email: "emma@wannadoo.test",
     initials: "E",
     color: "#ff7a8a",
+    avatar: "/avatar-emma.png",
   },
 ];
 

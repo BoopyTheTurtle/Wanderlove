@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import type { Trail, Stop } from "@wannadoo/core";
+import type { Profile, Trail, Stop } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, CameraIcon } from "../components/Icons";
+import { ComplimentExchange } from "./ComplimentExchange";
 
-// A clue with an `answer` keeps its word hidden until the couple types the answer.
-const CLUE_DATA: Record<string, { word: string; num: number; answer?: string }> = {
+// A clue with an `answer` or a `task` keeps its word hidden, and the camera locked, until it is solved.
+const CLUE_DATA: Record<string, { word: string; num: number; answer?: string; task?: "compliments" }> = {
   "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19" },
-  "spikeri-warehouses-clue2": { word: "LOVE IS", num: 2 },
+  "spikeri-warehouses-clue2": { word: "LOVE IS", num: 2, task: "compliments" },
   "spikeri-square-clue3": { word: "BUILT", num: 3 },
   "spikeri-creative-quarter-clue4": { word: "ON", num: 4 },
   "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5 },
@@ -26,12 +27,16 @@ export function SherlockChallengeScreen({
   trail,
   stop,
   progress,
+  me,
+  partner,
   onBack,
   onCapture,
 }: {
   trail: Trail;
   stop: Stop;
   progress: Progress;
+  me: Profile | null;
+  partner: Profile | null;
   onBack: () => void;
   onCapture: (stopId: string, photoDataUrl: string) => void;
 }) {
@@ -40,7 +45,8 @@ export function SherlockChallengeScreen({
   // Bumped on every wrong guess so the popup replays each time.
   const [nope, setNope] = useState(0);
   const clue = CLUE_DATA[stop.id];
-  const solved = !clue?.answer || guess === clue.answer;
+  const [taskDone, setTaskDone] = useState(false);
+  const solved = clue?.answer ? guess === clue.answer : clue?.task ? taskDone : true;
   const wrong = !solved && guess.length >= (clue?.answer?.length ?? 0);
   const completedCount = trail.stops.filter((s) => progress[s.id]).length;
 
@@ -121,6 +127,10 @@ export function SherlockChallengeScreen({
             </label>
           )}
 
+          {clue?.task === "compliments" && (
+            <ComplimentExchange me={me} partner={partner} onDone={() => setTaskDone(true)} />
+          )}
+
           {clue && solved && (
             <div className="sh-reward">
               <span className="sh-reward-label">🔑 Collect the word</span>
@@ -141,7 +151,11 @@ export function SherlockChallengeScreen({
             />
           </label>
           <p className="sh-hint">
-            {solved ? "This seals the clue and unlocks the next stop." : "Solve the code to unlock the camera."}
+            {solved
+              ? "This seals the clue and unlocks the next stop."
+              : clue?.answer
+                ? "Solve the code to unlock the camera."
+                : "Finish the task to unlock the camera."}
           </p>
         </section>
 
