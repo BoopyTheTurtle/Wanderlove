@@ -1,6 +1,6 @@
 import type { Profile } from "@wannadoo/core";
 
-// Placeholder avatar: initials on the profile's colour. Swap for the avatar creator later.
+// The profile's avatar illustration, or its initials on its colour when it has none.
 export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null; size?: number }) {
   if (!profile) {
     return (
@@ -11,6 +11,18 @@ export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null;
       >
         ?
       </span>
+    );
+  }
+  if (profile.avatar) {
+    return (
+      <img
+        className="profile-avatar"
+        src={profile.avatar}
+        width={size}
+        height={size}
+        style={{ width: size, height: size }}
+        alt={profile.name}
+      />
     );
   }
   return (

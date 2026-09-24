@@ -66,6 +66,8 @@ img {
   overflow: hidden;
   position: relative;
   box-shadow: 0 25px 70px #0f4d4533;
+  /* Makes the phone the containing block for position: fixed, so the bottom nav pins to it */
+  transform: translateZ(0);
 }
 @media (min-width: 500px) and (min-height: 900px) {
   .phone {
@@ -754,7 +756,7 @@ img {
 
 .bottom-nav {
   height: 78px;
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
@@ -1328,6 +1330,10 @@ img {
   box-shadow:
     0 0 0 3px #fff,
     var(--shadow);
+}
+img.profile-avatar {
+  object-fit: cover;
+  background: #c6ece4;
 }
 .profile-avatar.empty {
   background: var(--teal-wash);
@@ -2005,6 +2011,290 @@ img {
   font-size: 15px;
   font-weight: 600;
   line-height: 1.55;
+  white-space: pre-line;
+}
+.sh-answer {
+  display: grid;
+  gap: 6px;
+}
+.sh-answer:focus-within {
+  outline: none;
+}
+.sh-answer-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sh-muted);
+}
+.sh-answer input {
+  width: 96px;
+  height: 48px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--sh-wine);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sh-wine);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+.sh-answer input:focus {
+  outline: 2px solid var(--sh-coral);
+  outline-offset: 2px;
+}
+.sh-answer input.wrong {
+  border-color: var(--sh-orange);
+  color: var(--sh-orange);
+}
+.sh-answer input.solved {
+  border-style: solid;
+  border-color: var(--sh-coral);
+  background: #fdebe3;
+}
+.sh-answer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sh-answer input.text {
+  flex: 1;
+  min-width: 0;
+  padding: 0 14px;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.sh-answer input.text::placeholder {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--sh-faded);
+}
+.sh-answer-check {
+  flex: none;
+  height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sh-orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sh-answer-check:disabled {
+  background: var(--sh-faded);
+  cursor: not-allowed;
+}
+/* Speech bubble that pops out of the answer field on a wrong guess */
+.sh-nope {
+  position: relative;
+  background: var(--sh-wine);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 9px 12px;
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--sh-coral);
+  justify-self: start;
+  margin-top: 6px;
+  transform-origin: 30px top;
+  animation:
+    sh-nope-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    sh-nope-out 0.3s ease-in 2.1s forwards;
+}
+.sh-nope::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  rotate: 45deg;
+  border-radius: 2px;
+}
+@keyframes sh-nope-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06) rotate(2deg);
+  }
+  80% {
+    transform: scale(0.98) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes sh-nope-out {
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Clue 3: they mark the task done themselves */
+.sh-btn-done {
+  height: 48px;
+  border: 2px solid var(--sh-wine);
+  border-radius: 14px;
+  background: var(--sh-card);
+  color: var(--sh-wine);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.12s;
+}
+.sh-btn-done:hover {
+  background: #fdebe3;
+}
+.sh-btn-done:active {
+  transform: scale(0.97);
+}
+
+/* Clue 2: compliment exchange */
+.sh-words {
+  display: grid;
+  gap: 8px;
+}
+.sh-words-title {
+  color: var(--sh-wine);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.sh-words-sub {
+  color: var(--sh-muted);
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+.sh-words input {
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1.5px dashed var(--sh-wine);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sh-wine);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sh-words input::placeholder {
+  color: var(--sh-faded);
+}
+.sh-words input:focus {
+  outline: 2px solid var(--sh-coral);
+  outline-offset: 2px;
+  border-style: solid;
+}
+.sh-words-submit {
+  justify-self: end;
+  margin-top: 4px;
+  height: 40px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--sh-orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sh-words-submit:disabled {
+  background: var(--sh-faded);
+  cursor: not-allowed;
+}
+
+/* Both avatars, each ringed by the three words written about them */
+.sh-duo {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 0;
+}
+.sh-duo-heart {
+  color: var(--sh-coral);
+  animation: sh-bubble-pop 0.4s 0.6s both;
+}
+.sh-duo-person {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  align-content: end;
+  gap: 4px;
+}
+.sh-duo-person .profile-avatar {
+  box-shadow:
+    0 0 0 3px var(--sh-card),
+    0 0 0 5px var(--sh-coral);
+}
+.sh-duo-person figcaption {
+  color: var(--sh-wine);
+  font-size: 12px;
+  font-weight: 800;
+}
+.sh-bubble {
+  position: absolute;
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--sh-rose);
+  border: 1.5px solid var(--sh-coral);
+  color: var(--sh-wine);
+  font-size: 12px;
+  font-weight: 800;
+  animation:
+    sh-bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    sh-bubble-bob 3s 0.8s ease-in-out infinite alternate;
+}
+.sh-bubble--0 {
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+}
+.sh-bubble--1 {
+  left: 2%;
+  top: 46px;
+  rotate: -5deg;
+}
+.sh-bubble--2 {
+  right: 2%;
+  top: 46px;
+  rotate: 5deg;
+  background: #fdebe3;
+}
+@keyframes sh-bubble-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sh-bubble-bob {
+  to {
+    transform: translateY(-4px);
+  }
 }
 .sh-reward {
   background: #fdebe3;
@@ -2051,6 +2341,12 @@ img {
 .sh-btn-primary:active {
   transform: scale(0.97);
 }
+.sh-btn-primary.disabled {
+  background: var(--sh-faded);
+  color: #fff8ef;
+  cursor: not-allowed;
+  transform: none;
+}
 .sh-hint {
   color: var(--sh-muted);
   font-size: 12px;
@@ -2092,7 +2388,35 @@ img {
   margin-top: -8px;
 }
 
+/* Words collected so far, under the progress row */
+.sh-collected {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: -6px;
+}
+.sh-collected-word {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--sh-card);
+  border: 1.5px dashed var(--sh-coral);
+  color: var(--sh-wine);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  animation: sh-bubble-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* ── Complete screen ── */
+.confetti {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 40;
+  pointer-events: none;
+}
 .sh-complete-screen {
   color: var(--sh-ink);
 }
@@ -2154,12 +2478,14 @@ img {
   color: var(--sh-wine);
 }
 .sh-stamp-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 18px 12px;
   padding: 18px 16px 20px;
 }
 .sh-stamp-cell {
+  width: calc((100% - 24px) / 3);
   display: grid;
   justify-items: center;
   gap: 6px;

@@ -207,6 +207,8 @@ export default function App() {
                 trail={activeTrail}
                 stop={stop}
                 progress={progress}
+                me={me}
+                partner={partner}
                 onBack={() => setRoute({ name: "map" })}
                 onCapture={handleCapture}
               />
