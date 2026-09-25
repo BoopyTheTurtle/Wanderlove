@@ -1,17 +1,7 @@
-import { useState } from "react";
 import type { Trail, Stop } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, CameraIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 export function ChallengeScreen({
   trail,
@@ -26,21 +16,13 @@ export function ChallengeScreen({
   onBack: () => void;
   onCapture: (stopId: string, photoDataUrl: string) => void;
 }) {
-  const [busy, setBusy] = useState(false);
   const stopIndex = trail.stops.indexOf(stop);
   const completedCount = trail.stops.filter((s) => progress[s.id]).length;
   const pct = Math.round((completedCount / trail.stops.length) * 100);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      onCapture(stop.id, dataUrl);
-    } finally {
-      setBusy(false);
-    }
+  // Test build: photo upload is off, so submitting completes the stop without a photo.
+  function handleSubmit() {
+    onCapture(stop.id, "");
   }
 
   return (
@@ -80,11 +62,10 @@ export function ChallengeScreen({
             <span className="meta-pill">{stop.eyebrow.replace(/^Stop \d+\s*—?\s*/, "") || "Challenge"}</span>
           </div>
 
-          <label className="btn-primary">
+          <button type="button" className="btn-primary" onClick={handleSubmit}>
             <CameraIcon size={18} />
-            {busy ? "Saving…" : "Capture the moment"}
-            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} hidden />
-          </label>
+            Capture the moment
+          </button>
           <p className="hint">This unlocks the next stop on the map.</p>
         </section>
 
