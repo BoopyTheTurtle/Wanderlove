@@ -349,7 +349,7 @@ export function MapScreen({
               ) : (
                 <button
                   type="button"
-                  className="btn-small ghost"
+                  className="btn-small simulate-btn"
                   onClick={() => onSimulateArrival(currentStop)}
                   title="Dev: jump to this stop"
                 >
