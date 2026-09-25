@@ -18,6 +18,7 @@ import { useLivePosition } from "./lib/useLivePosition";
 import { loadProgress, resetProgress, saveStopProgress } from "./lib/progress";
 import { clearActiveRoute, loadActiveRoute, saveActiveRoute } from "./lib/activeRoute";
 import { generateRoute, withWalkingPath } from "@wannadoo/core";
+import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
 
 type Route =
@@ -66,9 +67,19 @@ export default function App() {
     }
   }
 
+  function loadCurated() {
+    const id = ++requestId.current;
+    setDraft({ status: "ready", trail: curatedTrail, approximateStart: false });
+    void withWalkingPath(curatedTrail).then((routed) => {
+      if (id === requestId.current) setDraft({ status: "ready", trail: routed, approximateStart: false });
+    });
+  }
+
   // No started route → every visit to the map gets a fresh one.
   useEffect(() => {
-    if (route.name === "map" && !activeTrail && draft.status === "idle") void generateSurprise();
+    if (route.name !== "map" || activeTrail || draft.status !== "idle") return;
+    if (SURPRISE_ROUTE_ENABLED) void generateSurprise();
+    else loadCurated();
   }, [route.name, activeTrail, draft.status]);
 
   // Leaving a started route loses its progress, so check first.
@@ -95,11 +106,7 @@ export default function App() {
   function handleSelectCurated() {
     if (!confirmAbandon()) return;
     clearStarted();
-    const id = ++requestId.current;
-    setDraft({ status: "ready", trail: curatedTrail, approximateStart: false });
-    void withWalkingPath(curatedTrail).then((routed) => {
-      if (id === requestId.current) setDraft({ status: "ready", trail: routed, approximateStart: false });
-    });
+    loadCurated();
     setRoute({ name: "map" });
   }
 

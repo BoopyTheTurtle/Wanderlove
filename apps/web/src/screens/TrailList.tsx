@@ -2,6 +2,7 @@ import { StatusBar } from "../components/PhoneFrame";
 import { BackIcon, ChevronIcon, ClockIcon, CompassIcon, HeartIcon, PinIcon, SparkIcon } from "../components/Icons";
 import type { Trail } from "@wannadoo/core";
 import { MAX_ROUTE_METERS } from "@wannadoo/core";
+import { SURPRISE_ROUTE_ENABLED } from "../features";
 
 export function TrailList({
   curated,
@@ -62,29 +63,31 @@ export function TrailList({
           </button>
         )}
 
-        <button type="button" className="trail-card surprise-card" onClick={onSelectSurprise}>
-          <div className="surprise-art" aria-hidden="true">
-            <SparkIcon size={40} />
-            <span className="tag-pill on-image">
-              <SparkIcon size={12} /> New every time
-            </span>
-          </div>
-          <div className="trail-copy">
-            <p className="eyebrow">From where you are</p>
-            <h3>Surprise Route</h3>
-            <p className="trail-desc">
-              A random walking loop of 4–6 spots near you. Don&rsquo;t like it? Roll a new one before you start.
-            </p>
-            <div className="meta-row">
-              <span className="meta-pill">
-                <PinIcon size={13} /> Up to {(MAX_ROUTE_METERS / 1000).toFixed(1)} km
-              </span>
-              <span className="meta-pill">
-                <ClockIcon size={13} /> 40–70 min
+        {SURPRISE_ROUTE_ENABLED && (
+          <button type="button" className="trail-card surprise-card" onClick={onSelectSurprise}>
+            <div className="surprise-art" aria-hidden="true">
+              <SparkIcon size={40} />
+              <span className="tag-pill on-image">
+                <SparkIcon size={12} /> New every time
               </span>
             </div>
-          </div>
-        </button>
+            <div className="trail-copy">
+              <p className="eyebrow">From where you are</p>
+              <h3>Surprise Route</h3>
+              <p className="trail-desc">
+                A random walking loop of 4–6 spots near you. Don&rsquo;t like it? Roll a new one before you start.
+              </p>
+              <div className="meta-row">
+                <span className="meta-pill">
+                  <PinIcon size={13} /> Up to {(MAX_ROUTE_METERS / 1000).toFixed(1)} km
+                </span>
+                <span className="meta-pill">
+                  <ClockIcon size={13} /> 40–70 min
+                </span>
+              </div>
+            </div>
+          </button>
+        )}
 
         <button type="button" className="trail-card" onClick={onSelectCurated}>
           <div className="trail-image">
