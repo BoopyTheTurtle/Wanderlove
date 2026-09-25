@@ -28,15 +28,6 @@ function normalise(text: string) {
   return text.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export function SherlockChallengeScreen({
   trail,
   stop,
@@ -54,7 +45,6 @@ export function SherlockChallengeScreen({
   onBack: () => void;
   onCapture: (stopId: string, photoDataUrl: string) => void;
 }) {
-  const [busy, setBusy] = useState(false);
   const [guess, setGuess] = useState("");
   // Bumped on every wrong guess so the popup replays each time.
   const [nope, setNope] = useState(0);
@@ -94,16 +84,9 @@ export function SherlockChallengeScreen({
     if (!solved && guess.trim()) setNope((n) => n + 1);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      onCapture(stop.id, dataUrl);
-    } finally {
-      setBusy(false);
-    }
+  // Test build: photo upload is off, so submitting completes the stop without a photo.
+  function handleSubmit() {
+    onCapture(stop.id, "");
   }
 
   return (
@@ -184,18 +167,15 @@ export function SherlockChallengeScreen({
             </div>
           )}
 
-          <label className={solved ? "sh-btn-primary" : "sh-btn-primary disabled"} aria-disabled={!solved}>
+          <button
+            type="button"
+            className={solved ? "sh-btn-primary" : "sh-btn-primary disabled"}
+            onClick={handleSubmit}
+            disabled={!solved}
+          >
             <CameraIcon size={18} />
-            {busy ? "Saving…" : "Capture the moment"}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              disabled={!solved}
-              hidden
-            />
-          </label>
+            Capture the moment
+          </button>
           <p className="sh-hint">
             {solved
               ? "This seals the clue and unlocks the next stop."
