@@ -155,10 +155,6 @@ export default function App() {
           me={me}
           onLinked={(partnerId) => setSession(saveSession({ ...session, partnerId, skipped: false }))}
           onContinue={() => setRoute({ name: "trailList" })}
-          onSkip={() => {
-            setSession(saveSession({ ...session, partnerId: null, skipped: true }));
-            setRoute({ name: "map" });
-          }}
           onSwitchProfile={handleResetTest}
         />
       )}
