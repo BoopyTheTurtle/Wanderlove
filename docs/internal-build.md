@@ -1,12 +1,53 @@
 # Internal build: sign-in, linking, and photos
 
-Status: draft, September 25, 2026. Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
+Status: in progress since September 28, 2026; phases 0 and 1 done (see [Progress](#progress)). Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
 
 This build puts real accounts in front of the team and a few friendly testers before the full MVP. Testers sign in with
 an emailed code, link to a partner, upload photos at each stop, and save the photos and a generated album to their
 phone. It uses the main spec's schema and code, so every line carries into the MVP; it skips the public-launch work.
 
 Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
+
+## Progress
+
+Last updated September 28, 2026. Resume from **Next** below.
+
+**Done:**
+
+- **Phase 0.** Supabase project `wannadoo-staging` (ref `zejhqogkxcyyeoalrjff`) runs in Frankfurt, with the Data API on,
+  automatic table exposure off, and automatic RLS on. Docker Desktop and the Supabase CLI run locally.
+- **Email.** `wannadoo.app` is registered at Porkbun, which forwards `admin@`, `privacy@`, and `support@`. Resend (EU
+  region) sends from `hello@wannadoo.app` through Supabase's SMTP settings; SPF, DKIM, and one DMARC record (`p=none`)
+  are live. The Magic Link template shows the six-digit code.
+- **URLs and keys.** Supabase's Site URL points at `https://wannadoo1.vercel.app`, with redirect URLs for production,
+  Vercel previews, and `localhost:5173`. Vercel holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **Phase 1.** The migration, RLS, RPCs, `photos` bucket, seed, and 70 pgTAP tests are merged into
+  `chore/repo-structure`. The tests pass locally, and the migration is deployed to the online project.
+- **Deploys.** The `Deploy migrations` workflow runs `supabase db push` on every push to `chore/repo-structure` that
+  touches `supabase/migrations`. It reads one secret, `SUPABASE_DB_URL` (session pooler string); the Management API token
+  approach was dropped because `supabase link` needed too many permissions.
+
+**Next:**
+
+1. **[You]** Create `apps/web/.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, or paste the anon key
+   to the agent.
+2. **[Agent]** Check that an anonymous caller gets refused by every online table, `profile_cards`, every RPC, and the
+   `photos` bucket.
+3. **[You]** Confirm the settings nobody has checked yet: the Supabase and Resend DPAs are signed, auth emails per hour
+   sit near 100, email OTP expiry is 600 seconds, and the **Confirm signup** template also shows `{{ .Token }}`.
+4. **[Agent]** Start phase 2 against the local stack, then check it against the online project.
+5. **[You]**, optional: point `wannadoo.app` at Vercel and update Supabase's Site URL to match.
+
+**Notes for whoever resumes:**
+
+- A reset database password took several minutes to reach the session pooler; until then every connection failed with
+  `password authentication failed`.
+- The CI `db` job runs on pull requests and on pushes to `main`, so it has not run on GitHub yet. The first pull request
+  from this branch will run it.
+- **Run workflow** appears on the `Deploy migrations` page only once the workflow file reaches `main`; until then, re-run
+  an earlier run instead.
+- GitHub warns that `actions/checkout@v4` and `supabase/setup-cli@v1` target Node 20. The warning is harmless; bump the
+  versions once newer releases exist.
 
 ## 1. Decisions
 

@@ -3,6 +3,9 @@
 Guidance for Claude Code in this repository. The [README](README.md) and [CONTRIBUTING.md](CONTRIBUTING.md) hold the
 setup and team workflow; this file adds what an agent needs on top.
 
+Current work is the internal build in [docs/internal-build.md](docs/internal-build.md). Its **Progress** section records
+what is done and where to resume; update it at the end of each working session.
+
 ## Commands
 
 Run everything from the repository root; npm workspaces route each script to the right package.
