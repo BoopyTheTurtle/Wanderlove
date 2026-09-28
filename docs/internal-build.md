@@ -18,6 +18,7 @@ Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
 | Schema    | Section 4 of the main spec, in full, so the MVP needs no rewrite                                        |
 | Downloads | Individual photos and the generated album image, both through the share sheet                           |
 | Hosting   | The existing Vercel project; a Vercel preview or production URL is enough                               |
+| Email     | Resend (EU) sends from `hello@wannadoo.app`; Porkbun forwards `admin@`, `privacy@`, `support@`          |
 | Test data | Wiped before public launch (see open question 1)                                                        |
 | Branch    | Work for this build pushes to `chore/repo-structure` (tracks `origin/chore/repo-structure`), not `main` |
 
@@ -176,8 +177,7 @@ Test data is the one planned break: section 7, question 1, wipes it before launc
 
 1. **Test data at launch.** This spec wipes it. Keeping it means asking testers to accept the real privacy policy and
    migrating their accounts into production; wiping is simpler and avoids reusing data collected under a test notice.
-2. **Email sender.** Buying the domain now (main spec 0.1) lets the email provider send from it, and the MVP needs it
-   anyway. A Gmail account with an app password also works as Supabase's SMTP for a handful of testers, but it lands in
-   spam more often and gets thrown away later.
+2. **Email sender.** Resolved September 28, 2026: `wannadoo.app` bought at Porkbun, and Resend sends through Supabase's
+   SMTP settings. The domain carries into the MVP.
 3. **Solo testers.** Can a tester walk without linking? The schema supports it at no cost; the UI only needs a skip
    button on the link screen.
