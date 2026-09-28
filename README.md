@@ -21,8 +21,9 @@ starts over.
 | Path            | Contents                                                                                           |
 | --------------- | -------------------------------------------------------------------------------------------------- |
 | `apps/web`      | The React + Vite app: screens, components, styles, and browser storage                             |
+| `supabase`      | Database migrations, access rules, seed data, and pgTAP tests                                      |
 | `packages/core` | Platform-neutral logic shared by every app: trails, test profiles, geo maths, and route generation |
-| `docs/`         | Concept, demo spec, user-research interviews, and design mockups                                   |
+| `docs/`         | Concept, build specs, user-research interviews, and design mockups                                 |
 | `.github/`      | CI workflow, pull request template, and code owners                                                |
 
 `packages/core` holds no React, DOM, or storage code, so a future native app can import it unchanged.
@@ -40,6 +41,9 @@ Run these from the repository root.
 | `npm run format`    | Formats every file with Prettier                           |
 | `npm test`          | Runs the Vitest suites                                     |
 | `npm run check`     | Runs typecheck, lint, format check, and tests — as CI does |
+| `npm run db:start`  | Starts the local Supabase stack (needs Docker Desktop)     |
+| `npm run db:reset`  | Rebuilds the local database from migrations and the seed   |
+| `npm run db:test`   | Runs the pgTAP access-rule tests                           |
 
 ## External services
 

@@ -10,6 +10,7 @@ Run everything from the repository root; npm workspaces route each script to the
 - `npm run dev` starts the web app on port 5173. `.claude/launch.json` starts the same server for the preview pane.
 - `npm run check` runs typecheck, lint, format check, and tests. Run it before declaring a change done.
 - `npm test -w @wannadoo/core -- routeGen` runs a single test file.
+- `npm run db:start`, `db:reset`, `db:test`, and `db:types` drive the local Supabase stack; they need Docker Desktop.
 
 ## Architecture
 
@@ -27,4 +28,6 @@ Run everything from the repository root; npm workspaces route each script to the
 - The app renders inside a 390 px phone frame; check UI changes at that width.
 - Colours come from the tokens at the top of `apps/web/src/index.css`, and a shared animated green gradient on `.phone`
   sits behind every screen. Text on that gradient uses `--on-bg` or `--on-bg-muted`.
+- The schema changes only through new files in `supabase/migrations`; never edit a migration once it has deployed.
+  Every access rule gets a pgTAP test in `supabase/tests` that checks the member, the partner, and a stranger.
 - Stop IDs from generated routes take the form `osm-<type>-<id>`; progress in `localStorage` is keyed by stop ID.
