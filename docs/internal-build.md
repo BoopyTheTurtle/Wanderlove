@@ -91,8 +91,8 @@ The agent drafts it from the main spec's section 9; you approve it (task 2.4).
 ### Phase 1: Backend. Agent: 1 day
 
 Main spec phase 1, unchanged: migrations for the full section 4 schema, RLS on every table, the RPCs, pgTAP tests for
-every rule in section 5, generated types, and CI. Only the deploy target differs: migrations go to the one project on
-merge to `main`.
+every rule in section 5, generated types, and CI. Only the deploy target differs: a workflow pushes migrations to the one
+project on every push to `chore/repo-structure`, matching the branch decision in section 1.
 
 **Done when:** `npm run db:test` passes locally and in CI, and a stranger's access is refused in every test.
 
@@ -151,6 +151,26 @@ no GPS data in an EXIF viewer.
 Everything built here stays: the schema, RLS, tests, the `lib/*` wrappers, linking, runs, photos, and the album. The MVP
 adds Google sign-in, usernames, CAPTCHA, and main spec phases 6 and 7. The staging project stays as staging,
 and a new `wannadoo-prod` project starts empty.
+
+The MVP only adds to this build:
+
+- Google sign-in reaches the same `auth.users` rows as email; the schema stays as it is.
+- Realtime, the Albums list, `photo_hidden` in the UI, export, and account deletion build on tables that already exist.
+- Screens call only `lib/*`, so backend changes stay behind the wrappers.
+- The pgTAP tests guard every access rule while features land.
+
+Four rules keep it that way:
+
+1. **`profiles.username` is nullable.** This build collects only a display name; the MVP fills usernames in without a
+   migration over live rows.
+2. **Consent carries a version.** The tick box stores `age_confirmed_at`, `terms_accepted_at`, and
+   `terms_version = 'tester-v1'`. The MVP asks every user whose `terms_version` differs to accept the real terms.
+3. **Migrations are the only path to a schema change.** A dashboard edit leaves staging and the repository out of step,
+   and the MVP inherits the drift.
+4. **Trail content stays in code.** Runs store `trail_id` and a stop-only snapshot, so moving trails into a table later
+   adds a table and touches no run.
+
+Test data is the one planned break: section 7, question 1, wipes it before launch for legal reasons, not technical ones.
 
 ## 7. Open questions
 
