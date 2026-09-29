@@ -455,6 +455,7 @@ export type Database = {
     Functions: {
       accept_terms: { Args: { p_version: string }; Returns: undefined };
       create_invite: { Args: Record<PropertyKey, never>; Returns: string };
+      peek_invite: { Args: { p_code: string }; Returns: Json };
       redeem_invite: { Args: { p_code: string }; Returns: string };
       start_run: { Args: { p_snapshot: Json; p_trail_id: string }; Returns: string };
       unlink: { Args: Record<PropertyKey, never>; Returns: undefined };
