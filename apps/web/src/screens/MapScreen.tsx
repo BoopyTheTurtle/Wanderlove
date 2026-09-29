@@ -4,7 +4,7 @@ import L from "leaflet";
 import type { Trail, Stop } from "@wannadoo/core";
 import type { LatLng } from "@wannadoo/core";
 import { haversineDistanceMeters, isWithinRadius } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import type { Completions } from "../lib/runs";
 import { FALLBACK_START, MAX_ROUTE_METERS } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
@@ -23,7 +23,8 @@ import {
   TrendIcon,
 } from "../components/Icons";
 
-export type RouteStatus = "loading" | "ready" | "error" | "active";
+// "syncing" and "syncError" cover loading the started run from the server; the others, the unstarted route.
+export type RouteStatus = "syncing" | "syncError" | "loading" | "ready" | "error" | "active";
 
 const CHECK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
 const HEART = `<svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`;
@@ -107,8 +108,11 @@ export function MapScreen({
   error,
   approximateStart,
   onStartRoute,
+  starting = false,
+  startFailed = false,
   onNewRoute,
-  progress,
+  onRetrySync,
+  completions,
   position,
   simulated,
   onSimulateArrival,
@@ -126,8 +130,11 @@ export function MapScreen({
   error?: string;
   approximateStart?: boolean;
   onStartRoute: () => void;
+  starting?: boolean;
+  startFailed?: boolean;
   onNewRoute: () => void;
-  progress: Progress;
+  onRetrySync: () => void;
+  completions: Completions;
   position: LatLng | null;
   simulated: boolean;
   onSimulateArrival: (stop: Stop) => void;
@@ -142,8 +149,8 @@ export function MapScreen({
 }) {
   const active = status === "active" && trail !== null;
   const stops = trail?.stops ?? [];
-  const currentStop = active ? (stops.find((s) => !progress[s.id]) ?? null) : null;
-  const completedCount = active ? stops.filter((s) => progress[s.id]).length : 0;
+  const currentStop = active ? (stops.find((s) => !completions[s.id]) ?? null) : null;
+  const completedCount = active ? stops.filter((s) => completions[s.id]).length : 0;
   const progressPct = stops.length ? Math.round((completedCount / stops.length) * 100) : 0;
   const routeMeta = trail
     ? [
@@ -241,7 +248,7 @@ export function MapScreen({
           {stops.map((stop, i) => {
             const state = !active
               ? "preview"
-              : progress[stop.id]
+              : completions[stop.id]
                 ? "done"
                 : stop.id === currentStop?.id
                   ? "current"
@@ -259,9 +266,40 @@ export function MapScreen({
           <SlidersIcon size={18} />
         </button>
         <span className="map-trail-name">
-          {trail ? trail.name : status === "error" ? "No route" : "Finding a route…"}
+          {trail
+            ? trail.name
+            : status === "error"
+              ? "No route"
+              : status === "syncing" || status === "syncError"
+                ? "Your trail"
+                : "Finding a route…"}
         </span>
       </div>
+
+      {status === "syncing" && (
+        <section className="card route-card">
+          <p className="card-kicker">
+            <FlagIcon size={13} /> Your trail
+          </p>
+          <h3>Loading your trail…</h3>
+          <span className="loading-bar" aria-hidden="true" />
+        </section>
+      )}
+
+      {status === "syncError" && (
+        <section className="card route-card">
+          <p className="card-kicker">
+            <FlagIcon size={13} /> Your trail
+          </p>
+          <h3>Couldn&rsquo;t load your trail</h3>
+          <p className="muted-line">Check your connection and try again.</p>
+          <div className="route-actions">
+            <button type="button" className="btn-small" onClick={onRetrySync}>
+              Try again
+            </button>
+          </div>
+        </section>
+      )}
 
       {status === "loading" && (
         <section className="card route-card">
@@ -302,14 +340,19 @@ export function MapScreen({
             {approximateStart && trail.kind === "surprise" && (
               <p className="route-note">Location unavailable, so this starts in Riga Old Town.</p>
             )}
+            {startFailed && (
+              <p className="route-note" role="alert">
+                Couldn&rsquo;t start the route. Check your connection and try again.
+              </p>
+            )}
             <div className="route-actions">
               {trail.kind === "surprise" && (
-                <button type="button" className="btn-small ghost" onClick={onNewRoute}>
+                <button type="button" className="btn-small ghost" onClick={onNewRoute} disabled={starting}>
                   New route
                 </button>
               )}
-              <button type="button" className="btn-small" onClick={onStartRoute}>
-                Start route
+              <button type="button" className="btn-small" onClick={onStartRoute} disabled={starting}>
+                {starting ? "Starting…" : "Start route"}
               </button>
             </div>
           </section>
@@ -391,6 +434,29 @@ export function MapScreen({
               </div>
             </div>
             <ProgressRing pct={progressPct} />
+          </section>
+
+          <section className="card stop-list" aria-label="Stops">
+            {stops.map((stop, i) => {
+              const done = !!completions[stop.id];
+              const row = (
+                <>
+                  <span className={done ? "stop-num done" : "stop-num"}>{done ? "✓" : i + 1}</span>
+                  <span className="stop-name">{stop.name}</span>
+                  <span className="stop-kind">{done ? "Photos" : stop.id === currentStop?.id ? "Next" : ""}</span>
+                </>
+              );
+              // A done stop opens to show its photos and take more; the rest unlock on arrival.
+              return done ? (
+                <button key={stop.id} type="button" className="stop-row" onClick={() => onOpenChallenge(stop.id)}>
+                  {row}
+                </button>
+              ) : (
+                <div key={stop.id} className="stop-row">
+                  {row}
+                </div>
+              );
+            })}
           </section>
         </>
       )}

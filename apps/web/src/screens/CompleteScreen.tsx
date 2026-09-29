@@ -1,22 +1,32 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
+import { PhotoGrid } from "../components/PhotoGrid";
 import { CompassIcon, ShareIcon } from "../components/Icons";
-import type { Trail } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import { useRun } from "../lib/useRun";
+import { useRunPhotos } from "../lib/useRunPhotos";
 
 export function CompleteScreen({
-  trail,
-  progress,
+  runId,
+  meId,
+  partnerName,
+  syncTick,
   onViewMap,
 }: {
-  trail: Trail;
-  progress: Progress;
+  runId: string;
+  meId: string;
+  // The partner who shared this run, or null on a solo run.
+  partnerName: string | null;
+  syncTick: number;
   onViewMap: () => void;
 }) {
-  const photos = trail.stops.map((s) => progress[s.id]?.photoDataUrl).filter(Boolean) as string[];
+  const loaded = useRun(runId, syncTick);
+  const album = useRunPhotos(runId, syncTick);
+  const trail = loaded.status === "ready" ? loaded.run.trail : null;
+  const photos = album.photos;
   const [left, main, right] = [photos[0], photos[photos.length - 1] ?? photos[0], photos[1] ?? photos[0]];
 
   async function handleShare() {
+    if (!trail) return;
     const shareData = { title: trail.name, text: `We finished the ${trail.name} trail on Wannadoo.` };
     if (navigator.share) {
       try {
@@ -25,6 +35,29 @@ export function CompleteScreen({
         // user cancelled share sheet, nothing to do
       }
     }
+  }
+
+  if (!trail) {
+    return (
+      <div className="screen complete-screen">
+        <StatusBar light />
+        <div className="album-state">
+          {loaded.status === "error" ? (
+            <>
+              <p>Couldn&rsquo;t load your album. Check your connection and try again.</p>
+              <button type="button" className="btn-primary light" onClick={loaded.retry}>
+                Try again
+              </button>
+              <button type="button" className="btn-outline-light" onClick={onViewMap}>
+                <CompassIcon size={16} /> Back to the map
+              </button>
+            </>
+          ) : (
+            <p>Loading your album…</p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -47,11 +80,11 @@ export function CompleteScreen({
       </p>
 
       <div className="album-stack">
-        {left && <img className="album-back left" src={left} alt="" />}
-        {right && <img className="album-back right" src={right} alt="" />}
+        {left && <img className="album-back left" src={left.url} alt="" />}
+        {right && <img className="album-back right" src={right.url} alt="" />}
         {main && (
           <div className="album-main">
-            <img src={main} alt="" />
+            <img src={main.url} alt="" />
             <span>{trail.name}</span>
           </div>
         )}
@@ -78,6 +111,29 @@ export function CompleteScreen({
       <button type="button" className="btn-outline-light" onClick={handleShare}>
         <ShareIcon size={16} /> Share the trail
       </button>
+
+      <section className="album-by-stop" aria-label="Photos by stop">
+        {album.status === "loading" && <p className="album-note">Loading photos…</p>}
+        {album.status === "error" && (
+          <p className="album-note">
+            Couldn&rsquo;t load the photos.{" "}
+            <button type="button" className="inline-link" onClick={album.retry}>
+              Try again
+            </button>
+          </p>
+        )}
+        {album.status === "ready" &&
+          trail.stops.map((stop) => {
+            const here = photos.filter((p) => p.stopId === stop.id);
+            if (here.length === 0) return null;
+            return (
+              <div key={stop.id} className="album-stop">
+                <h3>{stop.name}</h3>
+                <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+              </div>
+            );
+          })}
+      </section>
     </div>
   );
 }

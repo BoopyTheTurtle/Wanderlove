@@ -1,29 +1,39 @@
 import type { Trail, Stop } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import type { Completions } from "../lib/runs";
+import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
-import { BackIcon, CameraIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
+import { StopPhotos } from "../components/StopPhotos";
+import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
 
 export function ChallengeScreen({
   trail,
   stop,
-  progress,
+  runId,
+  runActive,
+  completions,
+  syncTick,
+  meId,
+  partnerName,
   onBack,
-  onCapture,
+  onUpload,
+  onSkip,
 }: {
   trail: Trail;
   stop: Stop;
-  progress: Progress;
+  runId: string;
+  runActive: boolean;
+  completions: Completions;
+  syncTick: number;
+  meId: string;
+  partnerName: string | null;
   onBack: () => void;
-  onCapture: (stopId: string, photoDataUrl: string) => void;
+  onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
+  onSkip: () => Promise<void>;
 }) {
   const stopIndex = trail.stops.indexOf(stop);
-  const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+  const done = stop.id in completions;
+  const completedCount = trail.stops.filter((s) => s.id in completions).length;
   const pct = Math.round((completedCount / trail.stops.length) * 100);
-
-  // Test build: photo upload is off, so submitting completes the stop without a photo.
-  function handleSubmit() {
-    onCapture(stop.id, "");
-  }
 
   return (
     <div className="screen challenge-screen">
@@ -62,11 +72,18 @@ export function ChallengeScreen({
             <span className="meta-pill">{stop.eyebrow.replace(/^Stop \d+\s*—?\s*/, "") || "Challenge"}</span>
           </div>
 
-          <button type="button" className="btn-primary" onClick={handleSubmit}>
-            <CameraIcon size={18} />
-            Capture the moment
-          </button>
-          <p className="hint">This unlocks the next stop on the map.</p>
+          <StopPhotos
+            runId={runId}
+            stopId={stop.id}
+            syncTick={syncTick}
+            done={done}
+            canAdd={runActive}
+            meId={meId}
+            partnerName={partnerName}
+            onUpload={onUpload}
+            onSkip={onSkip}
+          />
+          {!done && <p className="hint">This unlocks the next stop on the map.</p>}
         </section>
 
         <section className="card quiz-card" aria-disabled="true">
