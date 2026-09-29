@@ -32,19 +32,31 @@ Last updated September 29, 2026. Resume from **Next** below.
   `private` schema, and listing, uploading, deleting, and public URLs in the `photos` bucket.
 - **Supabase settings.** Confirmed September 29: the DPA is signed, auth emails per hour sit near 100, email OTP expiry
   is 600 seconds, and the **Confirm signup** template shows `{{ .Token }}`. Resend's DPA has no signing step; it
-  applies automatically under Resend's terms.
+  applies automatically under Resend's terms. **Email OTP Length** is 6; it was 8 until September 29.
+- **Phase 2.** Merged September 29 (PRs 9–12): email-code and magic-link sign-in, onboarding with a display name and the
+  tester-notice tick box (`tester-v1`), sign-out on this device, a dev-only switcher for the seeded users, and the
+  approved tester notice at `/tester-notice`. Edgar signed in, onboarded, signed out, and signed in again to the same
+  account on the online project, in desktop Firefox and on an Android phone.
+- **Profile backfill.** Accounts created before the schema reached the online project had no `profiles` row, so the app
+  could not load them. Migration `20260929120000_backfill_profiles.sql` fixed that and is deployed.
+- **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
+  `chore/repo-structure`; Edgar approves every merge.
 
 **Next:**
 
-1. **[Agent]** Start phase 2 against the local stack, then check it against the online project.
+1. **[Agent]** Plan phase 3 (linking) with `parallel-build` and show Edgar the split.
 2. **[You]**, optional: point `wannadoo.app` at Vercel and update Supabase's Site URL to match.
 
 **Notes for whoever resumes:**
 
 - A reset database password took several minutes to reach the session pooler; until then every connection failed with
   `password authentication failed`.
-- The CI `db` job runs on pull requests and on pushes to `main`, so it has not run on GitHub yet. The first pull request
-  from this branch will run it.
+- The CI `db` job runs on pull requests and on pushes to `main`; it first ran, and passed, on PR 9.
+- `npm run dev` (port 5173) talks to the online project; `npm run dev:local` (port 5174) talks to the local stack.
+- The local stack's sign-in email carries only the magic link, not the code. Read codes from Mailpit
+  (`http://127.0.0.1:54324`) via the link, or add a local template in `supabase/config.toml`.
+- Before phase 3: signed-in accounts have no username until the MVP, so the partner screen's QR code still carries the
+  stand-in payload. Phase 3 replaces it with invite codes.
 - **Run workflow** appears on the `Deploy migrations` page only once the workflow file reaches `main`; until then, re-run
   an earlier run instead.
 - GitHub warns that `actions/checkout@v4` and `supabase/setup-cli@v1` target Node 20. The warning is harmless; bump the
