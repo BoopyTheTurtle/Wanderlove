@@ -222,10 +222,8 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
   const [syncTick, setSyncTick] = useState(0);
   const runRequest = useRef(0);
   const [endedNotice, setEndedNotice] = useState(false);
-  // The trail name when the partner starts a trail this phone then joins; shown once.
-  const [joinedNotice, setJoinedNotice] = useState<string | null>(null);
-  // Runs started on this phone, so joining one isn't announced as the partner's doing.
-  const startedHere = useRef(new Set<string>());
+  // A trail the partner started, which this phone then joined; announced once.
+  const [joinedNotice, setJoinedNotice] = useState<{ trailName: string; startedBy: string | null } | null>(null);
   // The first load only restores where the app was; announcing starts from then on.
   const runLoadedOnce = useRef(false);
   const [starting, setStarting] = useState(false);
@@ -307,16 +305,17 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       // A stop or album of one run makes no sense once another run takes its place.
       const previous = runRef.current;
       const switched = previous?.id !== next?.id;
-      // A new open run this phone didn't start came from the partner: join it on the map and say so.
+      // A new open run that appeared from elsewhere: join it on the map. Announce it only when someone else started
+      // it; the user's own start on another device needs no notice.
       const joined =
         runLoadedOnce.current &&
         switched &&
         next !== null &&
         isRunActive(next) &&
-        !startedHere.current.has(next.id) &&
         (previous === null || !isRunActive(previous));
       runLoadedOnce.current = true;
-      if (joined) setJoinedNotice(next.trail.name);
+      if (joined && next.startedBy !== me.id)
+        setJoinedNotice({ trailName: next.trail.name, startedBy: next.startedBy });
       runRef.current = next;
       setRun(next);
       saveFollowedRun(me.id, next?.id ?? null);
@@ -557,7 +556,6 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     runRequest.current++;
     try {
       const started = await startRun(trail);
-      startedHere.current.add(started.id);
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(started.id, trail.path, trail.distanceMeters);
@@ -776,8 +774,8 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       ) : (
         joinedNotice && (
           <JoinedNotice
-            trailName={joinedNotice}
-            partnerName={partner?.name ?? null}
+            trailName={joinedNotice.trailName}
+            partnerName={partner && partner.id === joinedNotice.startedBy ? partner.name : null}
             onClose={() => setJoinedNotice(null)}
           />
         )

@@ -10,6 +10,8 @@ export type Run = {
   id: string;
   trail: Trail;
   coupleId: string | null; // null: a solo run
+  // Who started the run; null for runs from before the database recorded it.
+  startedBy: string | null;
   startedAt: string;
   completedAt: string | null;
   abandonedAt: string | null;
@@ -21,6 +23,7 @@ type RunRow = {
   trail_id: string;
   trail_snapshot: unknown;
   couple_id: string | null;
+  started_by: string | null;
   started_at: string;
   completed_at: string | null;
   abandoned_at: string | null;
@@ -28,7 +31,7 @@ type RunRow = {
 };
 
 const RUN_COLUMNS =
-  "id, trail_id, trail_snapshot, couple_id, started_at, completed_at, abandoned_at, stop_completions(stop_id, completed_by, completed_at)";
+  "id, trail_id, trail_snapshot, couple_id, started_by, started_at, completed_at, abandoned_at, stop_completions(stop_id, completed_by, completed_at)";
 
 export function runFromRow(row: RunRow): Run {
   const completions: Completions = {};
@@ -37,6 +40,7 @@ export function runFromRow(row: RunRow): Run {
     id: row.id,
     trail: fromRunSnapshot(row.trail_snapshot, row.trail_id),
     coupleId: row.couple_id,
+    startedBy: row.started_by,
     startedAt: row.started_at,
     completedAt: row.completed_at,
     abandonedAt: row.abandoned_at,

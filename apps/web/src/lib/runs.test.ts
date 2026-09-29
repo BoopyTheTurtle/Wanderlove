@@ -23,6 +23,7 @@ function row(completions: { stop_id: string; completed_by?: string; completed_at
     trail_id: trail.id,
     trail_snapshot: JSON.parse(JSON.stringify(toRunSnapshot(trail))),
     couple_id: "couple-1",
+    started_by: "user-a",
     started_at: "2026-09-29T10:00:00Z",
     completed_at: null,
     abandoned_at: null,
@@ -84,6 +85,7 @@ describe("canAddPhotos", () => {
     id: "r",
     trail,
     coupleId: null,
+    startedBy: null,
     startedAt: "2026-09-29T08:00:00Z",
     completedAt: null,
     abandonedAt: null,
@@ -103,5 +105,12 @@ describe("canAddPhotos", () => {
   });
   it("never allows photos on an abandoned run", () => {
     expect(canAddPhotos({ ...base, abandonedAt: "2026-09-29T11:59:00Z" }, now)).toBe(false);
+  });
+});
+
+describe("startedBy", () => {
+  it("carries who started the run, or null for older runs", () => {
+    expect(runFromRow(row()).startedBy).toBe("user-a");
+    expect(runFromRow({ ...row(), started_by: null }).startedBy).toBeNull();
   });
 });
