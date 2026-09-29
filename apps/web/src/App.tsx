@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { TrailList } from "./screens/TrailList";
 import { MapScreen } from "./screens/MapScreen";
@@ -28,8 +28,27 @@ import { loadPartner, unlink } from "./lib/couples";
 import { trail as curatedTrail } from "@wannadoo/core";
 import type { Stop, Trail } from "@wannadoo/core";
 import { useLivePosition } from "./lib/useLivePosition";
-import { loadProgress, resetProgress, saveStopProgress } from "./lib/progress";
-import { clearActiveRoute, loadActiveRoute, saveActiveRoute } from "./lib/activeRoute";
+import {
+  abandonRun,
+  allStopsDone,
+  completeStop,
+  finishRun,
+  isRunActive,
+  loadActiveRun,
+  loadRun,
+  startRun,
+} from "./lib/runs";
+import type { Run } from "./lib/runs";
+import { uploadPhoto } from "./lib/photos";
+import type { PreparedPhoto, RunPhoto } from "./lib/photos";
+import {
+  dropLegacyTrailData,
+  loadFollowedRun,
+  loadWalkingPath,
+  saveFollowedRun,
+  saveWalkingPath,
+} from "./lib/runDevice";
+import type { WalkingPath } from "./lib/runDevice";
 import { generateRoute, withWalkingPath } from "@wannadoo/core";
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
@@ -42,11 +61,15 @@ type ProfileState = { status: "loading" } | { status: "error" } | { status: "rea
 
 // How often the invite screen checks whether the partner has linked, since that phone keeps focus meanwhile.
 const INVITE_POLL_MS = 4000;
+// How often an open run checks for the partner's progress while the app is in view, so partners walking together
+// stay in step without refocusing.
+const RUN_POLL_MS = 15000;
 
-// Signing out clears everything this phone keeps for the signed-in user, except the solo choice.
+const SHERLOCK_ID = "sherlock-holmes-spikeri";
+
+// Signing out clears what this phone keeps about the signed-in user's links, except the solo choice. Trail runs live
+// on the server.
 function signOutAndClear(userId: string) {
-  clearActiveRoute();
-  resetProgress();
   forgetPartner(userId);
   clearPendingInvite();
   forgetOpenInvite();
@@ -60,6 +83,8 @@ export default function App() {
   const userId = auth.status === "signedIn" ? auth.user.id : null;
   const [loaded, setLoaded] = useState<{ userId: string; state: ProfileState } | null>(null);
   const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => dropLegacyTrailData(), []);
 
   useEffect(() => {
     if (!userId) return;
@@ -188,22 +213,60 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
   const [route, setRoute] = useState<Route | null>(null);
   const [unlinkedNotice, setUnlinkedNotice] = useState(false);
   const partnerRequest = useRef(0);
-  const [progress, setProgress] = useState(loadProgress());
-  const [activeTrail, setActiveTrail] = useState<Trail | null>(loadActiveRoute);
+  // The started run from the server: open, or finished and waiting for the album. Null when there is none.
+  const [run, setRun] = useState<Run | null>(null);
+  const runRef = useRef<Run | null>(null);
+  const [runSync, setRunSync] = useState<"loading" | "error" | "ready">("loading");
+  // Bumped on every sync, so screens showing photos reload them too.
+  const [syncTick, setSyncTick] = useState(0);
+  const runRequest = useRef(0);
+  const [endedNotice, setEndedNotice] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [startFailed, setStartFailed] = useState(false);
+  // Walking paths drawn on this phone, per run; the server keeps stops only.
+  const [routedPaths, setRoutedPaths] = useState<Record<string, WalkingPath>>({});
+  const routing = useRef(new Set<string>());
+  const finishing = useRef(new Set<string>());
+  // A photo that uploaded but whose stop failed to save; Retry then only saves the stop.
+  const uploaded = useRef(new WeakMap<PreparedPhoto, RunPhoto>());
   const [draft, setDraft] = useState<Draft>({ status: "idle" });
   const requestId = useRef(0);
   const { position, simulated, setSimulatedPosition } = useLivePosition();
 
-  const shownTrail = activeTrail ?? (draft.status === "ready" ? draft.trail : null);
+  const runId = run?.id ?? null;
+  const cachedPath = useMemo(() => (runId ? loadWalkingPath(runId) : null), [runId]);
+  const walkingPath = runId ? (routedPaths[runId] ?? cachedPath) : null;
+  const runTrail = useMemo<Trail | null>(() => {
+    if (!run) return null;
+    if (!walkingPath) return run.trail;
+    return {
+      ...run.trail,
+      path: walkingPath.path,
+      distanceMeters: walkingPath.distanceMeters ?? run.trail.distanceMeters,
+    };
+  }, [run, walkingPath]);
+  const runOpen = run !== null && isRunActive(run);
+  const runPartnerName = run?.coupleId ? (partner?.name ?? null) : null;
+
+  const shownTrail = runTrail ?? (runSync === "ready" && draft.status === "ready" ? draft.trail : null);
   // The Sherlock trail swaps the teal look for the red field-book theme from the map onwards.
   const themeTrail =
-    route?.name === "map" ? shownTrail : route?.name === "challenge" || route?.name === "complete" ? activeTrail : null;
-  const theme = themeTrail?.id === "sherlock-holmes-spikeri" ? "sherlock" : undefined;
-  const mapStatus: RouteStatus = activeTrail ? "active" : draft.status === "idle" ? "loading" : draft.status;
-  const activeDone = activeTrail ? activeTrail.stops.every((s) => progress[s.id]) : false;
+    route?.name === "map" ? shownTrail : route?.name === "challenge" || route?.name === "complete" ? runTrail : null;
+  const theme = themeTrail?.id === SHERLOCK_ID ? "sherlock" : undefined;
+  const mapStatus: RouteStatus = run
+    ? "active"
+    : runSync === "loading"
+      ? "syncing"
+      : runSync === "error"
+        ? "syncError"
+        : draft.status === "idle"
+          ? "loading"
+          : draft.status;
+  const activeDone = run ? !isRunActive(run) || allStopsDone(run) : false;
 
   async function generateSurprise() {
     const id = ++requestId.current;
+    setStartFailed(false);
     setDraft({ status: "loading" });
     try {
       const start = await getStartPosition();
@@ -216,18 +279,99 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
 
   function loadCurated() {
     const id = ++requestId.current;
+    setStartFailed(false);
     setDraft({ status: "ready", trail: curatedTrail, approximateStart: false });
     void withWalkingPath(curatedTrail).then((routed) => {
       if (id === requestId.current) setDraft({ status: "ready", trail: routed, approximateStart: false });
     });
   }
 
-  // No started route → every visit to the map gets a fresh one.
+  // No started route → every visit to the map gets a fresh one, once the server has said there is none.
+  const noRun = runSync === "ready" && !run;
   useEffect(() => {
-    if (route?.name !== "map" || activeTrail || draft.status !== "idle") return;
+    if (route?.name !== "map" || !noRun || draft.status !== "idle") return;
     if (SURPRISE_ROUTE_ENABLED) void generateSurprise();
     else loadCurated();
-  }, [route?.name, activeTrail, draft.status]);
+  }, [route?.name, noRun, draft.status]);
+
+  // Takes in the run the server returned. `ended` means the run this phone followed was abandoned elsewhere (the
+  // partner unlinked or started another trail): say so once and go back to the trail list.
+  const applyRun = useCallback(
+    (next: Run | null, ended: boolean) => {
+      // A stop or album of one run makes no sense once another run takes its place.
+      const switched = runRef.current?.id !== next?.id;
+      runRef.current = next;
+      setRun(next);
+      saveFollowedRun(me.id, next?.id ?? null);
+      setRunSync("ready");
+      setSyncTick((t) => t + 1);
+      if (ended) {
+        setEndedNotice(true);
+        setSimulatedPosition(null);
+      }
+      setRoute((r) => {
+        if (r === null) return r;
+        const onTrail = r.name === "map" || r.name === "challenge" || r.name === "complete";
+        if (ended && onTrail) return { name: "trailList" };
+        if (switched && (r.name === "challenge" || r.name === "complete")) return { name: "map" };
+        return r;
+      });
+    },
+    [me.id, setSimulatedPosition],
+  );
+
+  // Loads the open run, which may be one the partner started. When the run this phone followed is no longer open,
+  // its fate decides what happens: finished keeps it for the album, abandoned drops it with a notice.
+  const refreshRun = useCallback(async (): Promise<void> => {
+    const id = ++runRequest.current;
+    try {
+      const active = await loadActiveRun();
+      const heldId = runRef.current?.id ?? loadFollowedRun(me.id);
+      let next = active;
+      let ended = false;
+      if (heldId && heldId !== active?.id) {
+        const held = await loadRun(heldId);
+        if (held && isRunActive(held)) next = held;
+        else if (held?.completedAt) next = active ?? held;
+        else if (held?.abandonedAt) ended = true;
+      }
+      if (id !== runRequest.current) return;
+      applyRun(next, ended);
+      // The phone that saved the last stop finishes the run; this catches a finish that failed there.
+      if (next && isRunActive(next) && allStopsDone(next) && !finishing.current.has(next.id)) {
+        finishing.current.add(next.id);
+        try {
+          await finishRun(next.id);
+          await refreshRun();
+        } catch (e) {
+          console.error("Couldn't finish the trail", e);
+          finishing.current.delete(next.id);
+        }
+      }
+    } catch (e) {
+      console.error("Couldn't load the trail", e);
+      if (id === runRequest.current) setRunSync((s) => (s === "ready" ? s : "error"));
+    }
+  }, [me.id, applyRun]);
+
+  // Draws the walking path for a run once per device; the snapshot has none, and the foot router rate-limits.
+  useEffect(() => {
+    if (!run || walkingPath || routing.current.has(run.id)) return;
+    const id = run.id;
+    routing.current.add(id);
+    withWalkingPath(run.trail).then(
+      (routed) => {
+        const path = routed.path;
+        if (!path) return;
+        saveWalkingPath(id, path, routed.distanceMeters);
+        setRoutedPaths((all) => ({
+          ...all,
+          [id]: { path, distanceMeters: routed.distanceMeters, savedAt: Date.now() },
+        }));
+      },
+      (e: unknown) => console.error("Couldn't draw the walking path", e),
+    );
+  }, [run, walkingPath]);
 
   // Takes in the partner the server returned. A partner this device knew about who is gone means the other
   // person unlinked: say so once, with no reason (main spec 6.3), and carry on solo.
@@ -267,11 +411,15 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     }
   }, [me.id, applyPartner]);
 
-  // Load on start, and again whenever the app returns to the foreground, so an unlink on the other phone shows.
+  // Load on start, and again whenever the app returns to the foreground, so an unlink or the partner's progress on
+  // the other phone shows.
   useEffect(() => {
     void refreshPartner();
+    void refreshRun();
     function onVisible() {
-      if (document.visibilityState === "visible") void refreshPartner();
+      if (document.visibilityState !== "visible") return;
+      void refreshPartner();
+      void refreshRun();
     }
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
@@ -279,7 +427,22 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refreshPartner]);
+  }, [refreshPartner, refreshRun]);
+
+  // While a run is open, check now and then for the partner's progress.
+  useEffect(() => {
+    if (!runOpen) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshRun();
+    }, RUN_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [runOpen, refreshRun]);
+
+  // Entering the map or a stop shows the latest progress.
+  const trailScreen = route?.name === "map" ? "map" : route?.name === "challenge" ? `stop:${route.stopId}` : null;
+  useEffect(() => {
+    if (trailScreen) void refreshRun();
+  }, [trailScreen, refreshRun]);
 
   // The inviting phone stays in the foreground while the partner scans, so it checks now and then.
   const onInviteScreen = route?.name === "partner";
@@ -320,59 +483,86 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     }
   }
 
+  // Unlinking abandons the couple's open run (unlink()); the refresh drops it here with the notice.
   async function handleUnlink() {
     await unlink();
     partnerRequest.current++;
     setLinkState(saveLinkState(me.id, { knownPartnerId: null, solo: true }));
     setPartner(null);
+    void refreshRun();
   }
 
-  // Leaving a started route loses its progress, so check first.
+  // Leaving a started route ends it for both partners, so check first.
   function confirmAbandon(): boolean {
-    if (!activeTrail || activeDone) return true;
-    return window.confirm(`Leave “${activeTrail.name}”? Your progress on it will be lost.`);
+    if (!run || activeDone) return true;
+    return window.confirm(`Leave “${run.trail.name}”? Your progress on it will be lost.`);
   }
 
-  function clearStarted() {
-    clearActiveRoute();
-    setActiveTrail(null);
-    resetProgress();
-    setProgress({});
+  // Ends the open run on the server and forgets the run on this phone. False when the server couldn't be reached.
+  async function leaveRun(): Promise<boolean> {
+    const current = runRef.current;
+    runRequest.current++;
+    if (current && isRunActive(current)) {
+      try {
+        await abandonRun(current.id);
+      } catch (e) {
+        console.error("Couldn't leave the trail", e);
+        window.alert("Couldn’t leave the trail. Check your connection and try again.");
+        return false;
+      }
+    }
+    runRequest.current++;
+    applyRun(null, false);
     setSimulatedPosition(null);
+    return true;
   }
 
-  function handleSelectSurprise() {
-    if (!confirmAbandon()) return;
-    clearStarted();
+  async function handleSelectSurprise() {
+    if (!confirmAbandon() || !(await leaveRun())) return;
     void generateSurprise();
     setRoute({ name: "map" });
   }
 
-  function handleSelectCurated() {
-    if (!confirmAbandon()) return;
-    clearStarted();
+  async function handleSelectCurated() {
+    if (!confirmAbandon() || !(await leaveRun())) return;
     loadCurated();
     setRoute({ name: "map" });
   }
 
-  function handleStartRoute() {
-    if (draft.status !== "ready") return;
-    resetProgress();
-    setProgress({});
-    setSimulatedPosition(null);
-    saveActiveRoute(draft.trail);
-    setActiveTrail(draft.trail);
-    setDraft({ status: "idle" });
+  // Starting a run on the server also abandons any run either partner still had open.
+  async function handleStartRoute() {
+    if (draft.status !== "ready" || starting) return;
+    const trail = draft.trail;
+    setStarting(true);
+    setStartFailed(false);
+    runRequest.current++;
+    try {
+      const started = await startRun(trail);
+      // This phone already drew the path for the draft, so it needn't ask the router again.
+      if (trail.path) {
+        saveWalkingPath(started.id, trail.path, trail.distanceMeters);
+        const saved = { path: trail.path, distanceMeters: trail.distanceMeters, savedAt: Date.now() };
+        setRoutedPaths((all) => ({ ...all, [started.id]: saved }));
+      }
+      setSimulatedPosition(null);
+      applyRun(started, false);
+      setDraft({ status: "idle" });
+    } catch (e) {
+      console.error("Couldn't start the route", e);
+      setStartFailed(true);
+    } finally {
+      setStarting(false);
+    }
   }
 
-  function handleNewRoute() {
-    if (!confirmAbandon()) return;
-    clearStarted();
+  async function handleNewRoute() {
+    if (!confirmAbandon() || !(await leaveRun())) return;
     void generateSurprise();
   }
 
   function handleSignOut() {
     requestId.current++;
+    runRequest.current++;
     setSimulatedPosition(null);
     onSignOut();
   }
@@ -381,12 +571,52 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     setSimulatedPosition({ lat: stop.lat, lng: stop.lng });
   }
 
-  function handleCapture(stopId: string, photoDataUrl: string) {
-    if (!activeTrail) return;
-    const next = saveStopProgress(stopId, photoDataUrl);
-    setProgress(next);
-    const isLast = activeTrail.stops.every((s) => next[s.id]);
-    setRoute(isLast ? { name: "complete" } : { name: "map" });
+  // The first photo or skip completes a stop (a partner's earlier completion stands). Then back to the map, or on to
+  // the album once every stop is done.
+  async function completeAndMoveOn(stopId: string) {
+    const current = runRef.current;
+    if (!current) throw new Error("No trail is running");
+    try {
+      await completeStop(current.id, stopId);
+    } catch (e) {
+      // Most likely the run ended on the other phone; the refresh says so.
+      void refreshRun();
+      throw e;
+    }
+    runRequest.current++;
+    const fresh = (await loadRun(current.id).catch(() => null)) ?? {
+      ...current,
+      completions: { ...current.completions, [stopId]: { by: me.id, at: new Date().toISOString() } },
+    };
+    if (isRunActive(fresh) && allStopsDone(fresh)) {
+      finishing.current.add(fresh.id);
+      try {
+        await finishRun(fresh.id);
+        applyRun({ ...fresh, completedAt: new Date().toISOString() }, false);
+      } catch (e) {
+        // The stops are saved; the next refresh finishes the run.
+        console.error("Couldn't finish the trail", e);
+        finishing.current.delete(fresh.id);
+        applyRun(fresh, false);
+      }
+      setRoute({ name: "complete" });
+      return;
+    }
+    applyRun(fresh, false);
+    setRoute({ name: "map" });
+  }
+
+  async function handleStopPhoto(stopId: string, prepared: PreparedPhoto): Promise<RunPhoto> {
+    const current = runRef.current;
+    if (!current) throw new Error("No trail is running");
+    let photo = uploaded.current.get(prepared);
+    if (!photo) {
+      photo = await uploadPhoto(current.id, stopId, prepared);
+      uploaded.current.set(prepared, photo);
+    }
+    // A photo at a stop that is already done just joins the others.
+    if (!(stopId in current.completions)) await completeAndMoveOn(stopId);
+    return photo;
   }
 
   if (route === null)
@@ -431,11 +661,11 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       {route.name === "trailList" && (
         <TrailList
           curated={curatedTrail}
-          activeTrail={activeTrail && !activeDone ? activeTrail : null}
+          activeTrail={runTrail && !activeDone ? runTrail : null}
           onBack={() => setRoute(partner ? { name: "map" } : { name: "partner" })}
           onContinue={() => setRoute({ name: "map" })}
-          onSelectSurprise={handleSelectSurprise}
-          onSelectCurated={handleSelectCurated}
+          onSelectSurprise={() => void handleSelectSurprise()}
+          onSelectCurated={() => void handleSelectCurated()}
         />
       )}
 
@@ -445,9 +675,15 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
           status={mapStatus}
           error={draft.status === "error" ? draft.error : undefined}
           approximateStart={draft.status === "ready" ? draft.approximateStart : false}
-          onStartRoute={handleStartRoute}
-          onNewRoute={handleNewRoute}
-          progress={progress}
+          onStartRoute={() => void handleStartRoute()}
+          starting={starting}
+          startFailed={startFailed}
+          onNewRoute={() => void handleNewRoute()}
+          onRetrySync={() => {
+            setRunSync("loading");
+            void refreshRun();
+          }}
+          completions={run?.completions ?? {}}
           position={position}
           simulated={simulated}
           onSimulateArrival={handleSimulateArrival}
@@ -463,43 +699,61 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       )}
 
       {route.name === "challenge" &&
-        activeTrail &&
+        run &&
+        runTrail &&
         (() => {
-          const stop = activeTrail.stops.find((s) => s.id === route.stopId);
+          const stop = runTrail.stops.find((s) => s.id === route.stopId);
           if (!stop) return null;
-          if (activeTrail.id === "sherlock-holmes-spikeri") {
+          const shared = {
+            trail: runTrail,
+            stop,
+            runId: run.id,
+            runActive: runOpen,
+            completions: run.completions,
+            syncTick,
+            onBack: () => setRoute({ name: "map" }),
+            onUpload: (prepared: PreparedPhoto) => handleStopPhoto(stop.id, prepared),
+            onSkip: () => completeAndMoveOn(stop.id),
+          };
+          if (runTrail.id === SHERLOCK_ID) {
             return (
               <SherlockChallengeScreen
-                trail={activeTrail}
-                stop={stop}
-                progress={progress}
+                key={stop.id}
+                {...shared}
                 me={me}
                 partner={partner}
-                onBack={() => setRoute({ name: "map" })}
-                onCapture={handleCapture}
+                runPartnerName={runPartnerName}
               />
             );
           }
-          return (
-            <ChallengeScreen
-              trail={activeTrail}
-              stop={stop}
-              progress={progress}
-              onBack={() => setRoute({ name: "map" })}
-              onCapture={handleCapture}
-            />
-          );
+          return <ChallengeScreen key={stop.id} {...shared} meId={me.id} partnerName={runPartnerName} />;
         })()}
 
       {route.name === "complete" &&
-        activeTrail &&
-        (activeTrail.id === "sherlock-holmes-spikeri" ? (
-          <SherlockCompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+        run &&
+        (run.trail.id === SHERLOCK_ID ? (
+          <SherlockCompleteScreen
+            runId={run.id}
+            meId={me.id}
+            partnerName={runPartnerName}
+            syncTick={syncTick}
+            onViewMap={() => setRoute({ name: "map" })}
+          />
         ) : (
-          <CompleteScreen trail={activeTrail} progress={progress} onViewMap={() => setRoute({ name: "map" })} />
+          <CompleteScreen
+            runId={run.id}
+            meId={me.id}
+            partnerName={runPartnerName}
+            syncTick={syncTick}
+            onViewMap={() => setRoute({ name: "map" })}
+          />
         ))}
 
-      {unlinkedNotice && <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />}
+      {unlinkedNotice ? (
+        <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />
+      ) : (
+        endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />
+      )}
     </PhoneFrame>
   );
 }
@@ -521,6 +775,22 @@ function UnlinkedNotice({ onClose }: { onClose: () => void }) {
     <div className="notice-backdrop">
       <div className="notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unlinked-title">
         <h2 id="unlinked-title">You are no longer linked</h2>
+        <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The run this phone followed was abandoned on the other phone. One line, no reason, like the unlink notice.
+function TrailEndedNotice({ onClose }: { onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => closeRef.current?.focus(), []);
+  return (
+    <div className="notice-backdrop">
+      <div className="notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="trail-ended-title">
+        <h2 id="trail-ended-title">This trail has ended.</h2>
         <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
           OK
         </button>
