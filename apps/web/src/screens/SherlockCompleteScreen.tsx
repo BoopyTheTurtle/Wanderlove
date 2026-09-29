@@ -2,7 +2,8 @@ import { StatusBar } from "../components/PhoneFrame";
 import { Confetti } from "../components/Confetti";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { ShareIcon, CompassIcon } from "../components/Icons";
-import { allStopsDone } from "../lib/runs";
+import { AddStopPhoto } from "../components/AddStopPhoto";
+import { allStopsDone, canAddPhotos } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
 
@@ -35,6 +36,7 @@ export function SherlockCompleteScreen({
   const album = useRunPhotos(runId, syncTick);
   const run = loaded.status === "ready" ? loaded.run : null;
   const allDone = run ? allStopsDone(run) : false;
+  const photosOpen = run !== null && canAddPhotos(run);
 
   async function handleShare() {
     if (!run) return;
@@ -109,19 +111,25 @@ export function SherlockCompleteScreen({
             </p>
           ) : !run || album.status === "loading" ? (
             <p className="sh-album-note">Loading photos…</p>
-          ) : album.photos.length === 0 ? (
+          ) : album.photos.length === 0 && !photosOpen ? (
             <p className="sh-album-note">No photos on this trail.</p>
           ) : (
-            run.trail.stops.map((stop) => {
-              const here = album.photos.filter((p) => p.stopId === stop.id);
-              if (here.length === 0) return null;
-              return (
-                <div key={stop.id} className="sh-album-stop">
-                  <h3>{stop.name}</h3>
-                  <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
-                </div>
-              );
-            })
+            <>
+              {photosOpen && <p className="sh-album-note">You can add photos for a day after finishing.</p>}
+              {run.trail.stops.map((stop) => {
+                const here = album.photos.filter((p) => p.stopId === stop.id);
+                if (here.length === 0 && !photosOpen) return null;
+                return (
+                  <div key={stop.id} className="sh-album-stop">
+                    <h3>{stop.name}</h3>
+                    {here.length > 0 && (
+                      <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+                    )}
+                    {photosOpen && <AddStopPhoto runId={run.id} stopId={stop.id} onAdded={album.add} />}
+                  </div>
+                );
+              })}
+            </>
           )}
         </section>
 

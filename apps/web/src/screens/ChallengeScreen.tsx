@@ -9,7 +9,7 @@ export function ChallengeScreen({
   trail,
   stop,
   runId,
-  runActive,
+  canAddPhotos,
   completions,
   syncTick,
   meId,
@@ -21,7 +21,8 @@ export function ChallengeScreen({
   trail: Trail;
   stop: Stop;
   runId: string;
-  runActive: boolean;
+  // Open run, or finished within the grace window: the server still takes photos.
+  canAddPhotos: boolean;
   completions: Completions;
   syncTick: number;
   meId: string;
@@ -77,7 +78,7 @@ export function ChallengeScreen({
             stopId={stop.id}
             syncTick={syncTick}
             done={done}
-            canAdd={runActive}
+            canAdd={canAddPhotos}
             meId={meId}
             partnerName={partnerName}
             onUpload={onUpload}
