@@ -55,8 +55,8 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** Answer the two phase 4 questions (section 5, phase 4) and approve the split.
-2. **[Agent]** Build phase 4 with `parallel-build`: wave 1 (photo pipeline, run sync), then wave 2 (the rewire).
+1. **[Agent]** Phase 4, wave 1: `feature/photo-pipeline` and `feature/run-sync`.
+2. **[Agent]** Phase 4, wave 2, after Edgar merges wave 1: `feature/runs-on-server`.
 
 **Lessons from phase 2:**
 
@@ -256,8 +256,9 @@ re-encode, upload, signed URLs, and delete; `App.tsx` rewired to the wrappers wi
 | 4.4 | Unit tests for the snapshot, the resize maths, and the run state                                                                  | [Agent] |
 | 4.5 | Check on two phones that progress syncs, and in an EXIF viewer that a saved photo has no GPS                                      | [You]   |
 
-**Open for Edgar:** (1) must a stop have a photo to count as done, or may couples skip it? (2) may both partners add a
-photo at the same stop, or does the first photo complete it and close it?
+**Decided September 29:** a stop needs a photo to count as done, with a small **Skip photo** option for moments that
+don't suit one. Both partners may add photos at the same stop; the first photo (or skip) completes it, and the other
+can still add theirs.
 
 **Done when:** a stop completed on one phone shows on the partner's phone after refocus, and a downloaded photo carries
 no GPS data in an EXIF viewer.
