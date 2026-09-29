@@ -9,7 +9,11 @@ import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { WhoAmI } from "./screens/WhoAmI";
 import { PartnerLink } from "./screens/PartnerLink";
+import { SignIn } from "./screens/SignIn";
+import { ProfileSetup } from "./screens/ProfileSetup";
+import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import { getProfile } from "@wannadoo/core";
+import type { Profile } from "@wannadoo/core";
 import { loadSession, resetSession, saveSession } from "./lib/session";
 import type { Session } from "./lib/session";
 import { trail as curatedTrail } from "@wannadoo/core";
@@ -20,9 +24,129 @@ import { clearActiveRoute, loadActiveRoute, saveActiveRoute } from "./lib/active
 import { generateRoute, withWalkingPath } from "@wannadoo/core";
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
+import { signOut, useAuth } from "./lib/auth";
+import { isOnboarded, loadOwnProfile, toProfile } from "./lib/profile";
+import type { ProfileRow } from "./lib/profile";
+import { isLocalStack } from "./lib/supabase";
+
+type ProfileState = { status: "loading" } | { status: "error" } | { status: "ready"; row: ProfileRow };
+
+// Signing out clears everything this phone keeps for the signed-in user.
+function signOutAndClear() {
+  clearActiveRoute();
+  resetProgress();
+  resetSession();
+  signOut().catch((e: unknown) => console.error("Sign-out failed", e));
+}
+
+// Gates the app on auth: sign-in, then onboarding, then the trail flow.
+export default function App() {
+  const auth = useAuth();
+  const [testMode, setTestMode] = useState(false);
+  const userId = auth.status === "signedIn" ? auth.user.id : null;
+  const [loaded, setLoaded] = useState<{ userId: string; state: ProfileState } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    loadOwnProfile(userId).then(
+      (row) => active && setLoaded({ userId, state: { status: "ready", row } }),
+      () => active && setLoaded({ userId, state: { status: "error" } }),
+    );
+    return () => {
+      active = false;
+    };
+  }, [userId, attempt]);
+
+  if (auth.status === "loading")
+    return (
+      <PhoneFrame>
+        <LoadingScreen />
+      </PhoneFrame>
+    );
+
+  if (auth.status === "signedOut") {
+    return (
+      <PhoneFrame>
+        {testMode && isLocalStack ? (
+          <WhoAmI onBack={() => setTestMode(false)} />
+        ) : (
+          <SignIn onTestMode={() => setTestMode(true)} />
+        )}
+      </PhoneFrame>
+    );
+  }
+
+  const profile: ProfileState = loaded?.userId === auth.user.id ? loaded.state : { status: "loading" };
+  if (profile.status === "loading")
+    return (
+      <PhoneFrame>
+        <LoadingScreen />
+      </PhoneFrame>
+    );
+  if (profile.status === "error") {
+    return (
+      <PhoneFrame>
+        <LoadingScreen error onRetry={() => setAttempt((n) => n + 1)} onSignOut={signOutAndClear} />
+      </PhoneFrame>
+    );
+  }
+  if (!isOnboarded(profile.row)) {
+    return (
+      <PhoneFrame>
+        <ProfileSetup
+          userId={auth.user.id}
+          onDone={(row) => setLoaded({ userId: auth.user.id, state: { status: "ready", row } })}
+          onSignOut={signOutAndClear}
+        />
+      </PhoneFrame>
+    );
+  }
+
+  // Keyed by user, so switching accounts starts the trail flow afresh.
+  return (
+    <SignedInApp key={auth.user.id} me={toProfile(profile.row, auth.user.email ?? "")} onSignOut={signOutAndClear} />
+  );
+}
+
+function LoadingScreen({
+  error,
+  onRetry,
+  onSignOut,
+}: {
+  error?: boolean;
+  onRetry?: () => void;
+  onSignOut?: () => void;
+}) {
+  return (
+    <div className="screen auth-screen">
+      <StatusBar />
+      <div className="onboarding-head auth-loading">
+        <p className="wordmark">
+          <BrandMark /> Wannadoo
+        </p>
+        {error ? (
+          <>
+            <p className="intro">Couldn&rsquo;t load your profile. Check your connection and try again.</p>
+            <div className="auth-links">
+              <button type="button" className="text-button" onClick={onRetry}>
+                Try again
+              </button>
+              <button type="button" className="text-button" onClick={onSignOut}>
+                Sign out
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="intro">Loading…</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type Route =
-  | { name: "whoAmI" }
   | { name: "partner" }
   | { name: "trailList" }
   | { name: "map" }
@@ -36,10 +160,9 @@ type Draft =
   | { status: "error"; error: string }
   | { status: "ready"; trail: Trail; approximateStart: boolean };
 
-export default function App() {
+function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) {
   const [session, setSession] = useState<Session>(loadSession);
   const [route, setRoute] = useState<Route>(() => initialRoute(session));
-  const me = getProfile(session.meId);
   const partner = getProfile(session.partnerId);
   const [progress, setProgress] = useState(loadProgress());
   const [activeTrail, setActiveTrail] = useState<Trail | null>(loadActiveRoute);
@@ -126,12 +249,10 @@ export default function App() {
     void generateSurprise();
   }
 
-  function handleResetTest() {
-    clearStarted();
+  function handleSignOut() {
     requestId.current++;
-    setDraft({ status: "idle" });
-    setSession(resetSession());
-    setRoute({ name: "whoAmI" });
+    setSimulatedPosition(null);
+    onSignOut();
   }
 
   function handleSimulateArrival(stop: Stop) {
@@ -148,21 +269,12 @@ export default function App() {
 
   return (
     <PhoneFrame theme={theme}>
-      {route.name === "whoAmI" && (
-        <WhoAmI
-          onPick={(meId) => {
-            setSession(saveSession({ meId, partnerId: null, skipped: false }));
-            setRoute({ name: "partner" });
-          }}
-        />
-      )}
-
-      {route.name === "partner" && me && (
+      {route.name === "partner" && (
         <PartnerLink
           me={me}
           onLinked={(partnerId) => setSession(saveSession({ ...session, partnerId, skipped: false }))}
           onContinue={() => setRoute({ name: "trailList" })}
-          onSwitchProfile={handleResetTest}
+          onSignOut={handleSignOut}
         />
       )}
 
@@ -194,7 +306,7 @@ export default function App() {
           me={me}
           partner={partner}
           onLinkPartner={() => setRoute({ name: "partner" })}
-          onResetTest={handleResetTest}
+          onSignOut={handleSignOut}
           onBack={() => setRoute({ name: "trailList" })}
         />
       )}
@@ -240,7 +352,6 @@ export default function App() {
 }
 
 function initialRoute(session: Session): Route {
-  if (!getProfile(session.meId)) return { name: "whoAmI" };
   if (session.partnerId || session.skipped) return { name: "map" };
   return { name: "partner" };
 }

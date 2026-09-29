@@ -10,6 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "@wannadoo/core": "*",
     "leaflet": "^1.9.4",
     "qrcode.react": "^4.2.0",

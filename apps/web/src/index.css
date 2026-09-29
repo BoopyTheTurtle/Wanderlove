@@ -2867,3 +2867,85 @@ img.profile-avatar {
   letter-spacing: 0.06em;
   font-size: 11px;
 }
+
+/* Sign-in and onboarding */
+.auth-screen .onboarding-head {
+  padding-top: 40px;
+}
+.auth-screen .intro b {
+  color: var(--on-bg);
+  overflow-wrap: anywhere;
+}
+.auth-loading {
+  padding-top: 180px;
+}
+.auth-card {
+  margin: 0 20px;
+  padding: 20px 18px;
+  display: grid;
+  gap: 14px;
+}
+/* The input's own border shows focus */
+.auth-card .field:focus-within {
+  outline: none;
+}
+.code-input input {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.auth-loading .auth-links {
+  justify-content: center;
+  margin-top: 16px;
+}
+.auth-link {
+  border: 0;
+  background: transparent;
+  color: var(--teal-dark);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 2px;
+  cursor: pointer;
+}
+.auth-link:disabled {
+  color: var(--muted);
+  font-weight: 600;
+  cursor: default;
+}
+.consent {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  cursor: pointer;
+}
+.consent input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--teal);
+}
+.consent a {
+  color: var(--teal-dark);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+.whoami-error {
+  margin: 14px 20px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+}
+.mode-card:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
