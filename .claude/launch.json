@@ -11,7 +11,7 @@
       "name": "web-local",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:local"],
-      "port": 5173
+      "port": 5174
     }
   ]
 }

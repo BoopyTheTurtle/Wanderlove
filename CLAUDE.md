@@ -10,7 +10,8 @@ what is done and where to resume; update it at the end of each working session.
 
 Run everything from the repository root; npm workspaces route each script to the right package.
 
-- `npm run dev` starts the web app on port 5173. `.claude/launch.json` starts the same server for the preview pane.
+- `npm run dev` starts the web app on port 5173 against the online Supabase project (`apps/web/.env.local`).
+  `npm run dev:local` starts it on port 5174 against the local stack. `.claude/launch.json` has both for the preview pane.
 - `npm run check` runs typecheck, lint, format check, and tests. Run it before declaring a change done.
 - `npm test -w @wannadoo/core -- routeGen` runs a single test file.
 - `npm run db:start`, `db:reset`, `db:test`, and `db:types` drive the local Supabase stack; they need Docker Desktop.
