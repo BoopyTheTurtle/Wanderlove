@@ -43,13 +43,19 @@ Last updated September 29, 2026. Resume from **Next** below.
   account on the online project, in desktop Firefox and on an Android phone.
 - **Profile backfill.** Accounts created before the schema reached the online project had no `profiles` row, so the app
   could not load them. Migration `20260929120000_backfill_profiles.sql` fixed that and is deployed.
+- **Phase 3.** Merged September 29 (PRs 13–15), built in two waves of parallel agents: `peek_invite` so the invitee
+  sees who invited them, a Settings screen behind the Profile tab, and partner linking through Supabase. The partner
+  screen shows an invite QR code and share link, a typed-code fallback, and "Walk solo for now"; `/link/<code>`
+  survives sign-in; the partner reloads when the app returns to the foreground. Edgar linked an iPhone and a second
+  phone by QR on `www.wannadoo.app`, with a new second account, and unlinked them.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
   `chore/repo-structure`; Edgar approves every merge.
 
 **Next:**
 
-1. **[Agent]** Phase 3, wave 1: `feature/invite-preview` (`peek_invite`) and `feature/settings-screen`.
-2. **[Agent]** Phase 3, wave 2, after Edgar merges wave 1: `feature/partner-linking`.
+1. **[Agent]** Plan phase 4 (runs and photos on the server) with `parallel-build` and show Edgar the split.
+2. **[Agent]**, optional, small: draw the invite QR on white with a four-module quiet zone, and reuse the phone's open
+   invite code until it expires, so revisiting the invite screen no longer cancels a link already sent.
 
 **Lessons from phase 2:**
 
@@ -62,10 +68,20 @@ Last updated September 29, 2026. Resume from **Next** below.
 - **Give each backend its own port.** With both dev servers on 5173, swapping one for the other silently moved Edgar's
   open tab to the local stack, and his codes went to Mailpit. `dev:local` now uses 5174.
 - **Parallel agents paid off.** Two agents built sign-in and the tester notice in about ten minutes of wall time; review
-  still caught a global sign-out and an empty username. Agents must stop their dev servers before reporting, or
-  their worktrees stay locked.
+  still caught a global sign-out and an empty username. On Windows, `git worktree remove` leaves `node_modules`
+  behind; delete the folder with `rm -rf` (the skill says so).
 - **The live domain is `www`.** Vercel redirects `wannadoo.app` to `www.wannadoo.app`, so Supabase's Site URL uses
   `www`.
+
+**Lessons from phase 3:**
+
+- **Split along file ownership, in waves.** The database piece and a props-only screen ran in parallel; the wiring
+  piece waited for both, so no two agents touched the same file and nothing conflicted.
+- **Reload the phone after a deploy.** The first scan failed with "No usable data found" because the phone still showed
+  the previous build, whose QR held a `wannadoo://` address no app opens. Before a phone test, reload the site and
+  check for a feature only the new build has.
+- **Check the spec against the database before building.** The accept screen needed the inviter's name, which RLS
+  hides from strangers; finding that during planning turned it into a small first-wave piece instead of a blocker.
 
 **Notes for whoever resumes:**
 
@@ -75,7 +91,6 @@ Last updated September 29, 2026. Resume from **Next** below.
 - `npm run dev` (port 5173) talks to the online project; `npm run dev:local` (port 5174) talks to the local stack.
 - The local stack's sign-in email carries only the magic link, not the code. Read codes from Mailpit
   (`http://127.0.0.1:54324`) via the link, or add a local template in `supabase/config.toml`.
-- Until phase 3 lands, the partner screen still links a simulated partner; its QR code carries a stand-in payload.
 - **Run workflow** appears on the `Deploy migrations` page only once the workflow file reaches `main`; until then, re-run
   an earlier run instead.
 - GitHub warns that `actions/checkout@v4` and `supabase/setup-cli@v1` target Node 20. The warning is harmless; bump the
