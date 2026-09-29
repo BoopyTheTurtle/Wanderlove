@@ -46,6 +46,10 @@ If any of these is missing or the task needs a file outside **Owns**, stop and r
 - **Never merge, rebase the integration branch, force-push, or mark a PR ready.** The orchestrator and Edgar do that.
 - **One local Supabase stack serves every agent.** Never run `npm run db:reset`, `db:stop`, or `db:start`. Run
   `npm run db:test` only if your brief says you own the database work.
+- **Test users are yours alone.** Other agents use the same stack at the same time, so linking or unlinking the seeded
+  Daniel, Emma, and Stranger can break their tests. Unless your brief names seeded users, create your own on the local
+  stack (`supabase.auth.signUp` with an address like `<branch>-a@wannadoo.test` and any password; local sign-up needs
+  no confirmation) and use only those.
 - **Migrations and generated types** (`supabase/migrations`, `apps/web/src/lib/database.types.ts`) change only when your
   brief assigns them to you.
 - **Overpass and FOSSGIS rate-limit.** Reuse the place cache, never loop requests, and prefer the curated trail when

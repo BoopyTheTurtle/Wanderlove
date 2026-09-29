@@ -30,6 +30,8 @@ Break the task into pieces that can be built and reviewed independently. For eac
 Rules for a good split:
 
 - **Database work is one piece per wave**: migrations, pgTAP tests, and `database.types.ts` move together.
+- **Seeded test users go to one piece at most.** Pieces that need linked users create their own on the local stack
+  (see the agent's shared-resource rules); two agents linking Daniel and Emma at once break each other's tests.
 - **New dependencies are installed by one piece.** Two pieces editing `package-lock.json` always conflict.
 - Prefer 2–4 pieces. Work too tangled to separate stays in one piece, or you build it yourself.
 - If the task splits badly, say so and build it in this session instead.
