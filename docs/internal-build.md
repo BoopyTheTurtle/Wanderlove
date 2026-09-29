@@ -19,8 +19,11 @@ Last updated September 29, 2026. Resume from **Next** below.
 - **Email.** `wannadoo.app` is registered at Porkbun, which forwards `admin@`, `privacy@`, and `support@`. Resend (EU
   region) sends from `hello@wannadoo.app` through Supabase's SMTP settings; SPF, DKIM, and one DMARC record (`p=none`)
   are live. The Magic Link template shows the six-digit code.
-- **URLs and keys.** Supabase's Site URL points at `https://wannadoo1.vercel.app`, with redirect URLs for production,
-  Vercel previews, and `localhost:5173`. Vercel holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **URLs and keys.** Supabase's redirect URLs cover production, Vercel previews, `wannadoo.app`, and `localhost:5173`.
+  Vercel holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **Domain.** Testers use `https://www.wannadoo.app`; the bare `wannadoo.app` redirects there. Vercel attaches the domain
+  to the `chore/repo-structure` branch as a Preview domain, so it serves the latest merge. Switch it back to Production
+  once the build reaches `main`. Porkbun's MX and TXT records (forwarding, SPF, DKIM, DMARC) are untouched.
 - **Phase 1.** The migration, RLS, RPCs, `photos` bucket, seed, and 70 pgTAP tests are merged into
   `chore/repo-structure`. The tests pass locally, and the migration is deployed to the online project.
 - **Deploys.** The `Deploy migrations` workflow runs `supabase db push` on every push to `chore/repo-structure` that
@@ -44,8 +47,9 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[Agent]** Plan phase 3 (linking) with `parallel-build` and show Edgar the split.
-2. **[You]**, optional: point `wannadoo.app` at Vercel and update Supabase's Site URL to match.
+1. **[You]** In Supabase, set the Site URL to `https://www.wannadoo.app` and add `https://www.wannadoo.app/**` to the
+   redirect URLs.
+2. **[Agent]** Plan phase 3 (linking) with `parallel-build` and show Edgar the split.
 
 **Notes for whoever resumes:**
 
