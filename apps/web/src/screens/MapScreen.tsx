@@ -7,7 +7,6 @@ import { haversineDistanceMeters, isWithinRadius } from "@wannadoo/core";
 import type { Progress } from "../lib/progress";
 import { FALLBACK_START, MAX_ROUTE_METERS } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
-import { CoupleAvatar } from "../components/CoupleAvatar";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import type { Profile } from "@wannadoo/core";
 import { BottomNav } from "../components/BottomNav";
@@ -119,6 +118,7 @@ export function MapScreen({
   me,
   partner,
   onLinkPartner,
+  onProfile,
   onSignOut,
 }: {
   trail: Trail | null;
@@ -137,6 +137,7 @@ export function MapScreen({
   me: Profile | null;
   partner: Profile | null;
   onLinkPartner: () => void;
+  onProfile: () => void;
   onSignOut: () => void;
 }) {
   const active = status === "active" && trail !== null;
@@ -180,7 +181,14 @@ export function MapScreen({
       </button>
 
       <header className="home-head">
-        {partner ? <CoupleAvatar size={42} /> : <ProfileAvatar profile={me} size={42} />}
+        {partner ? (
+          <span className="avatar-pair">
+            <ProfileAvatar profile={me} size={34} />
+            <ProfileAvatar profile={partner} size={34} />
+          </span>
+        ) : (
+          <ProfileAvatar profile={me} size={42} />
+        )}
         <div className="home-title">
           <h1>
             <BrandMark /> Wannadoo
@@ -387,7 +395,7 @@ export function MapScreen({
         </>
       )}
 
-      <BottomNav />
+      <BottomNav onProfile={onProfile} />
     </div>
   );
 }

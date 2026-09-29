@@ -43,6 +43,12 @@ export function toProfile(row: ProfileRow, email: string): Profile {
   };
 }
 
+// A partner as the app shows them: name and initials on a colour. Partners carry no email, so no test avatar.
+export function partnerProfile(id: string, displayName: string | null): Profile {
+  const name = displayName ?? "Your partner";
+  return { id, name, username: "", email: "", initials: initials(name), color: colorFor(id) };
+}
+
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0]?.[0] ?? "?");
