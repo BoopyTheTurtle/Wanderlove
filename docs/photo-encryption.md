@@ -1,6 +1,6 @@
 # End-to-end encrypted photos: spec
 
-Status: draft for Edgar's decision, September 29, 2026. Owner: Edgar.
+Status: approved September 29, 2026: recovery options A and C, built before testers are invited. Owner: Edgar.
 
 Photos today sit in a private Supabase bucket. Row-level security lets only the members of a trail run read them, and
 only through signed links that expire after an hour. Anyone with the project's dashboard or database access can still
@@ -99,8 +99,7 @@ app tells the two apart by the file extension.
 E.1 and E.2 can run in parallel; E.3 and E.4 follow. The tester notice gains one line: photos are encrypted on the
 phone, and a lost recovery code means lost photos.
 
-## 8. Open questions for Edgar
+## 8. Decisions
 
-1. **Recovery:** A and C, as recommended, or another mix?
-2. **Timing:** before inviting the 10–20 testers, or after the test and before public launch? Building it first means
-   testers never upload plain photos; building it later keeps the test simpler.
+1. **Recovery:** A and C together, as recommended (Edgar, September 29).
+2. **Timing:** now, before the 10–20 testers are invited, so testers never upload plain photos.

@@ -70,8 +70,8 @@ Last updated September 29, 2026. Resume from **Next** below.
    within about 10 seconds; progress and photos sync both ways.
 2. **[Agent]** Next wave, from Edgar's feedback on September 29: an in-app QR scanner on the partner screen, and
    phase 5's downloads (**Save all photos** through the share sheet on phones, a ZIP on desktop, plus the album image).
-3. **[Agent]** Draft `docs/photo-encryption.md`: end-to-end encrypted photos, so only the couple can see them, with
-   the recovery options for Edgar to choose from before building.
+3. **[Agent]** End-to-end photo encryption per [photo-encryption.md](photo-encryption.md) (recovery A and C, approved
+   September 29): wave 1 builds E.1 (schema) and E.2 (`lib/crypto.ts`); wave 2 wires setup, recovery, and photos.
 
 **Lessons from phase 2:**
 
