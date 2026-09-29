@@ -55,6 +55,10 @@ Last updated September 29, 2026. Resume from **Next** below.
   Verified locally with two sessions; the two-phone test (4.5) is Edgar's.
 - **Photo grace window.** PR 19: run members add photos for 24 hours after a trail finishes, so the partner can still
   add theirs at the last stop; the complete screens offer **Add a photo** per stop meanwhile. Deployed.
+- **Partner sync.** PR 20, from Edgar's first two-phone test: the phone that scanned the invite never saw its partner
+  start a trail, because the app checked only on refocus or during an open trail. It now checks the partner and the
+  trail every 10 seconds while in view and opens the map with "Daniel started …". `trail_runs.started_by` records the
+  starter, so a user's own start on another device is joined silently. Edgar confirmed saved photos carry no metadata.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -62,8 +66,12 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** Phase 4 check (4.5): two phones walk the Sherlock trail, progress syncs, and a saved photo shows no GPS in
-   an EXIF viewer.
+1. **[You]** Retest phase 4 on two phones after PR 20: A shows the QR, B scans and links, A starts the trail, B follows
+   within about 10 seconds; progress and photos sync both ways.
+2. **[Agent]** Next wave, from Edgar's feedback on September 29: an in-app QR scanner on the partner screen, and
+   phase 5's downloads (**Save all photos** through the share sheet on phones, a ZIP on desktop, plus the album image).
+3. **[Agent]** Draft `docs/photo-encryption.md`: end-to-end encrypted photos, so only the couple can see them, with
+   the recovery options for Edgar to choose from before building.
 
 **Lessons from phase 2:**
 
