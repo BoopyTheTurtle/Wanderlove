@@ -26,6 +26,12 @@ select is(
   'the sign-up trigger creates a profile per user'
 );
 
+select is(
+  (select count(*)::int from auth.users u where not exists (select 1 from public.profiles p where p.id = u.id)),
+  0,
+  'every account has a profile'
+);
+
 select pg_temp.login('11111111-0000-0000-0000-00000000000a');
 
 select is((select count(*)::int from public.profiles), 1, 'a user reads only their own profile');
