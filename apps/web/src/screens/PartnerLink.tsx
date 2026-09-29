@@ -3,7 +3,8 @@ import type { FormEvent } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
-import { HeartIcon, ShareIcon } from "../components/Icons";
+import { QrScanner } from "../components/QrScanner";
+import { CameraIcon, HeartIcon, ShareIcon } from "../components/Icons";
 import { formatCode, inviteUrl, isCompleteCode, normalizeCode, openInvite } from "../lib/couples";
 import type { Profile } from "@wannadoo/core";
 
@@ -30,6 +31,7 @@ export function PartnerLink({
   const [entering, setEntering] = useState(false);
   const [typed, setTyped] = useState("");
   const [typedError, setTypedError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const started = useRef(false);
 
   const makeInvite = useCallback(
@@ -79,6 +81,13 @@ export function PartnerLink({
       setTypedError("An invite code has 10 letters and numbers.");
       return;
     }
+    onEnterCode(code);
+  }
+
+  function handleScan(text: string): string | void {
+    const code = scannedInviteCode(text);
+    if (!code) return "That isn’t a Wannadoo invite.";
+    setScanning(false);
     onEnterCode(code);
   }
 
@@ -153,6 +162,12 @@ export function PartnerLink({
         )}
       </section>
 
+      <div className="qr-scan-open">
+        <button type="button" className="btn-primary light" onClick={() => setScanning(true)}>
+          <CameraIcon size={18} /> Scan partner&rsquo;s code
+        </button>
+      </div>
+
       {entering ? (
         <form className="card link-card code-card" onSubmit={submitCode} noValidate>
           <label className="field">
@@ -201,8 +216,41 @@ export function PartnerLink({
           {me.name} · Sign out
         </button>
       </div>
+
+      {scanning && (
+        <QrScanner
+          title="Scan your partner’s code"
+          onResult={handleScan}
+          onCancel={() => setScanning(false)}
+          fallback={{
+            label: "Have a code? Enter it",
+            onClick: () => {
+              setScanning(false);
+              setEntering(true);
+            },
+          }}
+        />
+      )}
     </div>
   );
+}
+
+// The code in a scanned QR: an invite link from any origin, so a staging QR works too, or a bare code.
+// Anything else is null. Scanned text is machine-made, so a bare code must already be exact.
+function scannedInviteCode(text: string): string | null {
+  const trimmed = text.trim();
+  let candidate: string | null = null;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const match = new URL(trimmed).pathname.match(/^\/link\/([^/]+)\/?$/);
+      if (match) candidate = normalizeCode(match[1]);
+    } catch {
+      return null;
+    }
+  } else {
+    candidate = trimmed.replace(/[\s-]/g, "").toUpperCase();
+  }
+  return candidate && isCompleteCode(candidate) ? candidate : null;
 }
 
 function hoursLeft(expiresAt: number): string {
