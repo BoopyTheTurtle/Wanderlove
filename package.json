@@ -12,6 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev -w @wannadoo/web",
+    "dev:local": "npm run dev -w @wannadoo/web -- --mode localdb",
     "build": "npm run build -w @wannadoo/web",
     "preview": "npm run preview -w @wannadoo/web",
     "typecheck": "npm run typecheck --workspaces --if-present",

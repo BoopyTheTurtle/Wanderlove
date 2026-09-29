@@ -119,7 +119,7 @@ export function MapScreen({
   me,
   partner,
   onLinkPartner,
-  onResetTest,
+  onSignOut,
 }: {
   trail: Trail | null;
   status: RouteStatus;
@@ -137,7 +137,7 @@ export function MapScreen({
   me: Profile | null;
   partner: Profile | null;
   onLinkPartner: () => void;
-  onResetTest: () => void;
+  onSignOut: () => void;
 }) {
   const active = status === "active" && trail !== null;
   const stops = trail?.stops ?? [];
@@ -175,8 +175,8 @@ export function MapScreen({
   return (
     <div className="screen home-screen with-nav">
       <StatusBar />
-      <button type="button" className="dev-reset" onClick={onResetTest} title="Clear profile, partner and progress">
-        Test{me ? `: ${me.name}` : ""} · Reset
+      <button type="button" className="dev-reset" onClick={onSignOut} title="Sign out and clear this phone's progress">
+        {me ? `${me.name} · ` : ""}Sign out
       </button>
 
       <header className="home-head">

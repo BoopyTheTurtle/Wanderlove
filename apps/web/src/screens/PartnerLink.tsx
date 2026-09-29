@@ -10,20 +10,23 @@ export function PartnerLink({
   me,
   onLinked,
   onContinue,
-  onSwitchProfile,
+  onSignOut,
 }: {
   me: Profile;
   onLinked: (partnerId: string) => void;
   onContinue: () => void;
-  onSwitchProfile: () => void;
+  onSignOut: () => void;
 }) {
   const [scanning, setScanning] = useState(false);
   const [partner, setPartner] = useState<Profile | null>(null);
 
-  const testPartner = PROFILES.find((p) => p.id !== me.id)!;
+  // Stand-in until phase 3: the simulated partner is the test profile whose email differs from mine,
+  // since signed-in ids are Supabase UUIDs.
+  const isMe = (p: Profile) => p.email.toLowerCase() === me.email.toLowerCase();
+  const testPartner = PROFILES.find((p) => !isMe(p))!;
 
   function link(found: Profile | null) {
-    if (!found || found.id === me.id) return;
+    if (!found || isMe(found)) return;
     setScanning(false);
     setPartner(found);
     onLinked(found.id);
@@ -90,8 +93,8 @@ export function PartnerLink({
       </section>
 
       <div className="partner-foot">
-        <button type="button" className="dev-switch" onClick={onSwitchProfile}>
-          Test mode: you&rsquo;re {me.name} · reset
+        <button type="button" className="dev-switch" onClick={onSignOut}>
+          {me.name} · Sign out
         </button>
       </div>
 
