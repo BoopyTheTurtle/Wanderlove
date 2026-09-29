@@ -1,5 +1,6 @@
 import type { Profile } from "@wannadoo/core";
 import { partnerProfile } from "./profile";
+import { loadOpenInvite, saveOpenInvite } from "./session";
 import { supabase } from "./supabase";
 
 export type PeekStatus = "valid" | "invalid" | "expired" | "self" | "already_linked" | "rate_limited";
@@ -38,6 +39,21 @@ export async function createInvite(): Promise<string> {
   const { data, error } = await supabase.rpc("create_invite");
   if (error) throw error;
   return data;
+}
+
+const INVITE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+// An invite with less time left than this gets replaced rather than shown.
+const MIN_REMAINING_MS = 60 * 60 * 1000;
+
+// The invite to show: this device's open one while it has at least an hour left, otherwise a new one.
+export async function openInvite(userId: string, fresh = false): Promise<{ code: string; expiresAt: number }> {
+  const saved = fresh ? null : loadOpenInvite(userId);
+  if (saved && saved.expiresAt - Date.now() > MIN_REMAINING_MS) return saved;
+  // Counted from before the request, so the device never thinks a code lives longer than the server does.
+  const expiresAt = Date.now() + INVITE_LIFETIME_MS;
+  const code = await createInvite();
+  saveOpenInvite({ userId, code, expiresAt });
+  return { code, expiresAt };
 }
 
 // Who sent the invite, without using it up.

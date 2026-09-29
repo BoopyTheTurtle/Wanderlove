@@ -4,10 +4,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { HeartIcon, ShareIcon } from "../components/Icons";
-import { createInvite, formatCode, inviteUrl, isCompleteCode, normalizeCode } from "../lib/couples";
+import { formatCode, inviteUrl, isCompleteCode, normalizeCode, openInvite } from "../lib/couples";
 import type { Profile } from "@wannadoo/core";
 
-type Invite = { status: "loading" } | { status: "error" } | { status: "ready"; code: string };
+type Invite = { status: "loading" } | { status: "error" } | { status: "ready"; code: string; expiresAt: number };
 
 // Shown while walking solo: an invite to share, a field for a partner's code, and the way to walk solo.
 export function PartnerLink({
@@ -32,18 +32,21 @@ export function PartnerLink({
   const [typedError, setTypedError] = useState<string | null>(null);
   const started = useRef(false);
 
-  const makeInvite = useCallback(async () => {
-    setInvite({ status: "loading" });
-    setShareNote(null);
-    try {
-      setInvite({ status: "ready", code: await createInvite() });
-    } catch {
-      setInvite({ status: "error" });
-      onInviteRefused();
-    }
-  }, [onInviteRefused]);
+  const makeInvite = useCallback(
+    async (fresh = false) => {
+      setInvite({ status: "loading" });
+      setShareNote(null);
+      try {
+        setInvite({ status: "ready", ...(await openInvite(me.id, fresh)) });
+      } catch {
+        setInvite({ status: "error" });
+        onInviteRefused();
+      }
+    },
+    [me.id, onInviteRefused],
+  );
 
-  // Once per visit: each new invite cancels the previous one, so StrictMode's second run must not make another.
+  // Once per visit: a new invite cancels the previous one, so StrictMode's second run must not make another.
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -105,11 +108,13 @@ export function PartnerLink({
         {invite.status === "ready" ? (
           <>
             <div className="qr-frame">
+              {/* Dark on white with a four-module quiet zone: phone cameras, iPhones especially, need both. */}
               <QRCodeSVG
                 value={inviteUrl(invite.code)}
-                size={148}
+                size={176}
+                marginSize={4}
                 fgColor="#1b3431"
-                bgColor="transparent"
+                bgColor="#ffffff"
                 level="M"
                 title="Invite QR code"
               />
@@ -126,7 +131,12 @@ export function PartnerLink({
                 {shareNote}
               </p>
             )}
-            <p className="hint">The invite works once and expires in 24 hours.</p>
+            <p className="hint">
+              The invite works once and expires in {hoursLeft(invite.expiresAt)}.{" "}
+              <button type="button" className="inline-link" onClick={() => void makeInvite(true)}>
+                Make a new code
+              </button>
+            </p>
           </>
         ) : invite.status === "error" ? (
           <>
@@ -193,6 +203,11 @@ export function PartnerLink({
       </div>
     </div>
   );
+}
+
+function hoursLeft(expiresAt: number): string {
+  const hours = Math.max(1, Math.round((expiresAt - Date.now()) / 3_600_000));
+  return hours === 1 ? "about an hour" : `${hours} hours`;
 }
 
 // Shown once a link succeeds, on either phone.

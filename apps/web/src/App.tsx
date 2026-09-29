@@ -15,7 +15,14 @@ import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import type { Profile } from "@wannadoo/core";
-import { clearPendingInvite, forgetPartner, loadLinkState, loadPendingInvite, saveLinkState } from "./lib/session";
+import {
+  clearPendingInvite,
+  forgetOpenInvite,
+  forgetPartner,
+  loadLinkState,
+  loadPendingInvite,
+  saveLinkState,
+} from "./lib/session";
 import type { LinkState } from "./lib/session";
 import { loadPartner, unlink } from "./lib/couples";
 import { trail as curatedTrail } from "@wannadoo/core";
@@ -42,6 +49,7 @@ function signOutAndClear(userId: string) {
   resetProgress();
   forgetPartner(userId);
   clearPendingInvite();
+  forgetOpenInvite();
   signOut().catch((e: unknown) => console.error("Sign-out failed", e));
 }
 
@@ -226,7 +234,11 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
   const applyPartner = useCallback(
     (next: Profile | null) => {
       const known = loadLinkState(me.id).knownPartnerId;
-      if (next && next.id !== known) setLinkState(saveLinkState(me.id, { knownPartnerId: next.id, solo: false }));
+      if (next && next.id !== known) {
+        setLinkState(saveLinkState(me.id, { knownPartnerId: next.id, solo: false }));
+        // Linking used up or outdated the open invite; the next visit to the invite screen needs a fresh one.
+        forgetOpenInvite();
+      }
       if (!next && known) {
         setLinkState(saveLinkState(me.id, { knownPartnerId: null, solo: true }));
         setUnlinkedNotice(true);

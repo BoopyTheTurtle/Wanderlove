@@ -1,6 +1,7 @@
 // What this device remembers about linking. The partner itself comes from the server (lib/couples.ts).
 const STORAGE_KEY = "wannadoo_link_state";
 const PENDING_INVITE_KEY = "wannadoo_pending_invite";
+const OPEN_INVITE_KEY = "wannadoo_open_invite";
 // Held the simulated partner before phase 3.
 const LEGACY_KEY = "wannadoo_session";
 
@@ -75,5 +76,35 @@ export function clearPendingInvite() {
     localStorage.removeItem(PENDING_INVITE_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// The invite this user last created on this device. Reusing it keeps a link already sent working; a new invite
+// would cancel it.
+export type OpenInvite = { userId: string; code: string; expiresAt: number };
+
+export function loadOpenInvite(userId: string): OpenInvite | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OPEN_INVITE_KEY) ?? "null") as OpenInvite | null;
+    return saved?.userId === userId && typeof saved.code === "string" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveOpenInvite(invite: OpenInvite) {
+  try {
+    localStorage.setItem(OPEN_INVITE_KEY, JSON.stringify(invite));
+  } catch {
+    // Without storage every visit makes a fresh invite, as before.
+  }
+}
+
+// Called once the invite is used (the user got linked) or on sign-out.
+export function forgetOpenInvite() {
+  try {
+    localStorage.removeItem(OPEN_INVITE_KEY);
+  } catch {
+    // Nothing to forget.
   }
 }

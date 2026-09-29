@@ -1528,9 +1528,9 @@ img.profile-avatar {
   text-align: center;
 }
 .qr-frame {
-  padding: 12px;
+  padding: 4px;
   border-radius: 18px;
-  background: var(--teal-wash);
+  background: #fff;
   border: 1px solid var(--line);
 }
 .qr-frame svg {
@@ -1635,8 +1635,18 @@ img.profile-avatar {
   user-select: all;
 }
 .qr-placeholder {
-  width: 174px;
-  height: 174px;
+  width: 186px;
+  height: 186px;
+}
+.inline-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--teal-dark);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .share-note {
   color: var(--muted);
