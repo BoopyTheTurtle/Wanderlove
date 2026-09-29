@@ -57,10 +57,13 @@ When an agent reports back:
 Summarise each PR in two or three lines with its link and ask Edgar which to merge. For each approved PR, in dependency
 order:
 
-1. `gh pr ready <n>`, then `gh pr merge <n> --squash --delete-branch`.
-2. Rebase the remaining open branches on the updated integration branch and push them (`--force-with-lease`), or ask
+1. Remove the agent's worktree first, or `--delete-branch` cannot delete a branch it has checked out:
+   `git worktree remove --force <path>`. On Windows that often unregisters the worktree but leaves `node_modules`
+   behind; delete the leftover folder with `rm -rf`.
+2. `gh pr ready <n>`, then `gh pr merge <n> --squash --delete-branch`.
+3. Rebase the remaining open branches on the updated integration branch and push them (`--force-with-lease`), or ask
    their agents to.
-3. Pull the integration branch locally.
+4. Pull the integration branch locally.
 
 Then spawn the next wave, if any, and finish by updating the progress notes the project keeps (for the internal build,
 the **Progress** section of `docs/internal-build.md`).
