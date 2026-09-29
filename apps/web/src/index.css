@@ -1548,6 +1548,8 @@ img.profile-avatar {
 }
 .field {
   display: grid;
+  /* minmax(0, …) lets the column shrink below the input's intrinsic width (Firefox sizes inputs at ~20 chars) */
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
 }
 .field > span {
@@ -2883,6 +2885,7 @@ img.profile-avatar {
   margin: 0 20px;
   padding: 20px 18px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 /* The input's own border shows focus */
