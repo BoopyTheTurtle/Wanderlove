@@ -3,6 +3,8 @@ import { Confetti } from "../components/Confetti";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { ShareIcon, CompassIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
+import { AlbumActions } from "../components/AlbumActions";
+import { stopFilePrefix } from "../lib/album";
 import { allStopsDone, canAddPhotos } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
@@ -116,19 +118,33 @@ export function SherlockCompleteScreen({
           ) : (
             <>
               {photosOpen && <p className="sh-album-note">You can add photos for a day after finishing.</p>}
-              {run.trail.stops.map((stop) => {
+              {run.trail.stops.map((stop, i) => {
                 const here = album.photos.filter((p) => p.stopId === stop.id);
                 if (here.length === 0 && !photosOpen) return null;
                 return (
                   <div key={stop.id} className="sh-album-stop">
                     <h3>{stop.name}</h3>
                     {here.length > 0 && (
-                      <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+                      <PhotoGrid
+                        photos={here}
+                        meId={meId}
+                        partnerName={partnerName}
+                        onDelete={album.remove}
+                        fileNamePrefix={stopFilePrefix(i + 1, stop.name)}
+                      />
                     )}
                     {photosOpen && <AddStopPhoto runId={run.id} stopId={stop.id} onAdded={album.add} />}
                   </div>
                 );
               })}
+              <AlbumActions
+                runId={run.id}
+                trailName={run.trail.name}
+                stops={run.trail.stops}
+                date={run.completedAt ?? run.startedAt}
+                photoCount={album.photos.length}
+                theme="sherlock"
+              />
             </>
           )}
         </section>
