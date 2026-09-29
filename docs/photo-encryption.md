@@ -63,6 +63,12 @@ Saving, the ZIP, and the album image work unchanged, since they run on the phone
   yet (an old account), the start waits until their phone creates one.
 - **Joining on the partner's phone.** The phone reads its `run_keys` row and unwraps the run key with its private key.
 - **Signing in on a new phone.** The phone has no private key. It runs the recovery flow Edgar chooses in section 5.
+- **Pinning the partner's key.** Someone with write access to the database could swap the partner's public key for
+  their own, and the next trail's key would be wrapped for them. Each phone therefore remembers the partner's `key_id`
+  when it first sees it, at linking. A different `key_id` later is treated like a new phone (option C): the phone asks
+  "Emma's keys changed, most likely on a new phone. Trust them?" before it wraps any key for them. Starting a trail
+  waits for that answer; the same confirmation covers the re-share of past trails. Each wrapped run key also carries its
+  run ID as authenticated data, so a wrapped key cannot be moved to another run.
 - **Account deletion (MVP).** Deleting the account deletes its key rows along with its photos.
 
 ## 5. Recovery: Edgar's decision
