@@ -1,0 +1,144 @@
+/* Settings behind the Profile tab: heading on the green, content on white cards */
+.settings-screen {
+  --danger: #c63a50;
+  --danger-dark: #a82e42;
+  padding-bottom: 100px;
+}
+.settings-head {
+  padding: 12px 24px 18px;
+}
+.settings-head h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--on-bg);
+}
+.settings-card {
+  margin: 0 16px 14px;
+  padding: 18px 18px 20px;
+  color: var(--ink);
+}
+.settings-me,
+.settings-partner-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.settings-me > div,
+.settings-partner-row > div {
+  min-width: 0;
+}
+.settings-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.settings-email,
+.settings-note {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.settings-partner .card-kicker {
+  margin-bottom: 14px;
+}
+.settings-partner-row {
+  margin-bottom: 18px;
+}
+.settings-unlink {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid var(--danger);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-unlink:hover {
+  background: #c63a500d;
+}
+.settings-foot {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding-top: 8px;
+}
+.settings-notice-link {
+  padding: 6px;
+  color: var(--on-bg-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.settings-notice-link:focus-visible {
+  outline: 2px solid var(--on-bg);
+  outline-offset: 2px;
+}
+
+/* Unlink confirmation: fixed to the phone, above the bottom nav */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 0 24px;
+  background: #0e2624b3;
+  backdrop-filter: blur(3px);
+}
+.settings-dialog {
+  width: 100%;
+  padding: 24px 22px 20px;
+  border-radius: 22px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 20px 50px #0a2f2b55;
+}
+.settings-dialog h2 {
+  font-size: 20px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.settings-dialog p:not(.field-error) {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.settings-dialog .field-error {
+  margin-top: 12px;
+}
+.settings-dialog-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.settings-danger,
+.settings-cancel {
+  height: 50px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-danger {
+  border: 0;
+  background: var(--danger);
+  color: #fff;
+}
+.settings-danger:hover:not(:disabled) {
+  background: var(--danger-dark);
+}
+.settings-cancel {
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+}
+.settings-danger:disabled,
+.settings-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
