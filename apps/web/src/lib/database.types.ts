@@ -397,6 +397,7 @@ export type Database = {
           couple_id: string | null;
           id: string;
           started_at: string;
+          started_by: string | null;
           trail_id: string;
           trail_snapshot: NonNullable<Json>;
         };
@@ -406,6 +407,7 @@ export type Database = {
           couple_id?: string | null;
           id?: string;
           started_at?: string;
+          started_by?: string | null;
           trail_id: string;
           trail_snapshot: NonNullable<Json>;
         };
@@ -415,6 +417,7 @@ export type Database = {
           couple_id?: string | null;
           id?: string;
           started_at?: string;
+          started_by?: string | null;
           trail_id?: string;
           trail_snapshot?: NonNullable<Json>;
         };
@@ -424,6 +427,20 @@ export type Database = {
             columns: ["couple_id"];
             isOneToOne: false;
             referencedRelation: "couples";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "trail_runs_started_by_fkey";
+            columns: ["started_by"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "trail_runs_started_by_fkey";
+            columns: ["started_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
