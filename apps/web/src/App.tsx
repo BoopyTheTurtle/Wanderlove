@@ -62,9 +62,9 @@ type ProfileState = { status: "loading" } | { status: "error" } | { status: "rea
 
 // How often the invite screen checks whether the partner has linked, since that phone keeps focus meanwhile.
 const INVITE_POLL_MS = 4000;
-// How often an open run checks for the partner's progress while the app is in view, so partners walking together
-// stay in step without refocusing.
-const RUN_POLL_MS = 15000;
+// How often the app checks the partner and the trail while it is in view, so a trail the partner starts, their
+// progress, and a link or unlink show up without refocusing. Partners often keep both phones open side by side.
+const SYNC_POLL_MS = 10000;
 
 const SHERLOCK_ID = "sherlock-holmes-spikeri";
 
@@ -222,6 +222,12 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
   const [syncTick, setSyncTick] = useState(0);
   const runRequest = useRef(0);
   const [endedNotice, setEndedNotice] = useState(false);
+  // The trail name when the partner starts a trail this phone then joins; shown once.
+  const [joinedNotice, setJoinedNotice] = useState<string | null>(null);
+  // Runs started on this phone, so joining one isn't announced as the partner's doing.
+  const startedHere = useRef(new Set<string>());
+  // The first load only restores where the app was; announcing starts from then on.
+  const runLoadedOnce = useRef(false);
   const [starting, setStarting] = useState(false);
   const [startFailed, setStartFailed] = useState(false);
   // Walking paths drawn on this phone, per run; the server keeps stops only.
@@ -246,7 +252,6 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
       distanceMeters: walkingPath.distanceMeters ?? run.trail.distanceMeters,
     };
   }, [run, walkingPath]);
-  const runOpen = run !== null && isRunActive(run);
   const runPartnerName = run?.coupleId ? (partner?.name ?? null) : null;
 
   const shownTrail = runTrail ?? (runSync === "ready" && draft.status === "ready" ? draft.trail : null);
@@ -300,7 +305,18 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
   const applyRun = useCallback(
     (next: Run | null, ended: boolean) => {
       // A stop or album of one run makes no sense once another run takes its place.
-      const switched = runRef.current?.id !== next?.id;
+      const previous = runRef.current;
+      const switched = previous?.id !== next?.id;
+      // A new open run this phone didn't start came from the partner: join it on the map and say so.
+      const joined =
+        runLoadedOnce.current &&
+        switched &&
+        next !== null &&
+        isRunActive(next) &&
+        !startedHere.current.has(next.id) &&
+        (previous === null || !isRunActive(previous));
+      runLoadedOnce.current = true;
+      if (joined) setJoinedNotice(next.trail.name);
       runRef.current = next;
       setRun(next);
       saveFollowedRun(me.id, next?.id ?? null);
@@ -314,6 +330,7 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
         if (r === null) return r;
         const onTrail = r.name === "map" || r.name === "challenge" || r.name === "complete";
         if (ended && onTrail) return { name: "trailList" };
+        if (joined && (r.name === "trailList" || r.name === "linked" || r.name === "partner")) return { name: "map" };
         if (switched && (r.name === "challenge" || r.name === "complete")) return { name: "map" };
         return r;
       });
@@ -430,14 +447,15 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     };
   }, [refreshPartner, refreshRun]);
 
-  // While a run is open, check now and then for the partner's progress.
+  // While the app is in view, check now and then for the partner and the trail, open or not.
   useEffect(() => {
-    if (!runOpen) return;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refreshRun();
-    }, RUN_POLL_MS);
+      if (document.visibilityState !== "visible") return;
+      void refreshPartner();
+      void refreshRun();
+    }, SYNC_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [runOpen, refreshRun]);
+  }, [refreshPartner, refreshRun]);
 
   // Entering the map or a stop shows the latest progress.
   const trailScreen = route?.name === "map" ? "map" : route?.name === "challenge" ? `stop:${route.stopId}` : null;
@@ -539,6 +557,7 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
     runRequest.current++;
     try {
       const started = await startRun(trail);
+      startedHere.current.add(started.id);
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(started.id, trail.path, trail.distanceMeters);
@@ -752,8 +771,16 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
 
       {unlinkedNotice ? (
         <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />
+      ) : endedNotice ? (
+        <TrailEndedNotice onClose={() => setEndedNotice(false)} />
       ) : (
-        endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />
+        joinedNotice && (
+          <JoinedNotice
+            trailName={joinedNotice}
+            partnerName={partner?.name ?? null}
+            onClose={() => setJoinedNotice(null)}
+          />
+        )
       )}
     </PhoneFrame>
   );
@@ -778,6 +805,32 @@ function UnlinkedNotice({ onClose }: { onClose: () => void }) {
         <h2 id="unlinked-title">You are no longer linked</h2>
         <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
           OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The partner started a trail; this phone joined it on the map.
+function JoinedNotice({
+  trailName,
+  partnerName,
+  onClose,
+}: {
+  trailName: string;
+  partnerName: string | null;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => closeRef.current?.focus(), []);
+  return (
+    <div className="notice-backdrop">
+      <div className="notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="joined-title">
+        <h2 id="joined-title">
+          {partnerName ?? "Your partner"} started &ldquo;{trailName}&rdquo;
+        </h2>
+        <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
+          Let&rsquo;s go
         </button>
       </div>
     </div>
