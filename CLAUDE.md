@@ -21,9 +21,11 @@ Run everything from the repository root; npm workspaces route each script to the
 - `packages/core` exports platform-neutral logic from `src/index.ts`: the `Trail`/`Stop` model, the curated trail, test
   profiles, geo maths, and `generateRoute`. It ships as TypeScript source with no build step; the web app imports it as
   `@wannadoo/core`. Keep React, DOM, and storage code out of it.
-- `apps/web/src/App.tsx` owns routing and state: the session, stop progress, the started route (saved), and the draft
-  route (never saved, regenerated on every visit to the map).
-- `apps/web/src/lib` holds the browser-only pieces: `localStorage` wrappers, live GPS, and the one-shot start position.
+- `apps/web/src/App.tsx` owns routing and state: the auth session, the partner, the active trail run, and the draft route
+  (never saved, regenerated on every visit to the map). Runs, stop completions, and photos live in Supabase; the phone
+  keeps only small per-device state such as the solo choice and each run's walking path.
+- `apps/web/src/lib` holds the browser-only pieces. Only `lib/*` imports supabase-js: `auth`, `profile`, `couples`,
+  `runs`, and `photos` wrap the backend; the rest covers device storage, live GPS, and the one-shot start position.
 - Route generation queries Overpass for places, builds a loop with cheapest insertion, and trims it to 2.6 km against
   the FOSSGIS foot router. Both services rate-limit, so reuse the place cache and avoid request loops.
 
@@ -34,7 +36,8 @@ Run everything from the repository root; npm workspaces route each script to the
   sits behind every screen. Text on that gradient uses `--on-bg` or `--on-bg-muted`.
 - The schema changes only through new files in `supabase/migrations`; never edit a migration once it has deployed.
   Every access rule gets a pgTAP test in `supabase/tests` that checks the member, the partner, and a stranger.
-- Stop IDs from generated routes take the form `osm-<type>-<id>`; progress in `localStorage` is keyed by stop ID.
+- Stop IDs from generated routes take the form `osm-<type>-<id>`; `stop_completions` and `photos` key on them.
+- A run's snapshot never holds `start` or `path` (they can reveal a home); the database refuses them too.
 
 ## Parallel work
 
