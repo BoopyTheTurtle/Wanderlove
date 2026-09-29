@@ -85,7 +85,7 @@ export function PartnerLink({
         </div>
         <p className="qr-caption">
           Have your partner scan this, or scan theirs.
-          <b>@{me.username}</b>
+          {me.username && <b>@{me.username}</b>}
         </p>
         <button type="button" className="btn-primary" onClick={() => setScanning(true)}>
           <CameraIcon size={18} /> Scan partner&rsquo;s code

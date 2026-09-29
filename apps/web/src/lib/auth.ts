@@ -22,7 +22,8 @@ export async function verifyCode(email: string, token: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  const { error } = await supabase.auth.signOut();
+  // Local scope: signing out on this phone leaves the user signed in on other devices.
+  const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) throw error;
 }
 
