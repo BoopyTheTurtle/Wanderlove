@@ -13,8 +13,12 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The first screen picks a test profile; the **Reset** pill on the map clears everything and
-starts over.
+Sign-in needs a Supabase project. Create `apps/web/.env.local` with `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` (the publishable key) from the project's API settings, then open http://localhost:5173 and sign
+in with an emailed code.
+
+To work offline from the online project, start the local stack (`npm run db:start`, needs Docker Desktop) and run
+`npm run dev:local` instead. It serves http://localhost:5174, where a **Test mode** button signs in as a seeded user.
 
 ## Repository layout
 
@@ -34,7 +38,8 @@ Run these from the repository root.
 
 | Command             | Does                                                       |
 | ------------------- | ---------------------------------------------------------- |
-| `npm run dev`       | Starts the web app with hot reload                         |
+| `npm run dev`       | Starts the web app on port 5173 against the online project |
+| `npm run dev:local` | Starts it on port 5174 against the local Supabase stack    |
 | `npm run build`     | Typechecks and builds the web app into `apps/web/dist`     |
 | `npm run typecheck` | Typechecks every workspace                                 |
 | `npm run lint`      | Runs ESLint                                                |

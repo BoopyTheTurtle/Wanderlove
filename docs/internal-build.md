@@ -21,6 +21,7 @@ Last updated September 29, 2026. Resume from **Next** below.
   are live. The Magic Link template shows the six-digit code.
 - **URLs and keys.** Supabase's redirect URLs cover production, Vercel previews, `wannadoo.app`, and `localhost:5173`.
   Vercel holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- **Site URL.** Supabase's Site URL is `https://www.wannadoo.app`, and the redirect URLs include it.
 - **Domain.** Testers use `https://www.wannadoo.app`; the bare `wannadoo.app` redirects there. Vercel attaches the domain
   to the `chore/repo-structure` branch as a Preview domain, so it serves the latest merge. Switch it back to Production
   once the build reaches `main`. Porkbun's MX and TXT records (forwarding, SPF, DKIM, DMARC) are untouched.
@@ -47,9 +48,24 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** In Supabase, set the Site URL to `https://www.wannadoo.app` and add `https://www.wannadoo.app/**` to the
-   redirect URLs.
-2. **[Agent]** Plan phase 3 (linking) with `parallel-build` and show Edgar the split.
+1. **[You]** Decide the two phase 3 questions below the phase 3 plan (section 5), then approve the split.
+2. **[Agent]** Build phase 3 with `parallel-build`: the database piece first, then the linking screens.
+
+**Lessons from phase 2:**
+
+- **Check hosted settings against `config.toml`.** The online project sent 8-digit codes while the app and the local
+  stack expected 6. When a flow first runs online, compare the dashboard's auth settings with `supabase/config.toml`.
+- **A trigger covers only rows created after it.** Accounts older than the schema had no profile. Pair every
+  trigger that creates rows with a backfill in the same migration.
+- **Test in Firefox and on a phone, not only Chromium.** The agents' browser is Chromium, which hid a grid overflow
+  that Firefox and Android Chrome showed.
+- **Give each backend its own port.** With both dev servers on 5173, swapping one for the other silently moved Edgar's
+  open tab to the local stack, and his codes went to Mailpit. `dev:local` now uses 5174.
+- **Parallel agents paid off.** Two agents built sign-in and the tester notice in about ten minutes of wall time; review
+  still caught a global sign-out and an empty username. Agents must stop their dev servers before reporting, or
+  their worktrees stay locked.
+- **The live domain is `www`.** Vercel redirects `wannadoo.app` to `www.wannadoo.app`, so Supabase's Site URL uses
+  `www`.
 
 **Notes for whoever resumes:**
 
@@ -59,8 +75,7 @@ Last updated September 29, 2026. Resume from **Next** below.
 - `npm run dev` (port 5173) talks to the online project; `npm run dev:local` (port 5174) talks to the local stack.
 - The local stack's sign-in email carries only the magic link, not the code. Read codes from Mailpit
   (`http://127.0.0.1:54324`) via the link, or add a local template in `supabase/config.toml`.
-- Before phase 3: signed-in accounts have no username until the MVP, so the partner screen's QR code still carries the
-  stand-in payload. Phase 3 replaces it with invite codes.
+- Until phase 3 lands, the partner screen still links a simulated partner; its QR code carries a stand-in payload.
 - **Run workflow** appears on the `Deploy migrations` page only once the workflow file reaches `main`; until then, re-run
   an earlier run instead.
 - GitHub warns that `actions/checkout@v4` and `supabase/setup-cli@v1` target Node 20. The warning is harmless; bump the
@@ -170,8 +185,29 @@ same account.
 
 ### Phase 3: Linking. Agent: 1 day
 
-Main spec phase 3, unchanged, including the QR code, the `/link/<code>` route, the link notice, instant unlinking, and
-the attempt limit on `redeem_invite`. Email lookup goes.
+Main spec phase 3, including the QR code, the `/link/<code>` route, the link notice, instant unlinking, and the attempt
+limit on `redeem_invite`. Email lookup goes. Reviewing the spec against the code on September 29 changed the plan:
+
+- **The attempt limit (main spec 3.4) already exists.** Phase 1 built it into `redeem_invite`, with pgTAP tests.
+- **The invitee needs the inviter's name before linking.** Main spec 6.2 shows "A wants to link with you", but a
+  stranger can read neither the invite nor A's profile. A new RPC, `peek_invite(code)`, returns the inviter's display
+  name and the invite's status without redeeming it, and counts failed look-ups toward the same attempt limit.
+- **An invite link must survive sign-in.** Someone who opens `/link/<code>` signed out goes through sign-in and
+  onboarding first; the app keeps the code on the device until then and drops it from the address bar after use.
+- **The phone's camera scans the QR code.** The code holds the `/link/<code>` URL, so any camera app opens it. The
+  in-app scanner goes; a field for typing the code stays as a fallback.
+
+| #   | Task                                                                                                                      | Tag     |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 3.1 | Migration: `peek_invite`, with pgTAP tests for the inviter, the invitee, and a stranger; regenerate types                 | [Agent] |
+| 3.2 | `lib/couples.ts`: create invite, peek, redeem, unlink, and the current partner from `profile_cards`                       | [Agent] |
+| 3.3 | Rework `PartnerLink.tsx`: invite QR and share link, typed-code fallback, the accept screen, and the `/link/<code>` route  | [Agent] |
+| 3.4 | A settings screen behind the **Profile** tab: partner, **Unlink** with the flow from main spec 6.3, and **Sign out**      | [Agent] |
+| 3.5 | Replace the stand-in partner (`lib/session.ts`) with the server's; refresh on focus so an unlink shows on the other phone | [Agent] |
+| 3.6 | Approve the wording of the link notice and the unlink confirmation                                                        | [You]   |
+
+**Open for Edgar:** (1) whether testers may skip linking and walk solo (section 7, question 3); (2) the link notice
+and unlink wording (3.6).
 
 **Done when:** two phones link by QR, both show each other, and either can unlink.
 

@@ -28,14 +28,17 @@ If any of these is missing or the task needs a file outside **Owns**, stop and r
 3. **Read before writing.** Read `CLAUDE.md`, `CONTRIBUTING.md`, and every file you will change. Match the surrounding
    code.
 4. **Build** within **Owns**. Keep the diff to the task: no drive-by refactors, no reformatting of untouched files.
-5. **Check.** Run `npm run check` until it passes. For UI changes, start the dev server (`npm run dev`; Vite takes the
-   next free port after 5173) and check the screen at 390 px width if you have a browser tool.
+5. **Check.** Run `npm run check` until it passes. For UI changes, start the dev server against the local stack with
+   `npm run dev -w @wannadoo/web -- --mode localdb` (Vite takes the next free port; `npm run dev` would hit the online
+   project, and `dev:local` pins 5174, which another agent may hold). Check the screen at 390 px width if you have a
+   browser tool, and say in your report that you checked Chromium only.
 6. **Commit** with an imperative subject under about 70 characters and a body that says why. End the message with the
    attribution lines your system instructions give you.
 7. **Push and open a draft PR:** `git push -u origin <branch>`, then
    `gh pr create --draft --base <integration branch> --title "<title>" --body "<body>"`. The body lists what changed,
    how you verified it, and anything left open.
-8. **Report back** in under 200 words: branch, PR URL, what you verified and how, what you could not verify, and any
+8. **Stop every dev server you started**, so the orchestrator can remove your worktree.
+9. **Report back** in under 200 words: branch, PR URL, what you verified and how, what you could not verify, and any
    file outside **Owns** that you believe needs a change.
 
 ## Shared-resource rules
