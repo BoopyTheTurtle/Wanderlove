@@ -34,3 +34,10 @@ Run everything from the repository root; npm workspaces route each script to the
 - The schema changes only through new files in `supabase/migrations`; never edit a migration once it has deployed.
   Every access rule gets a pgTAP test in `supabase/tests` that checks the member, the partner, and a stranger.
 - Stop IDs from generated routes take the form `osm-<type>-<id>`; progress in `localStorage` is keyed by stop ID.
+
+## Parallel work
+
+For any complex, multi-part task, use the `parallel-build` skill when the parts separate cleanly: it splits the work,
+shows Edgar the split, and spawns `feature-builder` agents (`.claude/agents/feature-builder.md`), each on its own
+branch and worktree. Agents push and open draft PRs against the integration branch (`chore/repo-structure` for the
+internal build); Edgar approves every merge. Tell Edgar the plan before building anything non-trivial.

@@ -10,7 +10,7 @@ Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
 
 ## Progress
 
-Last updated September 28, 2026. Resume from **Next** below.
+Last updated September 29, 2026. Resume from **Next** below.
 
 **Done:**
 
@@ -26,17 +26,18 @@ Last updated September 28, 2026. Resume from **Next** below.
 - **Deploys.** The `Deploy migrations` workflow runs `supabase db push` on every push to `chore/repo-structure` that
   touches `supabase/migrations`. It reads one secret, `SUPABASE_DB_URL` (session pooler string); the Management API token
   approach was dropped because `supabase link` needed too many permissions.
+- **Local env.** `apps/web/.env.local` holds the URL and the `sb_publishable_...` key under `VITE_SUPABASE_ANON_KEY`.
+- **Anonymous access.** On September 29, 58 probes with the publishable key hit the online project, and all were
+  refused. They covered select, insert, update, and delete on every table and `profile_cards`, all five RPCs, the
+  `private` schema, and listing, uploading, deleting, and public URLs in the `photos` bucket.
+- **Supabase settings.** Confirmed September 29: the DPA is signed, auth emails per hour sit near 100, email OTP expiry
+  is 600 seconds, and the **Confirm signup** template shows `{{ .Token }}`. Resend's DPA has no signing step; it
+  applies automatically under Resend's terms.
 
 **Next:**
 
-1. **[You]** Create `apps/web/.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, or paste the anon key
-   to the agent.
-2. **[Agent]** Check that an anonymous caller gets refused by every online table, `profile_cards`, every RPC, and the
-   `photos` bucket.
-3. **[You]** Confirm the settings nobody has checked yet: the Supabase and Resend DPAs are signed, auth emails per hour
-   sit near 100, email OTP expiry is 600 seconds, and the **Confirm signup** template also shows `{{ .Token }}`.
-4. **[Agent]** Start phase 2 against the local stack, then check it against the online project.
-5. **[You]**, optional: point `wannadoo.app` at Vercel and update Supabase's Site URL to match.
+1. **[Agent]** Start phase 2 against the local stack, then check it against the online project.
+2. **[You]**, optional: point `wannadoo.app` at Vercel and update Supabase's Site URL to match.
 
 **Notes for whoever resumes:**
 

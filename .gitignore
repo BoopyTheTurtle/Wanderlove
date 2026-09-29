@@ -16,3 +16,5 @@ coverage
 
 .vite
 .claude/settings.local.json
+
+.claude/worktrees/
