@@ -55,7 +55,9 @@ export function TesterNotice() {
             <li>Your linked partner sees the trails you walk together and their photos.</li>
             <li>
               Three companies process your data for me: Supabase stores the database and photos in Frankfurt (EU),
-              Vercel hosts the app, and Resend sends sign-in emails from its EU region.
+              Vercel hosts the app, and Resend sends sign-in emails from its EU region. Supabase and Vercel are US
+              companies; where your data reaches the US, their contracts rely on the EU&ndash;US Data Privacy Framework
+              and the EU Standard Contractual Clauses.
             </li>
             <li>
               When the app builds a route, it sends your position to Overpass, FOSSGIS, and OpenStreetMap to find places
@@ -63,8 +65,14 @@ export function TesterNotice() {
             </li>
           </ul>
 
+          <h2>Deleting photos</h2>
+          <p>
+            You can delete your own photos. A deleted photo disappears from the app for your partner too. Copies either
+            of you already saved to a phone stay there.
+          </p>
+
           <h2>If you unlink</h2>
-          <p>Each of you keeps the photos from trails you walked together. You can delete your own photos.</p>
+          <p>Each of you keeps the photos from trails you walked together.</p>
 
           <h2>How long I keep it</h2>
           <p>I keep your data until the test ends and delete all test data before public launch.</p>
