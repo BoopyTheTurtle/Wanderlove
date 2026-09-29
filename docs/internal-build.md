@@ -48,14 +48,15 @@ Last updated September 29, 2026. Resume from **Next** below.
   screen shows an invite QR code and share link, a typed-code fallback, and "Walk solo for now"; `/link/<code>`
   survives sign-in; the partner reloads when the app returns to the foreground. Edgar linked an iPhone and a second
   phone by QR on `www.wannadoo.app`, with a new second account, and unlinked them.
+- **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
+  until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
   `chore/repo-structure`; Edgar approves every merge.
 
 **Next:**
 
-1. **[Agent]** Plan phase 4 (runs and photos on the server) with `parallel-build` and show Edgar the split.
-2. **[Agent]**, optional, small: draw the invite QR on white with a four-module quiet zone, and reuse the phone's open
-   invite code until it expires, so revisiting the invite screen no longer cancels a link already sent.
+1. **[You]** Answer the two phase 4 questions (section 5, phase 4) and approve the split.
+2. **[Agent]** Build phase 4 with `parallel-build`: wave 1 (photo pipeline, run sync), then wave 2 (the rewire).
 
 **Lessons from phase 2:**
 
@@ -235,7 +236,28 @@ linking available. Edgar approved this wording (3.6):
 
 Main spec tasks 4.1 to 4.4: `lib/runs.ts` with the snapshot stripped of `start` and `path`; `lib/photos.ts` with resize,
 re-encode, upload, signed URLs, and delete; `App.tsx` rewired to the wrappers with refresh on focus; unit tests. Skip
-`photo_hidden` in the UI; the table stays.
+`photo_hidden` in the UI; the table stays. Reviewing the spec against the code on September 29 added four points:
+
+- **Photo capture is off.** Commit `742be40` removed it for prototyping; both challenge screens complete a stop with an
+  empty photo. Phase 4 brings capture back (`<input type="file" accept="image/*" capture="environment">`).
+- **The schema needs no change.** RLS already lets run members start runs through `start_run`, complete stops on active
+  runs, upload to `photos/{run_id}/{photo_id}.jpg`, read through signed URLs, and delete their own photos. Several
+  photos per stop are allowed; the first completion of a stop wins, so the second phone's insert must ignore the
+  duplicate.
+- **Photos keep their orientation.** Redrawing on a canvas strips EXIF, including the rotation tag, so the resize must
+  decode with `createImageBitmap(file, { imageOrientation: "from-image" })` before drawing.
+- **Unlinking abandons the active run** (`unlink()`), so both phones must drop a run that turns abandoned and say so.
+
+| #   | Task                                                                                                                              | Tag     |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 4.1 | `lib/runs.ts`: start, load the active run with its completions, complete a stop, finish, abandon; snapshot without `start`/`path` | [Agent] |
+| 4.2 | `lib/photos.ts` and a capture component: resize to 2048 px, JPEG 0.8, upload, signed URLs, delete own; retry on failure           | [Agent] |
+| 4.3 | Rewire `App.tsx` and the trail screens from `progress.ts` and `activeRoute.ts` to the wrappers; refresh on focus                  | [Agent] |
+| 4.4 | Unit tests for the snapshot, the resize maths, and the run state                                                                  | [Agent] |
+| 4.5 | Check on two phones that progress syncs, and in an EXIF viewer that a saved photo has no GPS                                      | [You]   |
+
+**Open for Edgar:** (1) must a stop have a photo to count as done, or may couples skip it? (2) may both partners add a
+photo at the same stop, or does the first photo complete it and close it?
 
 **Done when:** a stop completed on one phone shows on the partner's phone after refocus, and a downloaded photo carries
 no GPS data in an EXIF viewer.
