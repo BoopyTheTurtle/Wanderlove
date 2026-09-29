@@ -25,7 +25,8 @@ import {
 } from "./crypto";
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xff, 0xd9]);
-const AAD = photoAad("run-1", "photo-1");
+const RUN = "run-1";
+const AAD = photoAad(RUN, "photo-1");
 
 async function bytesOf(blob: Blob): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());
@@ -68,9 +69,9 @@ describe("account keys", () => {
 
   it("imports a PKCS#8 key that opens run keys wrapped for the pair", async () => {
     const runKey = await generateRunKey();
-    const wrapped = await wrapRunKey(runKey, emma.publicKey);
+    const wrapped = await wrapRunKey(runKey, emma.publicKey, RUN);
     const privateKey = await importPrivateKey(emma.privateKeyPkcs8);
-    await expect(unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, privateKey)).resolves.toBeDefined();
+    await expect(unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, privateKey, RUN)).resolves.toBeDefined();
   });
 });
 
@@ -126,11 +127,11 @@ describe("recovery code", () => {
 describe("run keys", () => {
   it("round-trips through wrap and unwrap as a non-extractable key", async () => {
     const runKey = await generateRunKey();
-    const wrapped = await wrapRunKey(runKey, jonas.publicKey);
+    const wrapped = await wrapRunKey(runKey, jonas.publicKey, RUN);
     expect(fromBase64(wrapped.wrappedKey)).toHaveLength(12 + 32 + 16);
     expect(fromBase64(wrapped.ephemeralPublicKey)).toHaveLength(65);
 
-    const opened = await unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, jonas.privateKey);
+    const opened = await unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, jonas.privateKey, RUN);
     expect(opened.extractable).toBe(false);
     const { ciphertext, nonce } = await encryptPhoto(new Blob([JPEG]), runKey, AAD);
     expect(await bytesOf(await decryptPhoto(ciphertext, nonce, opened, AAD))).toEqual(JPEG);
@@ -138,42 +139,56 @@ describe("run keys", () => {
 
   it("uses a fresh ephemeral key for every wrap", async () => {
     const runKey = await generateRunKey();
-    const a = await wrapRunKey(runKey, emma.publicKey);
-    const b = await wrapRunKey(runKey, emma.publicKey);
+    const a = await wrapRunKey(runKey, emma.publicKey, RUN);
+    const b = await wrapRunKey(runKey, emma.publicKey, RUN);
     expect(a.ephemeralPublicKey).not.toBe(b.ephemeralPublicKey);
     expect(a.wrappedKey).not.toBe(b.wrappedKey);
   });
 
   it("opens only with the recipient's private key", async () => {
     const runKey = await generateRunKey();
-    const wrapped = await wrapRunKey(runKey, emma.publicKey);
+    const wrapped = await wrapRunKey(runKey, emma.publicKey, RUN);
     await expect(
-      unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, stranger.privateKey),
+      unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, stranger.privateKey, RUN),
     ).rejects.toBeInstanceOf(DecryptionError);
-    await expect(unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, jonas.privateKey)).rejects.toBeInstanceOf(
-      DecryptionError,
-    );
+    await expect(
+      unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, jonas.privateKey, RUN),
+    ).rejects.toBeInstanceOf(DecryptionError);
+  });
+
+  it("opens only for the run it was wrapped for", async () => {
+    const runKey = await generateRunKey();
+    const wrapped = await wrapRunKey(runKey, emma.publicKey, "run-a");
+    await expect(
+      unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, emma.privateKey, "run-b"),
+    ).rejects.toBeInstanceOf(DecryptionError);
+    await expect(
+      rewrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, emma.privateKey, jonas.publicKey, "run-b"),
+    ).rejects.toBeInstanceOf(DecryptionError);
+    await expect(
+      unwrapRunKey(wrapped.wrappedKey, wrapped.ephemeralPublicKey, emma.privateKey, "run-a"),
+    ).resolves.toBeDefined();
   });
 
   it("fails on a tampered wrapped key or a swapped ephemeral key", async () => {
     const runKey = await generateRunKey();
-    const wrapped = await wrapRunKey(runKey, emma.publicKey);
-    const other = await wrapRunKey(runKey, emma.publicKey);
+    const wrapped = await wrapRunKey(runKey, emma.publicKey, RUN);
+    const other = await wrapRunKey(runKey, emma.publicKey, RUN);
 
     const bytes = fromBase64(wrapped.wrappedKey);
     bytes[20] ^= 1;
-    await expect(unwrapRunKey(toBase64(bytes), wrapped.ephemeralPublicKey, emma.privateKey)).rejects.toBeInstanceOf(
-      DecryptionError,
-    );
-    await expect(unwrapRunKey(wrapped.wrappedKey, other.ephemeralPublicKey, emma.privateKey)).rejects.toBeInstanceOf(
-      DecryptionError,
-    );
+    await expect(
+      unwrapRunKey(toBase64(bytes), wrapped.ephemeralPublicKey, emma.privateKey, RUN),
+    ).rejects.toBeInstanceOf(DecryptionError);
+    await expect(
+      unwrapRunKey(wrapped.wrappedKey, other.ephemeralPublicKey, emma.privateKey, RUN),
+    ).rejects.toBeInstanceOf(DecryptionError);
   });
 
   it("rewraps for a new public key, which then decrypts photos sealed with the original", async () => {
     const runKey = await generateRunKey();
     const { ciphertext, nonce } = await encryptPhoto(new Blob([JPEG]), runKey, AAD);
-    const forEmma = await wrapRunKey(runKey, emma.publicKey);
+    const forEmma = await wrapRunKey(runKey, emma.publicKey, RUN);
 
     const newPhone = await generateAccountKeys();
     const forNewPhone = await rewrapRunKey(
@@ -181,20 +196,21 @@ describe("run keys", () => {
       forEmma.ephemeralPublicKey,
       emma.privateKey,
       newPhone.publicKey,
+      RUN,
     );
-    const opened = await unwrapRunKey(forNewPhone.wrappedKey, forNewPhone.ephemeralPublicKey, newPhone.privateKey);
+    const opened = await unwrapRunKey(forNewPhone.wrappedKey, forNewPhone.ephemeralPublicKey, newPhone.privateKey, RUN);
     expect(await bytesOf(await decryptPhoto(ciphertext, nonce, opened, AAD))).toEqual(JPEG);
 
     await expect(
-      unwrapRunKey(forNewPhone.wrappedKey, forNewPhone.ephemeralPublicKey, emma.privateKey),
+      unwrapRunKey(forNewPhone.wrappedKey, forNewPhone.ephemeralPublicKey, emma.privateKey, RUN),
     ).rejects.toBeInstanceOf(DecryptionError);
   });
 
   it("refuses to rewrap a key it cannot open", async () => {
     const runKey = await generateRunKey();
-    const forEmma = await wrapRunKey(runKey, emma.publicKey);
+    const forEmma = await wrapRunKey(runKey, emma.publicKey, RUN);
     await expect(
-      rewrapRunKey(forEmma.wrappedKey, forEmma.ephemeralPublicKey, stranger.privateKey, stranger.publicKey),
+      rewrapRunKey(forEmma.wrappedKey, forEmma.ephemeralPublicKey, stranger.privateKey, stranger.publicKey, RUN),
     ).rejects.toBeInstanceOf(DecryptionError);
   });
 });

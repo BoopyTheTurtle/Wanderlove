@@ -200,42 +200,63 @@ async function wrappingKey(
   );
 }
 
-async function wrapRaw(rawRunKey: Uint8Array<ArrayBuffer>, recipientPublicKey: string): Promise<WrappedRunKey> {
+// Binds a wrapped run key to its run, so a wrapped key cannot move to another run's row.
+function runKeyAad(runId: string): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(`wannadoo run key v1/${runId}`);
+}
+
+async function wrapRaw(
+  rawRunKey: Uint8Array<ArrayBuffer>,
+  recipientPublicKey: string,
+  runId: string,
+): Promise<WrappedRunKey> {
   const recipient = await importPublicKey(recipientPublicKey);
   const ephemeral = await subtle.generateKey(ECDH, true, ["deriveBits"]);
   const ephemeralRaw = new Uint8Array(await subtle.exportKey("raw", ephemeral.publicKey));
   const key = await wrappingKey(ephemeral.privateKey, recipient, ephemeralRaw);
   const iv = randomBytes(IV_BYTES);
-  const sealed = new Uint8Array(await subtle.encrypt({ name: AES_GCM, iv }, key, rawRunKey));
+  const sealed = new Uint8Array(
+    await subtle.encrypt({ name: AES_GCM, iv, additionalData: runKeyAad(runId) }, key, rawRunKey),
+  );
   return { wrappedKey: toBase64(concat(iv, sealed)), ephemeralPublicKey: toBase64(ephemeralRaw) };
 }
 
-async function unwrapRaw(wrapped: WrappedRunKey, myPrivateKey: CryptoKey): Promise<Uint8Array<ArrayBuffer>> {
+async function unwrapRaw(
+  wrapped: WrappedRunKey,
+  myPrivateKey: CryptoKey,
+  runId: string,
+): Promise<Uint8Array<ArrayBuffer>> {
   try {
     const ephemeralRaw = fromBase64(wrapped.ephemeralPublicKey);
     const ephemeral = await subtle.importKey("raw", ephemeralRaw, ECDH, false, []);
     const key = await wrappingKey(myPrivateKey, ephemeral, ephemeralRaw);
     const bytes = fromBase64(wrapped.wrappedKey);
-    const raw = await subtle.decrypt({ name: AES_GCM, iv: bytes.subarray(0, IV_BYTES) }, key, bytes.subarray(IV_BYTES));
+    const raw = await subtle.decrypt(
+      { name: AES_GCM, iv: bytes.subarray(0, IV_BYTES), additionalData: runKeyAad(runId) },
+      key,
+      bytes.subarray(IV_BYTES),
+    );
     return new Uint8Array(raw);
   } catch {
     throw new DecryptionError("run key");
   }
 }
 
-// Wraps a run key for one member, identified by their raw public key (base64). The 12-byte IV leads wrappedKey.
-export async function wrapRunKey(runKey: CryptoKey, recipientPublicKey: string): Promise<WrappedRunKey> {
+// Wraps a run key for one member of one run, identified by their raw public key (base64). The 12-byte IV leads
+// wrappedKey.
+export async function wrapRunKey(runKey: CryptoKey, recipientPublicKey: string, runId: string): Promise<WrappedRunKey> {
   const raw = new Uint8Array(await subtle.exportKey("raw", runKey));
-  return wrapRaw(raw, recipientPublicKey);
+  return wrapRaw(raw, recipientPublicKey, runId);
 }
 
-// Opens my wrapped copy of a run key as a non-extractable AES-GCM key for photos.
+// Opens my wrapped copy of a run key as a non-extractable AES-GCM key for photos. Fails for any other run ID.
 export async function unwrapRunKey(
   wrappedKey: string,
   ephemeralPublicKey: string,
   myPrivateKey: CryptoKey,
+  runId: string,
 ): Promise<CryptoKey> {
-  const raw = await unwrapRaw({ wrappedKey, ephemeralPublicKey }, myPrivateKey);
+  const raw = await unwrapRaw({ wrappedKey, ephemeralPublicKey }, myPrivateKey, runId);
   return subtle.importKey("raw", raw, AES_GCM, false, ["encrypt", "decrypt"]);
 }
 
@@ -246,10 +267,11 @@ export async function rewrapRunKey(
   ephemeralPublicKey: string,
   myPrivateKey: CryptoKey,
   newRecipientPublicKey: string,
+  runId: string,
 ): Promise<WrappedRunKey> {
-  const raw = await unwrapRaw({ wrappedKey, ephemeralPublicKey }, myPrivateKey);
+  const raw = await unwrapRaw({ wrappedKey, ephemeralPublicKey }, myPrivateKey, runId);
   try {
-    return await wrapRaw(raw, newRecipientPublicKey);
+    return await wrapRaw(raw, newRecipientPublicKey, runId);
   } finally {
     raw.fill(0);
   }
