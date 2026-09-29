@@ -48,8 +48,8 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** Decide the two phase 3 questions below the phase 3 plan (section 5), then approve the split.
-2. **[Agent]** Build phase 3 with `parallel-build`: the database piece first, then the linking screens.
+1. **[Agent]** Phase 3, wave 1: `feature/invite-preview` (`peek_invite`) and `feature/settings-screen`.
+2. **[Agent]** Phase 3, wave 2, after Edgar merges wave 1: `feature/partner-linking`.
 
 **Lessons from phase 2:**
 
@@ -206,8 +206,13 @@ limit on `redeem_invite`. Email lookup goes. Reviewing the spec against the code
 | 3.5 | Replace the stand-in partner (`lib/session.ts`) with the server's; refresh on focus so an unlink shows on the other phone | [Agent] |
 | 3.6 | Approve the wording of the link notice and the unlink confirmation                                                        | [You]   |
 
-**Open for Edgar:** (1) whether testers may skip linking and walk solo (section 7, question 3); (2) the link notice
-and unlink wording (3.6).
+**Decided September 29:** testers may walk solo. The partner screen offers "Walk solo for now", and Settings keeps
+linking available. Edgar approved this wording (3.6):
+
+- **Link notice:** "**Link with {name}?** Once linked, you both see the trails you walk together and their photos. If
+  you unlink, you each keep the photos from trails you walked together." Buttons: **Link** / **Not now**.
+- **Unlink confirmation:** "**Unlink from {name}?** You stop sharing new trails. You both keep the photos from trails
+  you walked together. {name} won't get a message." Buttons: **Unlink** / **Cancel**.
 
 **Done when:** two phones link by QR, both show each other, and either can unlink.
 
@@ -273,5 +278,4 @@ Test data is the one planned break: section 7, question 1, wipes it before launc
    migrating their accounts into production; wiping is simpler and avoids reusing data collected under a test notice.
 2. **Email sender.** Resolved September 28, 2026: `wannadoo.app` bought at Porkbun, and Resend sends through Supabase's
    SMTP settings. The domain carries into the MVP.
-3. **Solo testers.** Can a tester walk without linking? The schema supports it at no cost; the UI only needs a skip
-   button on the link screen.
+3. **Solo testers.** Resolved September 29, 2026: yes. The link screen offers "Walk solo for now".
