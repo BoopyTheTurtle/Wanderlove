@@ -1,0 +1,68 @@
+/* Tester notice at /tester-notice: heading on the green, text on a white card */
+.tester-notice {
+  padding-bottom: 32px;
+}
+.tester-notice-head {
+  padding: 12px 24px 20px;
+}
+.tester-notice-head .wordmark {
+  font-weight: 800;
+  font-size: 15px;
+}
+.tester-notice-head h1 {
+  margin-top: 14px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--on-bg);
+}
+.tester-notice-version {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--on-bg-muted);
+}
+.tester-notice-body {
+  margin: 0 16px;
+  padding: 22px 20px 24px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.tester-notice-body h2 {
+  margin: 22px 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--teal-dark);
+}
+.tester-notice-body p + p {
+  margin-top: 10px;
+}
+.tester-notice-body ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  list-style: disc;
+}
+.tester-notice-body li + li {
+  margin-top: 4px;
+}
+.tester-notice-body a {
+  color: var(--teal-dark);
+  font-weight: 600;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.tester-notice-back {
+  display: block;
+  margin: 20px 16px 0;
+  padding: 14px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--teal-dark);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.tester-notice-back:focus-visible,
+.tester-notice-body a:focus-visible {
+  outline: 2px solid var(--on-bg);
+  outline-offset: 2px;
+}
