@@ -53,6 +53,8 @@ Last updated September 29, 2026. Resume from **Next** below.
   with retry, and the app rewired to them. Photo capture is back, with **Skip photo**; both partners add photos;
   progress syncs on focus and every 15 seconds; the album loads from the server; an unlinked run ends on both phones.
   Verified locally with two sessions; the two-phone test (4.5) is Edgar's.
+- **Photo grace window.** PR 19: run members add photos for 24 hours after a trail finishes, so the partner can still
+  add theirs at the last stop; the complete screens offer **Add a photo** per stop meanwhile. Deployed.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -60,9 +62,7 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[Agent]** Photo grace window: run members may add photos for 24 hours after a run finishes, so the partner can
-   still add theirs at the last stop (Edgar chose this on September 29).
-2. **[You]** Phase 4 check (4.5): two phones walk the Sherlock trail, progress syncs, and a saved photo shows no GPS in
+1. **[You]** Phase 4 check (4.5): two phones walk the Sherlock trail, progress syncs, and a saved photo shows no GPS in
    an EXIF viewer.
 
 **Lessons from phase 2:**
