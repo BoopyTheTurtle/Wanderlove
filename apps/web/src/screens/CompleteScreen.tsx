@@ -2,6 +2,8 @@ import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { CompassIcon, ShareIcon } from "../components/Icons";
+import { AddStopPhoto } from "../components/AddStopPhoto";
+import { canAddPhotos } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
 
@@ -22,6 +24,7 @@ export function CompleteScreen({
   const loaded = useRun(runId, syncTick);
   const album = useRunPhotos(runId, syncTick);
   const trail = loaded.status === "ready" ? loaded.run.trail : null;
+  const photosOpen = loaded.status === "ready" && canAddPhotos(loaded.run);
   const photos = album.photos;
   const [left, main, right] = [photos[0], photos[photos.length - 1] ?? photos[0], photos[1] ?? photos[0]];
 
@@ -122,14 +125,20 @@ export function CompleteScreen({
             </button>
           </p>
         )}
+        {album.status === "ready" && photosOpen && (
+          <p className="album-note">You can add photos for a day after finishing.</p>
+        )}
         {album.status === "ready" &&
           trail.stops.map((stop) => {
             const here = photos.filter((p) => p.stopId === stop.id);
-            if (here.length === 0) return null;
+            if (here.length === 0 && !photosOpen) return null;
             return (
               <div key={stop.id} className="album-stop">
                 <h3>{stop.name}</h3>
-                <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+                {here.length > 0 && (
+                  <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+                )}
+                {photosOpen && <AddStopPhoto runId={runId} stopId={stop.id} onAdded={album.add} />}
               </div>
             );
           })}

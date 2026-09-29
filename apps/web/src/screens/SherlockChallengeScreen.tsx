@@ -34,7 +34,7 @@ export function SherlockChallengeScreen({
   trail,
   stop,
   runId,
-  runActive,
+  canAddPhotos,
   completions,
   syncTick,
   me,
@@ -47,7 +47,8 @@ export function SherlockChallengeScreen({
   trail: Trail;
   stop: Stop;
   runId: string;
-  runActive: boolean;
+  // Open run, or finished within the grace window: the server still takes photos.
+  canAddPhotos: boolean;
   completions: Completions;
   syncTick: number;
   me: Profile;
@@ -182,7 +183,7 @@ export function SherlockChallengeScreen({
             stopId={stop.id}
             syncTick={syncTick}
             done={done}
-            canAdd={runActive}
+            canAdd={canAddPhotos}
             locked={!solved}
             meId={me.id}
             partnerName={runPartnerName}

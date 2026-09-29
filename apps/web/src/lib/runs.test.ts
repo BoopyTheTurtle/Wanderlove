@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { trail } from "@wannadoo/core";
 import { toRunSnapshot } from "./runSnapshot";
-import { allStopsDone, completedCount, isRunActive, isStopDone, nextStop, runFromRow, type Run } from "./runs";
+import {
+  allStopsDone,
+  canAddPhotos,
+  completedCount,
+  isRunActive,
+  isStopDone,
+  nextStop,
+  runFromRow,
+  type Run,
+} from "./runs";
 
 // The helpers under test are pure; the client module only needs env vars that tests don't have.
 vi.mock("./supabase", () => ({ supabase: {} }));
@@ -67,5 +76,32 @@ describe("run state", () => {
     const run: Run = runFromRow(row());
     expect(isRunActive({ ...run, completedAt: "t" })).toBe(false);
     expect(isRunActive({ ...run, abandonedAt: "t" })).toBe(false);
+  });
+});
+
+describe("canAddPhotos", () => {
+  const base = {
+    id: "r",
+    trail,
+    coupleId: null,
+    startedAt: "2026-09-29T08:00:00Z",
+    completedAt: null,
+    abandonedAt: null,
+    completions: {},
+  } satisfies Run;
+  const now = Date.parse("2026-09-29T12:00:00Z");
+
+  it("allows photos on an open run", () => {
+    expect(canAddPhotos(base, now)).toBe(true);
+  });
+  it("allows photos for a day after the run finishes", () => {
+    expect(canAddPhotos({ ...base, completedAt: "2026-09-29T11:00:00Z" }, now)).toBe(true);
+    expect(canAddPhotos({ ...base, completedAt: "2026-09-28T12:30:00Z" }, now)).toBe(true);
+  });
+  it("closes a day after the run finishes", () => {
+    expect(canAddPhotos({ ...base, completedAt: "2026-09-28T11:59:00Z" }, now)).toBe(false);
+  });
+  it("never allows photos on an abandoned run", () => {
+    expect(canAddPhotos({ ...base, abandonedAt: "2026-09-29T11:59:00Z" }, now)).toBe(false);
   });
 });

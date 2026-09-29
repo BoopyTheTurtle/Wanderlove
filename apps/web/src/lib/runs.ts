@@ -131,3 +131,12 @@ export function allStopsDone(run: Run): boolean {
 export function isRunActive(run: Run): boolean {
   return run.completedAt === null && run.abandonedAt === null;
 }
+
+// How long after a run finishes its members may still add photos (supabase/migrations, `private.can_add_photo`).
+export const PHOTO_GRACE_MS = 24 * 60 * 60 * 1000;
+
+// Whether the server still takes photos for this run: open, or finished less than a day ago. Never once abandoned.
+export function canAddPhotos(run: Run, now = Date.now()): boolean {
+  if (run.abandonedAt !== null) return false;
+  return run.completedAt === null || now - Date.parse(run.completedAt) < PHOTO_GRACE_MS;
+}

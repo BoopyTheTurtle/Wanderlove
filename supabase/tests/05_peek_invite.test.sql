@@ -50,7 +50,12 @@ select is(
   null,
   'peeking leaves the invite unredeemed'
 );
-select is((select count(*)::int from public.couples), 0, 'peeking creates no couple');
+-- Counts only this file's users, so couples left in a local database from manual testing don't matter.
+select is(
+  (select count(*)::int from public.couple_members where user_id::text like '55555555-%'),
+  0,
+  'peeking creates no couple'
+);
 
 -- The inviter peeking their own code
 select pg_temp.login('55555555-0000-0000-0000-00000000000a');
