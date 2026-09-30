@@ -143,6 +143,7 @@ export function SherlockCompleteScreen({
                         meId={meId}
                         partnerName={partnerName}
                         onDelete={album.remove}
+                        onHide={album.hide}
                         fileNamePrefix={stopFilePrefix(i + 1, stop.name)}
                       />
                     )}

@@ -223,6 +223,30 @@ export async function listRunPhotos(runId: string): Promise<RunPhoto[]> {
   });
 }
 
+// "Hide from my album" (abuse threat model, P2): drops someone else's photo from this user's album without deleting it
+// for anyone. The read policy leaves hidden photos out of every listing (photo_hidden, initial schema).
+export async function hidePhoto(photoId: string): Promise<void> {
+  const { error } = await supabase.from("photo_hidden").insert({ photo_id: photoId });
+  // Hidden already, on another phone: the photo is out of the album either way.
+  if (error && error.code !== "23505") throw error;
+}
+
+// How many photos this user has hidden. A photo that expired or was deleted takes its row with it.
+export async function countHiddenPhotos(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("photo_hidden")
+    .select("photo_id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// Brings every hidden photo back into this user's albums.
+export async function showHiddenPhotos(userId: string): Promise<void> {
+  const { error } = await supabase.from("photo_hidden").delete().eq("user_id", userId);
+  if (error) throw error;
+}
+
 // Deletes one of the caller's own photos; RLS refuses anyone else's, row and object alike.
 // The row goes first: once it is gone neither partner lists the photo, so a failure between the two steps leaves at
 // worst an unlisted object, never a listed photo whose image is missing. Both steps tolerate an already-deleted

@@ -24,13 +24,15 @@ export function LockedPhotosNote({ partnerName, className }: { partnerName: stri
 }
 
 // Photos from both partners, each labelled with who took it. Every photo offers Save, to the phone's photos or as a
-// download. Only your own photos offer Delete, which removes them for both of you, so it asks first. An encrypted photo
+// download. Only your own photos offer Delete, which removes them for both of you, so it asks first. Someone else's
+// photos offer Hide, which drops them from your album alone; Profile brings hidden photos back. An encrypted photo
 // shows a placeholder until this phone has decrypted it.
 export function PhotoGrid({
   photos,
   meId,
   partnerName,
   onDelete,
+  onHide,
   fileNamePrefix,
 }: {
   photos: ShownPhoto[];
@@ -38,6 +40,7 @@ export function PhotoGrid({
   // The partner who shares this run, or null on a solo run.
   partnerName: string | null;
   onDelete: (photo: RunPhoto) => Promise<void>;
+  onHide: (photo: RunPhoto) => Promise<void>;
   // Saved photos are named "<prefix>-1.jpg" and on, matching Save all photos (lib/album.ts, `stopFilePrefix`).
   fileNamePrefix?: string;
 }) {
@@ -58,6 +61,23 @@ export function PhotoGrid({
       await onDelete(photo);
     } catch (e) {
       console.error("Couldn't delete the photo", e);
+      setFailed(photo.id);
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  async function handleHide(photo: RunPhoto) {
+    if (
+      !window.confirm("Hide this photo from your album? It isn’t deleted. You can show hidden photos again in Profile.")
+    )
+      return;
+    setDeleting(photo.id);
+    setFailed(null);
+    try {
+      await onHide(photo);
+    } catch (e) {
+      console.error("Couldn't hide the photo", e);
       setFailed(photo.id);
     } finally {
       setDeleting(null);
@@ -113,7 +133,7 @@ export function PhotoGrid({
                 >
                   {saving === photo.id ? "Saving…" : isReady ? "Tap to save" : "Save"}
                 </button>
-                {mine && (
+                {mine ? (
                   <button
                     type="button"
                     className="photo-tile-delete"
@@ -122,12 +142,21 @@ export function PhotoGrid({
                   >
                     {deleting === photo.id ? "Deleting…" : "Delete"}
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="photo-tile-delete"
+                    disabled={deleting !== null}
+                    onClick={() => void handleHide(photo)}
+                  >
+                    {deleting === photo.id ? "Hiding…" : "Hide"}
+                  </button>
                 )}
               </span>
             </span>
             {failed === photo.id && (
               <span className="photo-tile-error" role="alert">
-                Couldn&rsquo;t delete. Try again.
+                Couldn&rsquo;t {mine ? "delete" : "hide"}. Try again.
               </span>
             )}
             {saveFailed === photo.id && (

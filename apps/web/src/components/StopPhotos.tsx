@@ -85,7 +85,9 @@ export function StopPhotos({
       )}
       {photos.status === "ready" && here.length === 0 && <p className="stop-photos-note">No photos here yet.</p>}
       {photos.locked && <LockedPhotosNote partnerName={partnerName} className="stop-photos-note" />}
-      {here.length > 0 && <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={photos.remove} />}
+      {here.length > 0 && (
+        <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={photos.remove} onHide={photos.hide} />
+      )}
       {canAdd && <PhotoCapture key={captureKey} runId={runId} onUpload={upload} label="Add a photo" />}
     </div>
   );

@@ -45,7 +45,7 @@ import {
 } from "./lib/runs";
 import type { QuestMode, Run } from "./lib/runs";
 import { QuestInvite } from "./components/QuestInvite";
-import { uploadPhoto } from "./lib/photos";
+import { countHiddenPhotos, showHiddenPhotos, uploadPhoto } from "./lib/photos";
 import type { PreparedPhoto, RunPhoto } from "./lib/photos";
 import {
   dropLegacyTrailData,
@@ -494,6 +494,7 @@ function SignedInApp({
   // The partner's key ID for the emoji check on the linked screen and in Profile.
   const [partnerKeyId, setPartnerKeyId] = useState<string | null>(null);
   const [recoveryViewedAt, setRecoveryViewedAt] = useState<string | null>(null);
+  const [hiddenPhotoCount, setHiddenPhotoCount] = useState(0);
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
@@ -837,6 +838,10 @@ function SignedInApp({
     loadRecoveryViewedAt(me.id).then(
       (at) => active && setRecoveryViewedAt(at),
       (e: unknown) => console.error("Couldn't load when the recovery code was viewed", e),
+    );
+    countHiddenPhotos(me.id).then(
+      (n) => active && setHiddenPhotoCount(n),
+      (e: unknown) => console.error("Couldn't count the hidden photos", e),
     );
     return () => {
       active = false;
@@ -1208,6 +1213,12 @@ function SignedInApp({
           onRecoveryCodeSeen={handleRecoveryCodeSeen}
           onRecoveryCodeShown={handleRecoveryCodeShown}
           recoveryViewedAt={recoveryViewedAt}
+          hiddenPhotoCount={hiddenPhotoCount}
+          onShowHiddenPhotos={async () => {
+            await showHiddenPhotos(me.id);
+            setHiddenPhotoCount(0);
+            setSyncTick((t) => t + 1);
+          }}
           onNewRecoveryCode={handleNewRecoveryCode}
           myKeyId={keys.keyId}
           partnerKeyId={partner ? partnerKeyId : null}

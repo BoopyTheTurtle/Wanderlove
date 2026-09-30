@@ -22,6 +22,9 @@ export type SettingsProps = {
   onRecoveryCodeShown: () => void;
   // When the current recovery code was first shown, or null if never (or not loaded yet).
   recoveryViewedAt: string | null;
+  // Photos this user hid from their album; Show them again brings them all back. May reject.
+  hiddenPhotoCount: number;
+  onShowHiddenPhotos: () => Promise<void>;
   // Makes a new key pair and code (lib/keys.ts, rotateAccountKeys); the new code then arrives as recoveryCode.
   onNewRecoveryCode: () => Promise<void>;
   // This phone's key ID and the partner's, for the emoji check; the partner's is null while loading or keyless.
@@ -50,6 +53,8 @@ export function Settings({
   onRecoveryCodeSeen,
   onRecoveryCodeShown,
   recoveryViewedAt,
+  hiddenPhotoCount,
+  onShowHiddenPhotos,
   onNewRecoveryCode,
   myKeyId,
   partnerKeyId,
@@ -64,6 +69,21 @@ export function Settings({
   const [codeDialog, setCodeDialog] = useState<"closed" | "show" | "new">("closed");
   const [deviceDialog, setDeviceDialog] = useState<"closed" | "others" | "clean">("closed");
   const [othersSignedOut, setOthersSignedOut] = useState(false);
+  const [unhiding, setUnhiding] = useState(false);
+  const [unhideFailed, setUnhideFailed] = useState(false);
+
+  async function showHidden() {
+    setUnhiding(true);
+    setUnhideFailed(false);
+    try {
+      await onShowHiddenPhotos();
+    } catch (e) {
+      console.error("Couldn't show the hidden photos", e);
+      setUnhideFailed(true);
+    } finally {
+      setUnhiding(false);
+    }
+  }
 
   return (
     <div className="screen settings-screen">
@@ -115,6 +135,26 @@ export function Settings({
           </>
         )}
       </section>
+
+      {hiddenPhotoCount > 0 && (
+        <section className="card settings-card settings-devices" aria-labelledby="settings-hidden-title">
+          <p className="card-kicker" id="settings-hidden-title">
+            Your album
+          </p>
+          <p className="settings-note">
+            {hiddenPhotoCount === 1 ? "1 photo is" : `${hiddenPhotoCount} photos are`} hidden from your album. Nobody
+            else&rsquo;s album changed.
+          </p>
+          <button type="button" className="settings-outline" disabled={unhiding} onClick={() => void showHidden()}>
+            {unhiding ? "Showing…" : "Show hidden photos again"}
+          </button>
+          {unhideFailed && (
+            <p className="field-error" role="alert">
+              Couldn&rsquo;t show them. Check your connection and try again.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="card settings-card settings-devices" aria-labelledby="settings-devices-title">
         <p className="card-kicker" id="settings-devices-title">
