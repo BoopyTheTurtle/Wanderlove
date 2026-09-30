@@ -180,7 +180,9 @@ the test-data wipe, because legacy plain runs still exist:
   for the partner's re-share, shows as "A trail this phone can't open yet".
 - **Starting.** While linked, Home asks Together or Just me; walking solo starts at once. The partner's phone shows a
   card, "Daniel started a quest", with Join and Not now, on Home and on the map before a quest starts. Joining asks
-  first when it would end the user's own quest with progress.
+  first when it would end the user's own quest with progress. After a Together start, the starter's map shows "Waiting
+  for Emma to join…" until Emma appears among the run's members, with a quiet "Start without Emma". A decline never
+  shows: the screen keeps waiting.
 - **Linking.** "Ask to link" redeems the invite and checks the inviter's key against the invite's `#k=` while the
   request is open; a mismatch withdraws it. The invitee waits on its own screen with the emoji check and a way to
   withdraw; the inviter's phone asks "Emma used your invite" with the same emoji, Confirm, and Decline. The check after

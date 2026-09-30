@@ -237,6 +237,18 @@ export async function acceptRun(runId: string): Promise<"joined" | "gone"> {
   return data === "joined" ? "joined" : "gone";
 }
 
+// Whether the partner has joined the caller's run. The starter reads every member of their run but never the
+// invitation, so a declined invitation reads the same as one still waiting: false.
+export async function hasPartnerJoined(runId: string, partnerId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from("trail_run_members")
+    .select("user_id", { count: "exact", head: true })
+    .eq("run_id", runId)
+    .eq("user_id", partnerId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
 // "Not now": drops the invitation and this user's copy of the run key. The partner's phone can't tell it from an
 // invitation still waiting.
 export async function declineRun(runId: string): Promise<void> {

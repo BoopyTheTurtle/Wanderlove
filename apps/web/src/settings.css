@@ -193,3 +193,8 @@
 .settings-dialog p.recovery-code span {
   display: block;
 }
+
+/* Waiting for the partner to join a Together quest: the dots sit above the title */
+.partner-waiting .link-dots {
+  margin-bottom: 14px;
+}
