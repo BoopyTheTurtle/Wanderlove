@@ -2,4 +2,4 @@
 
 // Surprise routes: the card on the trail list, and the fresh route the map builds when no trail is chosen.
 // While off, the map falls back to the curated trail.
-export const SURPRISE_ROUTE_ENABLED = false;
+export const SURPRISE_ROUTE_ENABLED = true;
