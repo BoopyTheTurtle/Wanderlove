@@ -59,6 +59,11 @@ Last updated September 29, 2026. Resume from **Next** below.
   start a trail, because the app checked only on refocus or during an open trail. It now checks the partner and the
   trail every 10 seconds while in view and opens the map with "Daniel started …". `trail_runs.started_by` records the
   starter, so a user's own start on another device is joined silently. Edgar confirmed saved photos carry no metadata.
+- **Scanner, downloads, encryption groundwork.** PRs 21–24, merged September 30: an in-app QR scanner (BarcodeDetector,
+  jsQR on iPhones); **Save all photos** (share sheet on phones, a ZIP on desktop), **Save album** (1080 × 1920), and
+  **Save** per photo; `lib/crypto.ts` (account keys, recovery code, run keys bound to their run, photo encryption);
+  and the encryption schema (`user_keys`, `run_keys`, `start_run` with keys and a phone-chosen run ID,
+  `share_run_keys`, `.bin` photos). Deployed; the app does not encrypt yet.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -68,8 +73,8 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 1. **[You]** Retest phase 4 on two phones after PR 20: A shows the QR, B scans and links, A starts the trail, B follows
    within about 10 seconds; progress and photos sync both ways.
-2. **[Agent]** Next wave, from Edgar's feedback on September 29: an in-app QR scanner on the partner screen, and
-   phase 5's downloads (**Save all photos** through the share sheet on phones, a ZIP on desktop, plus the album image).
+2. **[You]** On phones: the in-app scanner, and that **Save all photos** and **Save album** reach the photo library
+   (task 5.4; on iPhone, note whether the second "Tap to save" is needed).
 3. **[Agent]** End-to-end photo encryption per [photo-encryption.md](photo-encryption.md) (recovery A and C, approved
    September 29): wave 1 builds E.1 (schema) and E.2 (`lib/crypto.ts`); wave 2 wires setup, recovery, and photos.
 

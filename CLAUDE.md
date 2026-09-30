@@ -36,6 +36,8 @@ Run everything from the repository root; npm workspaces route each script to the
   sits behind every screen. Text on that gradient uses `--on-bg` or `--on-bg-muted`.
 - The schema changes only through new files in `supabase/migrations`; never edit a migration once it has deployed.
   Every access rule gets a pgTAP test in `supabase/tests` that checks the member, the partner, and a stranger.
+- A migration that creates a table revokes Supabase's default grants on it (`revoke all on <table> from anon,
+authenticated`) before granting what it needs: the defaults include TRUNCATE, which RLS does not cover.
 - Stop IDs from generated routes take the form `osm-<type>-<id>`; `stop_completions` and `photos` key on them.
 - A run's snapshot never holds `start` or `path` (they can reveal a home); the database refuses them too.
 
