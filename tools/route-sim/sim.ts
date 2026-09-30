@@ -72,7 +72,9 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
   Math.random = rngFor(seed, draft.key, "generator");
   let record: StartRecord;
   try {
-    const route = await generateRoute(draft.start, false, { headers: { "User-Agent": USER_AGENT } });
+    // The January pass generates for its date and time, so the ice and after-dusk rules apply.
+    const when = draft.pass === "january" ? new Date(JANUARY_WHEN) : undefined;
+    const route = await generateRoute(draft.start, false, { headers: { "User-Agent": USER_AGENT }, when });
     const { trail } = route;
     record = {
       ...draft,
@@ -106,7 +108,7 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
   record.routerCallsObserved = pacer.count("route", since);
   record.overpassCallsObserved = pacer.count("overpass", since);
   if (draft.pass === "january") {
-    // The generator takes no date yet, so record what the pre-quest screen would show at JANUARY_WHEN.
+    // Record what the pre-quest screen would show at JANUARY_WHEN.
     const when = new Date(JANUARY_WHEN);
     record.when = JANUARY_WHEN;
     record.walkLight = walkLight(when, draft.start, record.durationMinutes ?? NOMINAL_MINUTES);

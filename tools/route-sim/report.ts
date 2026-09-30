@@ -229,7 +229,7 @@ const CHECKLIST = `**Stops**
 - [ ] No ferry, ford, or stepping stones.
 - [ ] No service road or track through industrial or military land.
 - [ ] In the rural set, any stretch along a road without pavement is under 300 m or carries the rural note.
-- [ ] Total length ≤ 2.6 km and the loop returns to the start.
+- [ ] Total length ≤ 2.1 km (2 km plus 100 m slack) and the loop returns to the start.
 
 **Context**
 

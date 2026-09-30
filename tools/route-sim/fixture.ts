@@ -4,6 +4,7 @@
 // path, which legs take a ferry, and which starts sit off any public way, so the rejection paths get exercised.
 import type { LatLng } from "../../packages/core/src/index.ts";
 import { haversineDistanceMeters } from "../../packages/core/src/index.ts";
+import { OVERPASS_SECTIONS } from "../../packages/core/src/safety/overpass.ts";
 import { hashString, mulberry32, offsetMeters } from "./lib.ts";
 import type { FetchLike } from "./pacer.ts";
 
@@ -51,8 +52,9 @@ function overpass(body: string): Response {
   }));
   const generic = Array.from({ length: 10 }, (_, i) => ({ ...place(50 + i, 450), tags: { amenity: "bench" } }));
   const count = { type: "count", id: 0, tags: { total: "0" } };
-  // Sections in overpassQuery order: candidates, generic, hazards, roads, crossings, fords.
-  const elements = [...named, count, ...generic, count, count, count, count, count];
+  // Named places and generic points fill the first two sections; the rest (hazards, roads, and so on) stay empty.
+  const empty = OVERPASS_SECTIONS.slice(2).map(() => count);
+  const elements = [...named, count, ...generic, count, ...empty];
   return json({ elements });
 }
 
