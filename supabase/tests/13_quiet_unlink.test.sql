@@ -46,7 +46,7 @@ select lives_ok(
   'the partner adds a photo to the shared run within the grace window'
 );
 select is((select count(*)::int from public.couples where ended_at is null), 1, 'the partner sees the couple');
-select throws_ok($$ select ended_by from public.couples $$, '42501', null, 'the partner cannot read ended_by');
+select throws_ok($$ select ended_by from public.couples $$, '42703', null, 'couples has no ended_by for the partner to read');
 
 select pg_temp.login('13131313-0000-0000-0000-00000000000a');
 select lives_ok($$ select public.unlink() $$, 'A unlinks with today''s call');
@@ -88,8 +88,12 @@ select is((select count(*)::int from public.photos), 1, 'the ex keeps the photo 
 -- ---------------------------------------------------------------------------
 
 select isnt((select ended_at from public.couples), null, 'the ex reads that the couple ended');
-select throws_ok($$ select ended_by from public.couples $$, '42501', null, 'the ex cannot read who ended it');
-select throws_ok($$ select * from public.couples $$, '42501', null, 'nor read every column at once');
+select throws_ok($$ select ended_by from public.couples $$, '42703', null, 'the ex finds no record of who ended it');
+select is(
+  (select array_agg(key order by key) from public.couples c, jsonb_object_keys(to_jsonb(c)) key),
+  array['created_at', 'ended_at', 'id'],
+  'every column the ex reads says when, never who'
+);
 select is(
   (select count(*)::int from public.couples c where c.id in (select couple_id from public.couple_members)),
   1,
@@ -97,18 +101,13 @@ select is(
 );
 
 select pg_temp.login('13131313-0000-0000-0000-00000000000a');
-select throws_ok($$ select ended_by from public.couples $$, '42501', null, 'the one who unlinked cannot read it either');
+select throws_ok($$ select ended_by from public.couples $$, '42703', null, 'the one who unlinked finds no record either');
 
 select pg_temp.login('13131313-0000-0000-0000-000000000005');
 select is((select count(*)::int from public.couples), 0, 'a stranger sees no couple');
 
 reset role;
-select is(
-  (select ended_by from public.couples where id = '13131313-0000-0000-0000-0000000000cc'),
-  null,
-  'unlink records nobody in ended_by'
-);
-select is((select count(*)::int from public.couples where ended_by is not null), 0, 'no couple names who ended it');
+select hasnt_column('public', 'couples', 'ended_by', 'no couple records who ended it (wave 2 cleanup)');
 
 select * from finish();
 rollback;
