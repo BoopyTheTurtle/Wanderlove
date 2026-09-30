@@ -70,7 +70,9 @@ Last updated September 29, 2026. Resume from **Next** below.
   trails. New trails wrap a trail key for each member, and the start waits until the partner's phone has keys. Photos
   upload as `.bin` and decrypt on the phone for display, Save, the ZIP, and the album; old `.jpg` runs still work.
   Verified on the local stack with two browser origins (`localhost` and `emma.localhost`). The tester notice gained the
-  encryption line.
+  encryption line. Edgar confirmed on two phones that new photos upload as `.bin` and show on both.
+- **Two-phone fixes.** PR 27: a stop the partner completed now offers **On to the next stop** (or **See your album**),
+  and Android downloads each photo instead of opening the share sheet; iPhones keep the share sheet.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
