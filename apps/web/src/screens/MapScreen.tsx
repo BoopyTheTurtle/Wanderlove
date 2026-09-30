@@ -20,7 +20,6 @@ import {
   ClockIcon,
   FlagIcon,
   PinIcon,
-  QuestionIcon,
   SlidersIcon,
   SparkIcon,
   TrendIcon,
@@ -478,13 +477,6 @@ export function MapScreen({
                   {completedCount}
                   <small>/{stops.length}</small>
                 </b>
-              </div>
-              <div className="stat-row soon">
-                <span className="stat-icon">
-                  <QuestionIcon size={12} />
-                </span>
-                <span>Quizzes completed</span>
-                <b className="soon-pill">Soon</b>
               </div>
             </div>
             <ProgressRing pct={progressPct} />
