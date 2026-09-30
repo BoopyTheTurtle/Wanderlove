@@ -30,8 +30,10 @@ export function formatCode(code: string): string {
   return code.length === CODE_LENGTH ? `${code.slice(0, 5)}-${code.slice(5)}` : code;
 }
 
-export function inviteUrl(code: string): string {
-  return `${window.location.origin}/link/${code}`;
+// The invite link. keyId, the inviter's key fingerprint, rides in the fragment, which browsers never send to the
+// server; the invitee's phone checks the inviter's published key against it (lib/keys.ts, verifyPartnerKey).
+export function inviteUrl(code: string, keyId: string): string {
+  return `${window.location.origin}/link/${code}#k=${keyId}`;
 }
 
 // A new single-use code, valid 24 hours. It replaces the caller's earlier open invite.

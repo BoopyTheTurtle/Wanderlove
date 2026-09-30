@@ -14,6 +14,7 @@ import {
 import type { DeviceKeys } from "./keyStore";
 import {
   buildRunKeyWraps,
+  decideInviteKey,
   decideKeyState,
   decidePartnerKey,
   prepareAccountKeys,
@@ -73,6 +74,38 @@ describe("decideKeyState", () => {
       canUseCode: true,
       replaced: true,
     });
+  });
+});
+
+describe("decideKeyState during a switch to new keys", () => {
+  it("resumes a switch whose new pair is already published", () => {
+    const switching = { ...device(jonas), next: device(jonasNewPhone) };
+    expect(decideKeyState(row(jonasNewPhone), switching)).toEqual({ status: "rotating", keys: switching });
+  });
+
+  it("keeps the current pair when the new one never got published", () => {
+    const switching = { ...device(jonas), next: device(jonasNewPhone) };
+    expect(decideKeyState(row(jonas), switching)).toEqual({ status: "ready", keys: switching });
+  });
+
+  it("asks to unlock when neither pair is the published one", () => {
+    const switching = { ...device(jonas), next: device(jonasNewPhone) };
+    expect(decideKeyState(row(emma), switching)).toMatchObject({ status: "unlock", replaced: true });
+  });
+});
+
+describe("decideInviteKey", () => {
+  it("accepts a published key that hashes to the invite's key ID", () => {
+    expect(decideInviteKey("abc", "abc", "abc")).toBe(true);
+  });
+  it("refuses a different key", () => {
+    expect(decideInviteKey("abc", "def", "def")).toBe(false);
+  });
+  it("refuses a published ID that the key does not hash to", () => {
+    expect(decideInviteKey("abc", "def", "abc")).toBe(false);
+  });
+  it("refuses a partner without a key", () => {
+    expect(decideInviteKey("abc", null, null)).toBe(false);
   });
 });
 

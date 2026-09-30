@@ -6,14 +6,30 @@
 // Gate (App.tsx uses these before the rest of the app):
 // - loadKeyState(userId) → "ready" with this device's keys, "setup" when the account has no keys yet, or "unlock"
 //   when the account has keys but this device has none (or an outdated pair).
+//   A switch to new keys that stopped halfway (rotateAccountKeys) completes here.
 // - prepareAccountKeys() → a new key pair sealed with a new recovery code, in memory only.
-//   saveAccountKeys(userId, pending, { replace }) publishes it and keeps it on this device with its code, which
-//   Settings shows on request. `replace` is option C: a new phone without the code publishes a fresh pair, and the
-//   partner's phone re-shares past trails.
+//   saveAccountKeys(userId, pending, { replace }) publishes it and keeps it on this device with its code until the
+//   user has seen the code once in Profile (keyStore.forgetRecoveryCode). `replace` is option C: a new phone without
+//   the code publishes a fresh pair, and the partner's phone re-shares past trails.
 // - unlockWithRecoveryCode(userId, code) (option A) → the device keys; throws WrongRecoveryCodeError on a wrong code.
-// - checkPartnerKey(myId) → "none" (no partner, or the partner has no key yet), "trusted", or "confirm" when the
-//   partner's key differs from the one this phone pinned ("changed") or is new to this phone while trails are shared
-//   ("new"). trustPartnerKey(myId, myKeys, key) re-shares every shared run's key with it, then pins it.
+//   The user typed the code, so the device does not keep it.
+// - rotateAccountKeys(userId, keys) → a new pair and a new recovery code, for a user whose code is gone from this
+//   device. The private key cannot be exported, so the only way to a new code is a new pair: this user's own run
+//   keys are rewrapped for it, and the partner's phone asks to trust the new keys.
+//
+// Partner trust (section 4; security review, finding 4):
+// - An invite QR or link carries the inviter's key ID in its fragment (/link/<code>#k=<key_id>; the server never sees
+//   it). Before redeeming, expectPartnerKey(myId, keyId) records it; after, verifyPartnerKey(myId) compares it with
+//   the new partner's published key and pins the key on a match. On a mismatch the caller unlinks
+//   (unlinkMismatchedPartner). The invitee cannot read the inviter's key before redeeming, so the check follows it.
+// - checkPartnerKey(myId) → "none" (no partner, the partner has no key yet, or their key differs from the one their
+//   invite carried; verifyPartnerKey tells that last case apart), "trusted", or "confirm" when the key differs from
+//   the one this phone pinned ("changed") or is new to this phone while trails are shared ("new").
+//   trustPartnerKey(myId, myKeys, key) re-shares every shared run's key with it, then pins it.
+// - Trust on first use stays only as a fallback: a key first seen with no fingerprint to compare (a typed invite code,
+//   the inviting phone, or a couple linked before invites carried one) and no shared encrypted trail is pinned
+//   silently. Both phones show four emoji made from the pair's key IDs (lib/keyEmoji.ts) on the linked screen, the
+//   trust prompt, and Profile, so the partners can compare them.
 //
 // For the photo flow (wave 2b):
 // - loadKeyState(userId) or keyStore.loadDeviceKeys(userId) give this user's DeviceKeys: privateKey, publicKey, keyId.
@@ -32,7 +48,6 @@ import {
   generateRecoveryCode,
   importPrivateKey,
   keyIdFor,
-  normalizeRecoveryCode,
   openPrivateKey,
   rewrapRunKey,
   sealPrivateKey,
@@ -42,7 +57,7 @@ import {
   type AccountKeys,
   type SealedPrivateKey,
 } from "./crypto";
-import { loadPartner } from "./couples";
+import { loadPartner, unlink } from "./couples";
 import { clearRunKeys, getRunKey, loadDeviceKeys, saveDeviceKeys, setRunKey, type DeviceKeys } from "./keyStore";
 import { supabase } from "./supabase";
 
@@ -59,6 +74,9 @@ export type KeyState =
   // canUseCode: the server holds a sealed private key. replaced: this device held a pair the account no longer uses.
   | { status: "unlock"; canUseCode: boolean; replaced: boolean };
 
+// decideKeyState also reports a switch to new keys that published the new pair but stopped before finishing.
+type DecidedKeyState = KeyState | { status: "rotating"; keys: DeviceKeys & { next: DeviceKeys } };
+
 // Thrown when another phone stored the account's first keys between this phone's check and its save.
 export class KeysAlreadyExistError extends Error {
   constructor() {
@@ -67,10 +85,14 @@ export class KeysAlreadyExistError extends Error {
   }
 }
 
-export function decideKeyState(row: UserKeysRow | null, device: DeviceKeys | null): KeyState {
+export function decideKeyState(row: UserKeysRow | null, device: DeviceKeys | null): DecidedKeyState {
   if (!row) return { status: "setup" };
   if (device && device.keyId === row.key_id && device.publicKey === row.public_key) {
     return { status: "ready", keys: device };
+  }
+  const next = device?.next;
+  if (device && next && next.keyId === row.key_id && next.publicKey === row.public_key) {
+    return { status: "rotating", keys: { ...device, next } };
   }
   return { status: "unlock", canUseCode: row.recovery_blob !== null, replaced: device !== null };
 }
@@ -87,11 +109,23 @@ async function loadUserKeysRow(userId: string): Promise<UserKeysRow | null> {
 
 export async function loadKeyState(userId: string): Promise<KeyState> {
   const [row, device] = await Promise.all([loadUserKeysRow(userId), loadDeviceKeys(userId)]);
-  return decideKeyState(row, device);
+  const state = decideKeyState(row, device);
+  if (state.status === "rotating") return { status: "ready", keys: await finishRotation(userId, state.keys) };
+  return state;
 }
 
 // A key pair and its recovery code, not stored anywhere yet.
 export type PendingKeys = { keys: AccountKeys; recoveryCode: string; sealed: SealedPrivateKey };
+
+function userKeysFields(pending: PendingKeys) {
+  return {
+    public_key: pending.keys.publicKey,
+    key_id: pending.keys.keyId,
+    recovery_blob: pending.sealed.blob,
+    recovery_salt: pending.sealed.salt,
+    recovery_iv: pending.sealed.iv,
+  };
+}
 
 export async function prepareAccountKeys(): Promise<PendingKeys> {
   const keys = await generateAccountKeys();
@@ -111,13 +145,7 @@ export async function saveAccountKeys(
   pending: PendingKeys,
   { replace }: { replace: boolean },
 ): Promise<DeviceKeys> {
-  const fields = {
-    public_key: pending.keys.publicKey,
-    key_id: pending.keys.keyId,
-    recovery_blob: pending.sealed.blob,
-    recovery_salt: pending.sealed.salt,
-    recovery_iv: pending.sealed.iv,
-  };
+  const fields = userKeysFields(pending);
   // A plain update, not an upsert: the owner may update only these columns, and an upsert also sets user_id.
   const { error } = replace
     ? await supabase.from("user_keys").update(fields).eq("user_id", userId)
@@ -167,11 +195,51 @@ export async function unlockWithRecoveryCode(userId: string, code: string): Prom
     privateKey: await importPrivateKey(pkcs8),
     publicKey: row.public_key,
     keyId: row.key_id,
-    recoveryCode: normalizeRecoveryCode(code),
   };
   clearRunKeys();
   await saveDeviceKeys(userId, device);
   return device;
+}
+
+// A new pair and a new recovery code for a user whose code is gone from this device (security review, finding 3).
+// The order keeps a failure safe: this device stores the new pair beside the current one first; then the new public
+// key goes out; then this user's run keys are rewrapped for it; only then does the new pair replace the current one
+// here. A failure before the publish leaves the current pair in use. A failure after it resumes on the next
+// loadKeyState, since the current private key is still on this device to rewrap with. Other phones of this user then
+// ask for the new code, and the partner's phone asks to trust the new keys before it re-shares.
+export async function rotateAccountKeys(userId: string, current: DeviceKeys): Promise<DeviceKeys> {
+  const pending = await prepareAccountKeys();
+  const base: DeviceKeys = { ...current };
+  delete base.next;
+  const switching = { ...base, next: { ...toDeviceKeys(pending.keys), recoveryCode: pending.recoveryCode } };
+  await saveDeviceKeys(userId, switching);
+  const { error } = await supabase.from("user_keys").update(userKeysFields(pending)).eq("user_id", userId);
+  if (error) {
+    // Nothing changed on the server. The current pair stays in use; the unused new one can go.
+    await saveDeviceKeys(userId, base).catch(() => {});
+    throw error;
+  }
+  return finishRotation(userId, switching);
+}
+
+// Rewraps this user's own run keys from the current pair to the new one, then makes the new pair current here. Copies
+// wrapped for an older pair are skipped: this device cannot open them, and the partner's re-share covers shared ones.
+async function finishRotation(userId: string, device: DeviceKeys & { next: DeviceKeys }): Promise<DeviceKeys> {
+  const { data: rows, error } = await supabase
+    .from("run_keys")
+    .select("run_id, wrapped_key, ephemeral_public_key, for_key_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+  const self: PartnerKey = { partnerId: userId, publicKey: device.next.publicKey, keyId: device.next.keyId };
+  const { wraps } = await rewrapForPartner(rows, device, self);
+  if (wraps.length > 0) {
+    // share_run_keys writes every row or none, and lets a member write their own.
+    const { error: shareError } = await supabase.rpc("share_run_keys", { p_keys: wraps });
+    if (shareError) throw shareError;
+  }
+  clearRunKeys();
+  await saveDeviceKeys(userId, device.next);
+  return device.next;
 }
 
 // ---------- the partner's key ----------
@@ -212,6 +280,11 @@ function readPins(): Pins {
   }
 }
 
+// The key ID this phone pinned for the partner, if any.
+export function pinnedPartnerKeyId(myId: string, partnerId: string): string | null {
+  return readPins()[myId]?.[partnerId] ?? null;
+}
+
 function pinPartnerKey(myId: string, partnerId: string, keyId: string) {
   try {
     globalThis.localStorage.setItem(PINS_KEY, JSON.stringify(withPin(readPins(), myId, partnerId, keyId)));
@@ -243,21 +316,97 @@ async function sharedRunKeys(myId: string, partnerId: string): Promise<RunKeyRow
   return mine.filter((r) => shared.has(r.run_id));
 }
 
-// Compares the active partner's published key with the one this phone pinned. A key first seen with no shared trail
-// to re-share is pinned silently (trust on first use, at linking); otherwise the user confirms.
-export async function checkPartnerKey(myId: string): Promise<PartnerKeyCheck> {
-  const partner = await loadPartner(myId);
-  if (!partner) return { status: "none" };
+// The key ID an invite carried, per user: { [myId]: keyId }. Set just before redeeming, cleared once checked.
+const EXPECTED_KEY = "wannadoo_invite_key";
+
+function readExpected(): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(globalThis.localStorage.getItem(EXPECTED_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Records the key ID from an invite before redeeming it, or clears an earlier one (null).
+export function expectPartnerKey(myId: string, keyId: string | null) {
+  const all = readExpected();
+  if (keyId) all[myId] = keyId;
+  else delete all[myId];
+  try {
+    globalThis.localStorage.setItem(EXPECTED_KEY, JSON.stringify(all));
+  } catch {
+    // Without storage the check still runs right after redeeming, from the accept screen.
+  }
+}
+
+// Pure decision for an invite's key ID: the partner's published key must hash to it and carry it.
+export function decideInviteKey(expectedKeyId: string, computedKeyId: string | null, serverKeyId: string | null) {
+  return expectedKeyId === computedKeyId && expectedKeyId === serverKeyId;
+}
+
+// The partner's published key, and the key ID this phone computes from it; nulls when they have no key yet.
+async function loadPartnerCardKey(
+  partnerId: string,
+): Promise<{ key: PartnerKey | null; computedKeyId: string | null }> {
   const { data: card, error } = await supabase
     .from("profile_cards")
     .select("public_key, key_id")
-    .eq("id", partner.id)
+    .eq("id", partnerId)
     .maybeSingle();
   if (error) throw error;
-  if (!card?.public_key || !card.key_id) return { status: "none" };
+  if (!card?.public_key || !card.key_id) return { key: null, computedKeyId: null };
+  return {
+    key: { partnerId, publicKey: card.public_key, keyId: card.key_id },
+    computedKeyId: await keyIdFor(card.public_key),
+  };
+}
 
-  const key: PartnerKey = { partnerId: partner.id, publicKey: card.public_key, keyId: card.key_id };
-  const decision = decidePartnerKey(readPins()[myId]?.[partner.id], await keyIdFor(card.public_key), card.key_id);
+export type InviteKeyCheck =
+  { status: "unchecked" } | { status: "verified" } | { status: "mismatch"; partnerName: string };
+
+// After redeeming an invite that carried a key ID: pins the new partner's key when it matches, and reports a mismatch
+// for the caller to unlink. "unchecked" means there was nothing to compare (no key ID, or no partner).
+export async function verifyPartnerKey(myId: string): Promise<InviteKeyCheck> {
+  const expected = readExpected()[myId];
+  if (!expected) return { status: "unchecked" };
+  const partner = await loadPartner(myId);
+  if (!partner) return { status: "unchecked" };
+  const { key, computedKeyId } = await loadPartnerCardKey(partner.id);
+  if (!key || !decideInviteKey(expected, computedKeyId, key.keyId)) {
+    return { status: "mismatch", partnerName: partner.name };
+  }
+  pinPartnerKey(myId, partner.id, key.keyId);
+  expectPartnerKey(myId, null);
+  return { status: "verified" };
+}
+
+// Ends a link whose partner key did not match their invite, and forgets the invite's key ID.
+export async function unlinkMismatchedPartner(myId: string): Promise<void> {
+  await unlink();
+  expectPartnerKey(myId, null);
+}
+
+// The partner's key ID to show as emoji: the one this phone pinned, or else the published one if it is sound.
+export async function partnerKeyIdForCheck(myId: string, partnerId: string): Promise<string | null> {
+  const pinned = pinnedPartnerKeyId(myId, partnerId);
+  if (pinned) return pinned;
+  const { key, computedKeyId } = await loadPartnerCardKey(partnerId);
+  return key && key.keyId === computedKeyId ? key.keyId : null;
+}
+
+// Compares the active partner's published key with the key ID their invite carried, or else with the one this phone
+// pinned. A key first seen with neither, and no shared trail to re-share, is pinned silently (trust on first use);
+// otherwise the user confirms.
+export async function checkPartnerKey(myId: string): Promise<PartnerKeyCheck> {
+  const partner = await loadPartner(myId);
+  if (!partner) return { status: "none" };
+  // A key that differs from the invite's key ID is never trusted; the app unlinks (verifyPartnerKey says so).
+  if ((await verifyPartnerKey(myId)).status === "mismatch") return { status: "none" };
+
+  const { key, computedKeyId } = await loadPartnerCardKey(partner.id);
+  if (!key || !computedKeyId) return { status: "none" };
+  const decision = decidePartnerKey(readPins()[myId]?.[partner.id], computedKeyId, key.keyId);
   if (decision === "invalid") {
     console.error("The partner's published key ID does not match their key");
     return { status: "none" };
@@ -278,7 +427,8 @@ export type ShareRunKey = {
   for_key_id: string;
 };
 
-// Rewraps this user's copies of shared run keys for the partner's key. Rows wrapped for an older key of this user,
+// Rewraps this user's copies of shared run keys for the partner's key (or, in rotateAccountKeys, for this user's own
+// new key). Rows wrapped for an older key of this user,
 // or damaged ones, are skipped: this phone cannot open them.
 export async function rewrapForPartner(rows: RunKeyRow[], myKeys: DeviceKeys, partner: PartnerKey) {
   const wraps: ShareRunKey[] = [];

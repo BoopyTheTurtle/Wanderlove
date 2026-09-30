@@ -51,3 +51,75 @@
 .key-gate-app[hidden] {
   display: none;
 }
+
+/* The emoji check: four emoji from both partners' key IDs */
+.key-emoji {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: var(--brand-wash);
+  border: 1.5px solid var(--line);
+  font-size: 30px;
+  line-height: 1.1;
+}
+.key-emoji-wait {
+  color: var(--muted);
+  font-size: 20px;
+  letter-spacing: 0.2em;
+}
+.key-check-lead {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.key-check-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.key-check-card {
+  margin-bottom: 18px;
+  text-align: center;
+}
+.settings-key-check {
+  display: grid;
+  gap: 6px;
+  margin: -6px 0 16px;
+}
+.settings-key-check .key-emoji {
+  font-size: 24px;
+  padding: 8px;
+}
+
+/* The one-time hint after a finished trail, while the recovery code waits unseen */
+.recovery-hint {
+  margin: 18px 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--on-bg) 30%, transparent);
+  color: var(--on-bg);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+.recovery-hint-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 6px;
+}
+.recovery-hint .inline-link {
+  color: var(--on-bg);
+  text-decoration: underline;
+}
+.theme-sherlock .recovery-hint {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.theme-sherlock .recovery-hint .inline-link {
+  color: var(--brand-dark);
+}

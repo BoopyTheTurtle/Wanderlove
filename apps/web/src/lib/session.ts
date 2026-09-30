@@ -1,6 +1,7 @@
 // What this device remembers about linking. The partner itself comes from the server (lib/couples.ts).
 const STORAGE_KEY = "wannadoo_link_state";
 const PENDING_INVITE_KEY = "wannadoo_pending_invite";
+const PENDING_INVITE_KEY_ID = "wannadoo_pending_invite_key";
 const OPEN_INVITE_KEY = "wannadoo_open_invite";
 // Held the simulated partner before phase 3.
 const LEGACY_KEY = "wannadoo_session";
@@ -54,18 +55,30 @@ export function forgetPartner(userId: string) {
   saveLinkState(userId, { knownPartnerId: null });
 }
 
-// An invite code from a /link/<code> URL, kept until sign-in and onboarding are done.
-export function savePendingInvite(code: string) {
+// The inviter's key ID from an invite link's fragment (#k=<key_id>), or null. The fragment never reaches the server.
+export function inviteKeyIdFromHash(hash: string): string | null {
+  const match = hash.match(/[#&]k=([0-9a-f]{16})(?:&|$)/i);
+  return match ? match[1].toLowerCase() : null;
+}
+
+export type PendingInvite = { code: string; keyId: string | null };
+
+// An invite from a /link/<code>#k=<key_id> URL, kept until sign-in and onboarding are done. The key ID defaults to
+// the one in the address bar's fragment, since main.tsx saves the code before it clears the address.
+export function savePendingInvite(code: string, keyId: string | null = inviteKeyIdFromHash(window.location.hash)) {
   try {
     localStorage.setItem(PENDING_INVITE_KEY, code);
+    if (keyId) localStorage.setItem(PENDING_INVITE_KEY_ID, keyId);
+    else localStorage.removeItem(PENDING_INVITE_KEY_ID);
   } catch {
     // Without storage the invitee can still type the code.
   }
 }
 
-export function loadPendingInvite(): string | null {
+export function loadPendingInvite(): PendingInvite | null {
   try {
-    return localStorage.getItem(PENDING_INVITE_KEY);
+    const code = localStorage.getItem(PENDING_INVITE_KEY);
+    return code ? { code, keyId: localStorage.getItem(PENDING_INVITE_KEY_ID) } : null;
   } catch {
     return null;
   }
@@ -74,6 +87,7 @@ export function loadPendingInvite(): string | null {
 export function clearPendingInvite() {
   try {
     localStorage.removeItem(PENDING_INVITE_KEY);
+    localStorage.removeItem(PENDING_INVITE_KEY_ID);
   } catch {
     // Nothing to clear.
   }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { Confetti } from "../components/Confetti";
 import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
@@ -25,6 +26,7 @@ export function SherlockCompleteScreen({
   meId,
   partnerName,
   syncTick,
+  notice,
   onViewMap,
 }: {
   runId: string;
@@ -32,6 +34,8 @@ export function SherlockCompleteScreen({
   // The partner who shared this run, or null on a solo run.
   partnerName: string | null;
   syncTick: number;
+  // A one-time note from the app, such as the recovery code hint; shown below the main buttons.
+  notice?: ReactNode;
   onViewMap: () => void;
 }) {
   const loaded = useRun(runId, syncTick);
@@ -154,6 +158,8 @@ export function SherlockCompleteScreen({
         <button type="button" className="sh-btn-ghost" onClick={handleShare}>
           <ShareIcon size={16} /> Share the trail
         </button>
+
+        {notice}
       </div>
     </div>
   );

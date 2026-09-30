@@ -14,7 +14,7 @@ import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
 import { KeyUnlock } from "./screens/KeyUnlock";
-import { PartnerKeyConfirm } from "./screens/PartnerKeyConfirm";
+import { PartnerKeyConfirm, PartnerKeyMismatch } from "./screens/PartnerKeyConfirm";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import type { Profile } from "@wannadoo/core";
 import {
@@ -64,11 +64,16 @@ import {
   KeysAlreadyExistError,
   checkPartnerKey,
   loadKeyState,
+  partnerKeyIdForCheck,
   prepareAccountKeys,
+  rotateAccountKeys,
   saveAccountKeys,
   trustPartnerKey,
+  unlinkMismatchedPartner,
+  verifyPartnerKey,
 } from "./lib/keys";
 import type { PartnerKeyCheck } from "./lib/keys";
+import { forgetRecoveryCode, markRecoveryHintDone, recoveryHintDone } from "./lib/keyStore";
 import type { DeviceKeys } from "./lib/keyStore";
 import { RunKeyContext, runKeyLoader, useRunKeyLoader } from "./lib/photoKeys";
 import type { ReactNode } from "react";
@@ -164,11 +169,12 @@ export default function App() {
   // Keyed by user, so switching accounts starts the key check and the trail flow afresh.
   return (
     <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
-      {(keys) => (
+      {(keys, setKeys) => (
         <RunKeyProvider userId={auth.user.id} keys={keys}>
           <SignedInApp
             me={toProfile(profile.row, auth.user.email ?? "")}
             keys={keys}
+            onKeysChange={setKeys}
             onSignOut={() => signOutAndClear(auth.user.id)}
           />
         </RunKeyProvider>
@@ -225,11 +231,14 @@ function KeyGate({
 }: {
   userId: string;
   onSignOut: () => void;
-  children: (keys: DeviceKeys) => ReactNode;
+  // setKeys takes this device's keys after they change in the app (the recovery code seen, or a new pair).
+  children: (keys: DeviceKeys, setKeys: (keys: DeviceKeys) => void) => ReactNode;
 }) {
   const [gate, setGate] = useState<KeyGateState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [prompt, setPrompt] = useState<PartnerKeyPrompt | null>(null);
+  // The partner's key differs from the key ID their invite carried, and the accept screen didn't unlink.
+  const [mismatch, setMismatch] = useState<string | null>(null);
   // A key the user answered "Not now" for; asked again on the next app open.
   const dismissedKeyId = useRef<string | null>(null);
   const checkRequest = useRef(0);
@@ -253,7 +262,7 @@ function KeyGate({
     setAttempt((n) => n + 1);
   }
 
-  // Option C: a fresh pair replaces the account's earlier one; its new code shows in Settings.
+  // Option C: a fresh pair replaces the account's earlier one; its new code shows once in Settings.
   function startFresh() {
     setGate({ status: "loading" });
     prepareAccountKeys()
@@ -272,8 +281,10 @@ function KeyGate({
   const checkPartner = useCallback(async () => {
     const id = ++checkRequest.current;
     try {
+      const invite = await verifyPartnerKey(userId);
       const result = await checkPartnerKey(userId);
       if (id !== checkRequest.current) return;
+      setMismatch(invite.status === "mismatch" ? invite.partnerName : null);
       setPrompt(result.status === "confirm" && result.key.keyId !== dismissedKeyId.current ? result : null);
     } catch (e) {
       console.error("Couldn't check the partner's keys", e);
@@ -329,14 +340,29 @@ function KeyGate({
     );
 
   const readyKeys = gate.keys;
+  const setKeys = (next: DeviceKeys) => setGate({ status: "ready", keys: next });
   return (
     <>
-      {prompt && (
+      {mismatch !== null && (
+        <PhoneFrame>
+          <PartnerKeyMismatch
+            partnerName={mismatch}
+            onUnlink={async () => {
+              checkRequest.current++;
+              await unlinkMismatchedPartner(userId);
+              setMismatch(null);
+            }}
+          />
+        </PhoneFrame>
+      )}
+      {prompt && mismatch === null && (
         <PhoneFrame>
           <PartnerKeyConfirm
             key={prompt.key.keyId}
             partnerName={prompt.partnerName}
             reason={prompt.reason}
+            myKeyId={readyKeys.keyId}
+            partnerKeyId={prompt.key.keyId}
             onTrust={async () => {
               checkRequest.current++;
               await trustPartnerKey(userId, readyKeys, prompt.key);
@@ -350,8 +376,8 @@ function KeyGate({
           />
         </PhoneFrame>
       )}
-      <div className="key-gate-app" hidden={prompt !== null}>
-        {children(readyKeys)}
+      <div className="key-gate-app" hidden={prompt !== null || mismatch !== null}>
+        {children(readyKeys, setKeys)}
       </div>
     </>
   );
@@ -410,7 +436,8 @@ function LoadingScreen({
 
 type Route =
   | { name: "partner" }
-  | { name: "accept"; code: string }
+  // keyId: the inviter's key ID from a link or QR; null for a typed code.
+  | { name: "accept"; code: string; keyId: string | null }
   | { name: "linked" }
   | { name: "settings" }
   | { name: "trailList" }
@@ -428,14 +455,21 @@ type Draft =
 function SignedInApp({
   me,
   keys,
+  onKeysChange,
   onSignOut,
 }: {
   me: Profile;
   // This device's photo keys: an encrypted start wraps the run key for them.
   keys: DeviceKeys;
+  onKeysChange: (keys: DeviceKeys) => void;
   onSignOut: () => void;
 }) {
+  // Held until the user has seen it once in Profile (security review, finding 3).
   const recoveryCode = keys.recoveryCode ?? null;
+  // A calm one-time hint after a finished trail, while the code waits unseen; dismissed per device.
+  const [hintDone, setHintDone] = useState(() => recoveryHintDone(me.id));
+  // The partner's key ID for the emoji check on the linked screen and in Profile.
+  const [partnerKeyId, setPartnerKeyId] = useState<string | null>(null);
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
@@ -702,6 +736,50 @@ function SignedInApp({
     return () => window.clearInterval(timer);
   }, [onInviteScreen, refreshPartner]);
 
+  // The emoji check needs the partner's key ID on the linked screen and in Profile.
+  const showsKeyCheck = route?.name === "linked" || route?.name === "settings";
+  const partnerId = partner?.id ?? null;
+  useEffect(() => {
+    if (!showsKeyCheck || !partnerId) return;
+    let active = true;
+    partnerKeyIdForCheck(me.id, partnerId).then(
+      (id) => active && setPartnerKeyId(id),
+      (e: unknown) => console.error("Couldn't load the partner's key", e),
+    );
+    return () => {
+      active = false;
+    };
+  }, [showsKeyCheck, partnerId, me.id]);
+
+  function handleRecoveryCodeSeen() {
+    markRecoveryHintDone(me.id);
+    setHintDone(true);
+    forgetRecoveryCode(me.id).then(
+      (next) => next && onKeysChange(next),
+      (e: unknown) => console.error("Couldn't forget the recovery code", e),
+    );
+  }
+
+  async function handleNewRecoveryCode() {
+    onKeysChange(await rotateAccountKeys(me.id, keys));
+  }
+
+  function dismissHint() {
+    markRecoveryHintDone(me.id);
+    setHintDone(true);
+  }
+
+  const recoveryHint =
+    recoveryCode && !hintDone ? (
+      <RecoveryHint
+        onOpen={() => {
+          dismissHint();
+          setRoute({ name: "settings" });
+        }}
+        onDismiss={dismissHint}
+      />
+    ) : null;
+
   // Where the app rests: the map, unless the user has neither a partner nor chosen to walk solo.
   function homeRoute(): Route {
     return partner || linkState.solo ? { name: "map" } : { name: "partner" };
@@ -879,7 +957,8 @@ function SignedInApp({
       {route.name === "partner" && (
         <PartnerLink
           me={me}
-          onEnterCode={(code) => setRoute({ name: "accept", code })}
+          keyId={keys.keyId}
+          onEnterCode={(code, keyId) => setRoute({ name: "accept", code, keyId })}
           onWalkSolo={handleWalkSolo}
           onInviteRefused={refreshPartner}
           onSignOut={handleSignOut}
@@ -887,11 +966,24 @@ function SignedInApp({
       )}
 
       {route.name === "accept" && (
-        <LinkInvite key={route.code} code={route.code} onLinked={handleLinked} onDone={handleInviteDone} />
+        <LinkInvite
+          key={route.code}
+          code={route.code}
+          keyId={route.keyId}
+          myId={me.id}
+          onLinked={handleLinked}
+          onDone={handleInviteDone}
+        />
       )}
 
       {route.name === "linked" && partner && (
-        <LinkedScreen me={me} partner={partner} onContinue={() => setRoute({ name: "trailList" })} />
+        <LinkedScreen
+          me={me}
+          partner={partner}
+          myKeyId={keys.keyId}
+          partnerKeyId={partnerKeyId}
+          onContinue={() => setRoute({ name: "trailList" })}
+        />
       )}
 
       {route.name === "settings" && (
@@ -900,6 +992,10 @@ function SignedInApp({
           email={me.email}
           partner={partner}
           recoveryCode={recoveryCode}
+          onRecoveryCodeSeen={handleRecoveryCodeSeen}
+          onNewRecoveryCode={handleNewRecoveryCode}
+          myKeyId={keys.keyId}
+          partnerKeyId={partner ? partnerKeyId : null}
           onUnlink={handleUnlink}
           onLinkPartner={() => setRoute({ name: "partner" })}
           onSignOut={handleSignOut}
@@ -988,6 +1084,7 @@ function SignedInApp({
             meId={me.id}
             partnerName={runPartnerName}
             syncTick={syncTick}
+            notice={recoveryHint}
             onViewMap={() => setRoute({ name: "map" })}
           />
         ) : (
@@ -996,6 +1093,7 @@ function SignedInApp({
             meId={me.id}
             partnerName={runPartnerName}
             syncTick={syncTick}
+            notice={recoveryHint}
             onViewMap={() => setRoute({ name: "map" })}
           />
         ))}
@@ -1021,9 +1119,26 @@ function SignedInApp({
 // linking and walking solo.
 function firstRoute(partner: Profile | null, state: LinkState): Route {
   const pending = loadPendingInvite();
-  if (pending) return { name: "accept", code: pending };
+  if (pending) return { name: "accept", code: pending.code, keyId: pending.keyId };
   if (partner || state.solo || state.knownPartnerId) return { name: "map" };
   return { name: "partner" };
+}
+
+// After a finished trail, while the recovery code waits unseen: a quiet pointer to Profile, shown until dismissed.
+function RecoveryHint({ onOpen, onDismiss }: { onOpen: () => void; onDismiss: () => void }) {
+  return (
+    <aside className="recovery-hint" aria-label="Recovery code">
+      <p>Keep your photos safe on a new phone: get your recovery code in Profile.</p>
+      <div className="recovery-hint-actions">
+        <button type="button" className="inline-link" onClick={onOpen}>
+          Open Profile
+        </button>
+        <button type="button" className="inline-link" onClick={onDismiss}>
+          Not now
+        </button>
+      </div>
+    </aside>
+  );
 }
 
 // Main spec 6.3: the message and nothing else.

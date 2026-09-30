@@ -4,6 +4,7 @@ import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { HeartIcon } from "../components/Icons";
 import { isCompleteCode, peekInvite, redeemInvite } from "../lib/couples";
 import type { InvitePeek, PeekStatus } from "../lib/couples";
+import { expectPartnerKey, unlinkMismatchedPartner, verifyPartnerKey } from "../lib/keys";
 
 type Problem = Exclude<PeekStatus, "valid">;
 
@@ -35,15 +36,25 @@ type State =
   | { status: "offline" }
   | { status: "ready"; peek: InvitePeek }
   | { status: "linking"; peek: InvitePeek }
-  | { status: "problem"; problem: Problem };
+  // Linked, but the check of the inviter's key against the invite's key ID has not finished.
+  | { status: "verifyOffline"; peek: InvitePeek }
+  | { status: "problem"; problem: Problem }
+  | { status: "mismatch"; name: string };
 
-// The accept screen for an invite, from a /link/<code> URL or a typed code.
+// The accept screen for an invite, from a /link/<code> URL, a scanned QR, or a typed code. A link or QR carries the
+// inviter's key ID; after linking, the phone checks the inviter's published key against it and unlinks on a
+// mismatch (lib/keys.ts). The server shows the invitee the inviter's key only once they are linked.
 export function LinkInvite({
   code,
+  keyId,
+  myId,
   onLinked,
   onDone,
 }: {
   code: string;
+  // The inviter's key ID from the link's fragment; null for a typed code.
+  keyId: string | null;
+  myId: string;
   // Loads the new partner and moves on; handles its own errors.
   onLinked: () => Promise<void>;
   // "Not now", or leaving after a problem.
@@ -77,6 +88,8 @@ export function LinkInvite({
   async function link(peek: InvitePeek) {
     setState({ status: "linking", peek });
     setError(null);
+    // Recorded first, so a check the app could not finish here still runs later (KeyGate).
+    expectPartnerKey(myId, keyId);
     let result;
     try {
       result = await redeemInvite(code);
@@ -85,8 +98,67 @@ export function LinkInvite({
       setState({ status: "ready", peek });
       return;
     }
-    if (result === "linked") await onLinked();
-    else setState({ status: "problem", problem: result });
+    if (result !== "linked") {
+      expectPartnerKey(myId, null);
+      setState({ status: "problem", problem: result });
+      return;
+    }
+    await verify(peek);
+  }
+
+  async function verify(peek: InvitePeek) {
+    setState({ status: "linking", peek });
+    setError(null);
+    try {
+      const check = await verifyPartnerKey(myId);
+      if (check.status === "mismatch") {
+        setState({ status: "mismatch", name: peek.inviterName ?? check.partnerName });
+        // On failure the invite's key ID stays recorded, so KeyGate asks again and unlinks.
+        await unlinkMismatchedPartner(myId).catch((e: unknown) => console.error("Couldn't unlink", e));
+        return;
+      }
+    } catch (e) {
+      console.error("Couldn't check the partner's keys", e);
+      if (keyId) {
+        setState({ status: "verifyOffline", peek });
+        return;
+      }
+    }
+    await onLinked();
+  }
+
+  if (state.status === "mismatch") {
+    return (
+      <InviteLayout
+        title={`This invite doesn’t match ${state.name}’s keys`}
+        body={`Ask ${state.name} to show a new code.`}
+      >
+        <div className="card auth-card invite-card">
+          <button type="button" className="btn-primary" onClick={onDone}>
+            Continue
+          </button>
+        </div>
+      </InviteLayout>
+    );
+  }
+
+  if (state.status === "verifyOffline") {
+    const name = state.peek.inviterName ?? "your partner";
+    return (
+      <InviteLayout
+        title={`Couldn’t check ${name}’s keys`}
+        body="You’re linked. Check your connection and try again; the app checks again when it can."
+      >
+        <div className="card auth-card invite-card">
+          <button type="button" className="btn-primary" onClick={() => void verify(state.peek)}>
+            Try again
+          </button>
+          <button type="button" className="btn-soft" onClick={() => void onLinked()}>
+            Continue
+          </button>
+        </div>
+      </InviteLayout>
+    );
   }
 
   if (state.status === "ready" || state.status === "linking") {

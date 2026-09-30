@@ -70,6 +70,16 @@ Saving, the ZIP, and the album image work unchanged, since they run on the phone
   "Emma's keys changed, most likely on a new phone. Trust them?" before it wraps any key for them. Starting a trail
   waits for that answer; the same confirmation covers the re-share of past trails. Each wrapped run key also carries its
   run ID as authenticated data, so a wrapped key cannot be moved to another run.
+- **Verifying the partner's key.** The pin alone trusts whatever key the server shows first. Two checks close that gap
+  (security review, finding 4). First, the invite QR and link carry the inviter's key ID in the fragment
+  (`/link/<code>#k=<key_id>`), which browsers never send to the server. After redeeming, the invitee's phone hashes
+  the inviter's published key and compares it with the fragment; a match pins the key, a mismatch unlinks at once
+  and says "This invite doesn't match Emma's keys. Ask them to show a new code." The check follows the redeem
+  because the invitee cannot read the inviter's key before linking. Second, both phones turn the pair's two key IDs
+  into four emoji from a fixed list of 64. The linked screen, the "keys changed" prompt, and Profile show them, so
+  the partners can compare screens. Four emoji carry 24 bits: they catch a swapped key, but an attacker who can
+  generate keys until the emoji collide could beat them. The inviting phone, a typed code, and couples linked
+  before this change have no fingerprint; they fall back to trust on first use and the emoji.
 - **Account deletion (MVP).** Deleting the account deletes its key rows along with its photos.
 
 ## 5. Recovery: Edgar's decision
@@ -118,8 +128,12 @@ phones show them, the recovery code unlocks a cleared phone, and new keys work o
 
 1. **Recovery:** A and C together, as recommended (Edgar, September 29).
 2. **Timing:** now, before the 10–20 testers are invited, so testers never upload plain photos.
-3. **The recovery code lives in Profile** (Edgar, September 30). Showing it at sign-up would scare users, so each phone
-   makes its keys without a screen and keeps the code beside them; Profile shows it on request. The security review
-   (finding 3) notes the cost.
+3. **The recovery code shows once, in Profile** (Edgar, September 30). Showing it at sign-up would scare users, so each
+   phone makes its keys without a screen and keeps the code only until the user opens it in Profile: "Write this
+   down. It won't be shown again." Closing the dialog deletes it from the phone, since a stored code would let an
+   injected script carry the private key away (security review, finding 3). Afterwards Profile offers "Make a new
+   recovery code", which makes a new key pair, since the private key cannot be exported: the phone rewraps its own
+   run keys for the new pair, and the partner's phone asks to trust the new keys. After the first finished trail,
+   a quiet hint points to Profile while the code waits unseen.
 4. **A new trail waits for the partner's keys** (Edgar, September 30), as section 4 planned, rather than starting
    unencrypted.
