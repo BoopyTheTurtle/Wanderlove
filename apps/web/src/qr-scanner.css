@@ -1,0 +1,125 @@
+/* QrScanner: a full-screen camera overlay with a viewfinder. Buttons reuse .btn-primary and .btn-primary.light. */
+.qr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: #0b1f1d;
+  color: #fff;
+  overflow: hidden;
+}
+
+.qr-scanner-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-scanner-top,
+.qr-scanner-middle,
+.qr-scanner-failure,
+.qr-scanner-bottom {
+  position: relative;
+  z-index: 1;
+}
+
+.qr-scanner-top {
+  padding: 58px 24px 0;
+  text-align: center;
+}
+.qr-scanner-top h2 {
+  font-size: 19px;
+  font-weight: 800;
+  text-shadow: 0 2px 12px #0a2f2b99;
+}
+
+/* Below the title, so the viewfinder's dimming shadow doesn't cover it. */
+.qr-scanner-middle {
+  z-index: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+/* The square stays clear; the huge shadow dims the rest of the preview. */
+.qr-scanner-frame {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  border-radius: 22px;
+  box-shadow: 0 0 0 999px #0b1f1d99;
+}
+.qr-scanner-frame i {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border: 4px solid var(--teal-mid);
+  transition: border-color 0.2s;
+}
+.qr-scanner-frame.live i {
+  border-color: #fff;
+}
+.qr-scanner-frame i:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-width: 4px 0 0 4px;
+  border-radius: 22px 0 0 0;
+}
+.qr-scanner-frame i:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-width: 4px 4px 0 0;
+  border-radius: 0 22px 0 0;
+}
+.qr-scanner-frame i:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 4px 4px;
+  border-radius: 0 0 0 22px;
+}
+.qr-scanner-frame i:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-width: 0 4px 4px 0;
+  border-radius: 0 0 22px 0;
+}
+
+.qr-scanner-note {
+  position: relative;
+  max-width: 280px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #0b1f1dcc;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.qr-scanner-failure {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  padding: 0 28px;
+  text-align: center;
+}
+.qr-scanner-failure p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #e3fbf6;
+}
+
+.qr-scanner-bottom {
+  padding: 16px 24px 34px;
+}
+
+/* The partner screen's button that opens the scanner. */
+.qr-scan-open {
+  margin: 12px 20px 0;
+}
