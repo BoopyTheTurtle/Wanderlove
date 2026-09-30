@@ -89,14 +89,18 @@ Last updated September 30, 2026. Resume from **Next** below.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
   `chore/repo-structure`; Edgar approves every merge.
 
+**MVP, from September 30:** work continues in [mvp-roadmap.md](mvp-roadmap.md). Stage A research is drafted
+(docs/research), Stage 1 is merged (PRs 31 to 33: home, Activity, and the one-month photo deletion), and the safety
+batch (stage 1b) is in progress.
+
 **Next:**
 
-1. **[You]** On two phones after the next reload: link with a fresh invite and compare the four emoji; view the
-   recovery code once in Profile; check the camera scanner still works under the new security headers.
-2. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
-   whether the second "Tap to save" is needed).
-3. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
-4. **[Agent + You]** The MVP roadmap: [mvp-roadmap.md](mvp-roadmap.md), in review; Stage A research starts once Edgar approves it.
+1. **[You]** Add the `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` GitHub secrets, then run "Purge expired photos"
+   once with dry run ticked.
+2. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
+   once; check the camera scanner under the new security headers.
+3. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
+4. **[Agent]** Safety batch wave 1, then wave 2 (MVP roadmap, stage 1b).
 
 **Lessons from phase 2:**
 

@@ -48,6 +48,12 @@ Research and design workflows run first, in parallel, because the build stages d
 | Rural roads            | Allowed with a warning, so rural areas still get routes                                                                                                                                                                                                       |
 | Weather                | Calendar-based notes now; live weather later                                                                                                                                                                                                                  |
 | Legal                  | A lawyer reviews share rewards and liability copy before public launch; points stay low until then                                                                                                                                                            |
+| Quest joining          | A partner joins a started quest by choice, and a "Just me" quest stays invisible to the partner                                                                                                                                                               |
+| Unlinking              | Quiet: the other phone learns at its next use of the link, nobody sees who ended it, and the photo window closes                                                                                                                                              |
+| Linking                | Both sides confirm a link                                                                                                                                                                                                                                     |
+| Trail privacy          | Trail details and stop IDs are encrypted with the trail key; after a month the server keeps only an encrypted summary (name, stops, date) and times rounded to the day, so the history of trails done together remains                                        |
+| Ex's photos            | Each keeps the photos from shared trails, and "Hide from my album" removes one from view                                                                                                                                                                      |
+| Safety reset           | A one-screen safety reset, built with account deletion before public launch                                                                                                                                                                                   |
 
 ## 2. What the research gives the task pool
 
@@ -92,7 +98,10 @@ accepted the gap for now.
 
 **Status, September 30:** A1 to A4 are drafted in [docs/research](research/) and Edgar has decided their questions
 (section 1). A5 runs on the OpenAI API route: `tools/images/generate.mjs` with prompts in `docs/design/prompts/`; the
-avatar sheet's style is approved and the journey map is on its third concept. A6 is in progress.
+avatar sheet's style is approved and the journey map is on its third concept. A6 is drafted too, and Edgar has decided its questions (section 1).
+
+**Stage 1 merged September 30** (PRs 31 to 33): home and Activity, and the one-month photo deletion, which runs daily
+from `main` because GitHub schedules only the default branch.
 
 ## 4. Build stages
 
@@ -112,6 +121,20 @@ and its date after the photos go, and says so.
 **Done when:** a couple starts a quest from home, finishes it, and finds it in Activity with its photos on both phones;
 and on the local stack, a trail aged past a month loses its photos, rows and files alike, while its Activity entry
 stays.
+
+### 1b. Safety batch
+
+The fixes Edgar approved from the [abuse threat model](research/abuse-threat-model.md), before the random route. Wave
+1 builds all database changes (encrypted trail details with anonymous stop IDs, the monthly stripping that keeps a
+summary, "Just me" quests, joining by choice, a quiet unlink that closes the photo window, confirmed links, and the
+recovery code's viewed date) beside the phone-only fixes (walking paths cleared when a trail ends, "Leave this phone
+clean", "Sign out everywhere else"). Wave 2 wires the app to the database changes and adds "Hide from my album".
+Supabase gives the app no list of signed-in devices, so it offers only "Sign out everywhere else"; old test trails
+stay unencrypted until the wipe.
+
+**Done when:** on two phones, a quest started by one reaches the other only as an invitation, a "Just me" quest never
+shows on the partner's phone, an unlink raises no alert on the other phone, a link needs both confirmations, and the
+server holds no readable place or stop ID for a new trail.
 
 ### 2. Route generator v2
 
