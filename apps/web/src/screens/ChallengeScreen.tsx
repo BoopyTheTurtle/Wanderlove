@@ -15,6 +15,8 @@ export function ChallengeScreen({
   meId,
   partnerName,
   onBack,
+  onContinue,
+  continueLabel,
   onUpload,
   onSkip,
 }: {
@@ -28,6 +30,9 @@ export function ChallengeScreen({
   meId: string;
   partnerName: string | null;
   onBack: () => void;
+  // Once the stop is done (by either of you): on to the next stop, or the album after the last one.
+  onContinue: () => void;
+  continueLabel: string;
   onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
   onSkip: () => Promise<void>;
 }) {
@@ -84,6 +89,11 @@ export function ChallengeScreen({
             onUpload={onUpload}
             onSkip={onSkip}
           />
+          {done && (
+            <button type="button" className="btn-primary stop-continue" onClick={onContinue}>
+              {continueLabel}
+            </button>
+          )}
           {!done && <p className="hint">This unlocks the next stop on the map.</p>}
         </section>
 

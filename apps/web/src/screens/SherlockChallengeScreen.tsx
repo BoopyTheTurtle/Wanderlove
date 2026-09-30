@@ -41,6 +41,8 @@ export function SherlockChallengeScreen({
   partner,
   runPartnerName,
   onBack,
+  onContinue,
+  continueLabel,
   onUpload,
   onSkip,
 }: {
@@ -56,6 +58,9 @@ export function SherlockChallengeScreen({
   // The partner who shares this run, or null on a solo run.
   runPartnerName: string | null;
   onBack: () => void;
+  // Once the stop is done (by either of you): on to the next stop, or the album after the last one.
+  onContinue: () => void;
+  continueLabel: string;
   onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
   onSkip: () => Promise<void>;
 }) {
@@ -190,6 +195,11 @@ export function SherlockChallengeScreen({
             onUpload={onUpload}
             onSkip={onSkip}
           />
+          {done && (
+            <button type="button" className="sh-btn-done stop-continue" onClick={onContinue}>
+              {continueLabel}
+            </button>
+          )}
           {!done && (
             <p className="sh-hint">
               {solved

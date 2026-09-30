@@ -68,7 +68,9 @@ export function AlbumActions({
       kind: "done",
       job,
       message:
-        outcome === "shared" ? `${what} shared.` : `${what} downloaded${files.length > 1 ? " in one ZIP file" : ""}.`,
+        outcome === "shared"
+          ? `${what} shared.`
+          : `${what} downloaded${outcome === "zipped" ? " in one ZIP file" : ""}.`,
     });
   }
 

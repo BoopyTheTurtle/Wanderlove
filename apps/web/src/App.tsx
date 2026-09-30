@@ -961,6 +961,8 @@ function SignedInApp({
             completions: run.completions,
             syncTick,
             onBack: () => setRoute({ name: "map" }),
+            onContinue: () => setRoute(allStopsDone(run) ? { name: "complete" } : { name: "map" }),
+            continueLabel: allStopsDone(run) ? "See your album" : "On to the next stop",
             onUpload: (prepared: PreparedPhoto) => handleStopPhoto(stop.id, prepared),
             onSkip: () => completeAndMoveOn(stop.id),
           };
