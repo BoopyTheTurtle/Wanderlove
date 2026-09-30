@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { trail, type Trail } from "@wannadoo/core";
-import { fromRunSnapshot, toRunSnapshot } from "./runSnapshot";
+import {
+  fromRunDetails,
+  fromRunSnapshot,
+  fromRunSummary,
+  toRunDetails,
+  toRunSnapshot,
+  toRunSummary,
+} from "./runSnapshot";
 
 const routed: Trail = {
   ...trail,
@@ -80,5 +87,57 @@ describe("fromRunSnapshot", () => {
     ["a stop without a radius", { stops: [{ ...trail.stops[0], radiusMeters: 0 }] }],
   ])("throws on %s", (_, json) => {
     expect(() => fromRunSnapshot(json, "t")).toThrow();
+  });
+});
+
+// A surprise route with a cemetery chapel on stop 3 (route-safety.md H14).
+const withQuiet: Trail = {
+  ...trail,
+  kind: "surprise",
+  stops: trail.stops.map((s, i) => (i === 2 ? { ...s, quiet: true } : s)),
+};
+
+const roundTrip = <T>(value: T): unknown => JSON.parse(JSON.stringify(value));
+
+describe("quiet stops", () => {
+  it("keeps the flag through the snapshot", () => {
+    const back = fromRunSnapshot(roundTrip(toRunSnapshot(withQuiet)), trail.id);
+    expect(back.stops.map((s) => s.quiet === true)).toEqual([false, false, true, false, false]);
+  });
+
+  it("keeps the flag through sealed details, on the sealed stop ID", () => {
+    const back = fromRunDetails(roundTrip(toRunDetails(withQuiet)));
+    expect(back.stops[2]).toMatchObject({ id: "s3", quiet: true });
+    expect(back.stops.filter((s) => s.quiet)).toHaveLength(1);
+  });
+
+  it("stores no flag on ordinary stops", () => {
+    const json = roundTrip(toRunDetails(withQuiet)) as { stops: Record<string, unknown>[] };
+    expect(json.stops[0]).not.toHaveProperty("quiet");
+    expect(json.stops[2]).toHaveProperty("quiet", true);
+  });
+
+  it("reads details sealed before the flag existed as ordinary stops", () => {
+    const old = roundTrip(toRunDetails(trail)) as { stops: Record<string, unknown>[] };
+    for (const stop of old.stops) delete stop.quiet;
+    expect(fromRunDetails(old).stops.some((s) => s.quiet)).toBe(false);
+  });
+
+  it("ignores a flag that is not true", () => {
+    const back = fromRunSnapshot({ stops: [{ ...trail.stops[0], quiet: "yes" }] }, "t");
+    expect(back.stops[0]).not.toHaveProperty("quiet");
+  });
+
+  it("keeps quiet positions in the summary", () => {
+    const summary = roundTrip(toRunSummary(withQuiet));
+    expect(summary).toHaveProperty("quietStops", [2]);
+    const back = fromRunSummary(summary);
+    expect(back.stops.map((s) => s.quiet === true)).toEqual([false, false, true, false, false]);
+  });
+
+  it("leaves quietStops out of a summary without quiet stops, and reads old summaries", () => {
+    const summary = roundTrip(toRunSummary(trail));
+    expect(summary).not.toHaveProperty("quietStops");
+    expect(fromRunSummary(summary).stops.some((s) => s.quiet)).toBe(false);
   });
 });

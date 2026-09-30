@@ -10,13 +10,16 @@
 //     wannadoo_partner_keys    { user: { partner: keyId } }  keys   clean
 //     wannadoo_invite_key      { user: keyId }          keys        checked, clean
 //     wannadoo_recovery_hint_done  [user]               keyStore    clean
+//     wannadoo_safety_note     { user: { quests, hidden } }  routeSafety  clean
 //     sb-<project>-auth-token  the Supabase session     supabase-js sign-out, clean
 //   IndexedDB wannadoo-keys    { user: device keys }    keyStore    clean (the database goes once empty)
-//   Memory                     run keys, place cache    keyStore, core   clean reloads the page
+//   Memory                     run keys, place cache    keyStore, core   place cache: sign-out; clean reloads the page
 //
-// Sign-out keeps the photo keys, the key pins, and the solo choice: none of them says where anyone was, and without
-// the keys the phone would need the recovery code again.
+// Sign-out keeps the photo keys, the key pins, the solo choice, and the safety-note count: none of them says where
+// anyone was, and without the keys the phone would need the recovery code again. Sign-out also drops the place cache
+// in memory (App.tsx), since it shows roughly where the user started.
 import { forgetDeviceKeys, forgetRecoveryHint } from "./keyStore";
+import { forgetSafetyNote } from "./routeSafety";
 import { forgetRunDevice } from "./runDevice";
 import { clearPendingInvite, forgetLinkState, forgetOpenInvite, forgetPartner } from "./session";
 
@@ -57,5 +60,6 @@ export async function clearAllForUser(userId: string): Promise<void> {
   forgetUserEntry(PINS_KEY, userId);
   forgetUserEntry(EXPECTED_KEY, userId);
   forgetRecoveryHint(userId);
+  forgetSafetyNote(userId);
   await forgetDeviceKeys(userId);
 }

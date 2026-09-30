@@ -1,0 +1,46 @@
+/* Safety notes before a surprise route (components/RouteSafety.tsx) and the quiet-stop line on the challenge card */
+.safety-note,
+.sunset-warning {
+  margin: 0 20px 14px;
+  padding: 16px;
+  display: grid;
+  gap: 7px;
+}
+.safety-note h3,
+.sunset-warning h3 {
+  font-size: 16px;
+  font-weight: 800;
+}
+.safety-note p:not(.card-kicker),
+.sunset-warning p:not(.card-kicker) {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.safety-note .safety-extra {
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+.sunset-warning {
+  background: var(--brand-wash);
+  border: 1px solid var(--brand-soft);
+}
+.sunset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sunset-actions .btn-small {
+  flex: 1 1 auto;
+}
+
+.quiet-note {
+  justify-self: stretch;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--brand-wash);
+  color: var(--brand-dark);
+  font-size: 13px;
+  line-height: 1.5;
+}

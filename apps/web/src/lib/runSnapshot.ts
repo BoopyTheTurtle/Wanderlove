@@ -17,7 +17,7 @@ export type RunSnapshot = {
 };
 
 function toStop(stop: Stop): Stop {
-  return {
+  const kept: Stop = {
     id: stop.id,
     name: stop.name,
     lat: stop.lat,
@@ -27,6 +27,9 @@ function toStop(stop: Stop): Stop {
     prompt: stop.prompt,
     image: stop.image,
   };
+  // Only a quiet stop carries the flag, so runs sealed before it existed read the same as ordinary ones.
+  if (stop.quiet) kept.quiet = true;
+  return kept;
 }
 
 // The trail as JSON for `trail_runs.trail_snapshot`. The trail's ID travels separately, as `trail_id`.
@@ -68,7 +71,7 @@ function parseStop(value: unknown, index: number): Stop {
   if (typeof name !== "string") throw new Error(`Run snapshot stop ${id} has no name`);
   if (!isNumber(lat) || !isNumber(lng)) throw new Error(`Run snapshot stop ${id} has no position`);
   if (!isNumber(radiusMeters) || radiusMeters <= 0) throw new Error(`Run snapshot stop ${id} has no radius`);
-  return {
+  const stop: Stop = {
     id,
     name,
     lat,
@@ -78,6 +81,8 @@ function parseStop(value: unknown, index: number): Stop {
     prompt: str(value.prompt),
     image: str(value.image),
   };
+  if (value.quiet === true) stop.quiet = true;
+  return stop;
 }
 
 // Rebuilds a Trail from a stored snapshot. Throws when the stops are missing or malformed; the display fields fall
@@ -139,6 +144,8 @@ export type RunSummary = {
   name: string;
   durationMinutes: number;
   stops: string[];
+  // Positions (0-based) of the quiet stops, so the album still treats them gently; absent when there are none.
+  quietStops?: number[];
   // The local day the walk started, YYYY-MM-DD.
   startedOn: string;
 };
@@ -156,6 +163,8 @@ export function toRunSummary(trail: Trail, startedAt = new Date()): RunSummary {
     startedOn: day,
   };
   if (trail.kind !== undefined) summary.kind = trail.kind;
+  const quietStops = trail.stops.flatMap((s, i) => (s.quiet ? [i] : []));
+  if (quietStops.length) summary.quietStops = quietStops;
   return summary;
 }
 
@@ -165,16 +174,21 @@ export function fromRunSummary(json: unknown): Trail {
   if (!isObject(json) || !Array.isArray(json.stops) || json.stops.length === 0) {
     throw new Error("Run summary has no stops");
   }
-  const stops: Stop[] = json.stops.map((name: unknown, i: number) => ({
-    id: sealedStopId(i),
-    name: str(name),
-    lat: 0,
-    lng: 0,
-    radiusMeters: 1,
-    eyebrow: "",
-    prompt: "",
-    image: "",
-  }));
+  const quiet = new Set(Array.isArray(json.quietStops) ? json.quietStops : []);
+  const stops: Stop[] = json.stops.map((name: unknown, i: number) => {
+    const stop: Stop = {
+      id: sealedStopId(i),
+      name: str(name),
+      lat: 0,
+      lng: 0,
+      radiusMeters: 1,
+      eyebrow: "",
+      prompt: "",
+      image: "",
+    };
+    if (quiet.has(i)) stop.quiet = true;
+    return stop;
+  });
   const trail: Trail = {
     id: str(json.trailId, "private"),
     name: str(json.name),

@@ -59,7 +59,14 @@ import {
 } from "./lib/runDevice";
 import { clearAllForUser, clearOnSignOut } from "./lib/deviceData";
 import type { WalkingPath } from "./lib/runDevice";
-import { generateRoute, withWalkingPath } from "@wannadoo/core";
+import { clearPlaceCache, generateRoute, withWalkingPath } from "@wannadoo/core";
+import {
+  SHORTER_LOOP_METERS,
+  canHideSafetyNote,
+  countSurpriseQuest,
+  hideSafetyNote,
+  loadSafetyNote,
+} from "./lib/routeSafety";
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
 import { signOut, signOutOtherDevices, useAuth } from "./lib/auth";
@@ -470,12 +477,12 @@ type Route =
   | { name: "challenge"; stopId: string }
   | { name: "complete" };
 
-// A route shown on the map but not started yet. Never persisted.
+// A route shown on the map but not started yet. Never persisted. `maxMeters` is set on a shorter loop.
 type Draft =
   | { status: "idle" }
-  | { status: "loading" }
+  | { status: "loading"; maxMeters?: number }
   | { status: "error"; error: string }
-  | { status: "ready"; trail: Trail; approximateStart: boolean };
+  | { status: "ready"; trail: Trail; approximateStart: boolean; rural?: boolean; maxMeters?: number };
 
 function SignedInApp({
   me,
@@ -534,6 +541,8 @@ function SignedInApp({
   const uploaded = useRef(new WeakMap<PreparedPhoto, RunPhoto>());
   const [draft, setDraft] = useState<Draft>({ status: "idle" });
   const requestId = useRef(0);
+  // How many surprise quests this user started on this phone, and whether they turned the safety note off.
+  const [safetyNote, setSafetyNote] = useState(() => loadSafetyNote(me.id));
   const { position, simulated, setSimulatedPosition } = useLivePosition();
 
   const runId = run?.id ?? null;
@@ -567,14 +576,18 @@ function SignedInApp({
           : draft.status;
   const activeDone = run ? !isRunActive(run) || allStopsDone(run) : false;
 
-  async function generateSurprise() {
+  // `maxMeters` asks for a shorter loop than the usual 2 km, as the after-sunset warning offers.
+  async function generateSurprise(maxMeters?: number) {
     const id = ++requestId.current;
     setStartError(null);
-    setDraft({ status: "loading" });
+    setDraft({ status: "loading", maxMeters });
     try {
       const start = await getStartPosition();
-      const result = await generateRoute(start.position, start.approximate);
-      if (id === requestId.current) setDraft({ status: "ready", ...result });
+      const result = await generateRoute(start.position, start.approximate, { maxMeters });
+      if (id === requestId.current) {
+        const { trail, approximateStart, rural } = result;
+        setDraft({ status: "ready", trail, approximateStart, rural, maxMeters });
+      }
     } catch (e) {
       if (id === requestId.current) setDraft({ status: "error", error: (e as Error).message });
     }
@@ -1014,6 +1027,7 @@ function SignedInApp({
       setSimulatedPosition(null);
       applyRun(started, false);
       setDraft({ status: "idle" });
+      if (trail.kind === "surprise") setSafetyNote(countSurpriseQuest(me.id));
     } catch (e) {
       console.error("Couldn't start the route", e);
       setStartError(startErrorMessage(e, partner?.name ?? "your partner"));
@@ -1087,14 +1101,25 @@ function SignedInApp({
     [],
   );
 
+  // A new route keeps the length the user chose: a shorter loop stays short.
   async function handleNewRoute() {
+    const maxMeters = !run && draft.status === "ready" ? draft.maxMeters : undefined;
     if (!confirmAbandon() || !(await leaveRun())) return;
-    void generateSurprise();
+    void generateSurprise(maxMeters);
+  }
+
+  // "Maybe tomorrow" on the after-sunset warning: drop the draft and go back to Home.
+  function handleMaybeTomorrow() {
+    requestId.current++;
+    setDraft({ status: "idle" });
+    setRoute({ name: "home" });
   }
 
   // Stops in-flight loads first, so none writes the run back to this phone after sign-out cleared it.
+  // The place cache goes too: it shows roughly where the user started.
   function stopForSignOut() {
     requestId.current++;
+    clearPlaceCache();
     runRequest.current++;
     runRef.current = null;
     setSimulatedPosition(null);
@@ -1285,6 +1310,13 @@ function SignedInApp({
           status={mapStatus}
           error={draft.status === "error" ? draft.error : undefined}
           approximateStart={draft.status === "ready" ? draft.approximateStart : false}
+          rural={draft.status === "ready" ? draft.rural === true : false}
+          loadingMeters={draft.status === "loading" ? draft.maxMeters : undefined}
+          shortened={draft.status === "ready" && draft.maxMeters !== undefined}
+          safetyNote={{ show: !safetyNote.hidden, canHide: canHideSafetyNote(safetyNote) }}
+          onHideSafetyNote={() => setSafetyNote(hideSafetyNote(me.id))}
+          onShorterLoop={() => void generateSurprise(SHORTER_LOOP_METERS)}
+          onMaybeTomorrow={handleMaybeTomorrow}
           onStartRoute={() => void handleStartRoute()}
           startLabel={partner ? (questMode === "alone" ? "Start just me" : "Start together") : "Start route"}
           notice={run ? null : inviteCard}
