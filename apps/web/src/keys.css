@@ -84,6 +84,26 @@
   margin-bottom: 18px;
   text-align: center;
 }
+/* The inviter's question when someone used their invite */
+.link-request {
+  gap: 12px;
+}
+.link-request-body {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.link-request-keys {
+  display: grid;
+  gap: 6px;
+}
+.link-request .btn-soft {
+  color: var(--brand-dark);
+  cursor: pointer;
+}
+.invite-card .key-check-lead {
+  text-align: center;
+}
 .settings-key-check {
   display: grid;
   gap: 6px;

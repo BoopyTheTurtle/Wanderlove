@@ -19,9 +19,11 @@
 //
 // Partner trust (section 4; security review, finding 4):
 // - An invite QR or link carries the inviter's key ID in its fragment (/link/<code>#k=<key_id>; the server never sees
-//   it). Before redeeming, expectPartnerKey(myId, keyId) records it; after, verifyPartnerKey(myId) compares it with
-//   the new partner's published key and pins the key on a match. On a mismatch the caller unlinks
-//   (unlinkMismatchedPartner). The invitee cannot read the inviter's key before redeeming, so the check follows it.
+//   it). Before redeeming, expectPartnerKey(myId, keyId) records it. Redeeming leaves a link request for the inviter
+//   to confirm, and while it is open the invitee reads the inviter's profile card, so checkInviterKey(myId, inviterId)
+//   compares the key before anyone is linked and pins it on a match; on a mismatch the caller declines the request.
+//   verifyPartnerKey(myId) repeats the check once linked, for a check that could not run before (offline), and the
+//   caller then unlinks on a mismatch (unlinkMismatchedPartner).
 // - checkPartnerKey(myId) → "none" (no partner, the partner has no key yet, or their key differs from the one their
 //   invite carried; verifyPartnerKey tells that last case apart), "trusted", or "confirm" when the key differs from
 //   the one this phone pinned ("changed") or is new to this phone while trails are shared ("new").
@@ -392,6 +394,18 @@ export async function verifyPartnerKey(myId: string): Promise<InviteKeyCheck> {
   pinPartnerKey(myId, partner.id, key.keyId);
   expectPartnerKey(myId, null);
   return { status: "verified" };
+}
+
+// Before the inviter confirms: compares the inviter's published key with the key ID their invite carried, pins it on a
+// match, and forgets the key ID either way once compared. "unchecked" when the invite carried none (a typed code).
+export async function checkInviterKey(myId: string, inviterId: string): Promise<"unchecked" | "verified" | "mismatch"> {
+  const expected = readExpected()[myId];
+  if (!expected) return "unchecked";
+  const { key, computedKeyId } = await loadPartnerCardKey(inviterId);
+  expectPartnerKey(myId, null);
+  if (!key || !decideInviteKey(expected, computedKeyId, key.keyId)) return "mismatch";
+  pinPartnerKey(myId, inviterId, key.keyId);
+  return "verified";
 }
 
 // Ends a link whose partner key did not match their invite, and forgets the invite's key ID.

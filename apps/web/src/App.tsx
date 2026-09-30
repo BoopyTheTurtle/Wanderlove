@@ -13,7 +13,7 @@ import { NavContext } from "./components/nav";
 import type { NavHandlers } from "./components/nav";
 import { WhoAmI } from "./screens/WhoAmI";
 import { LinkedScreen, PartnerLink } from "./screens/PartnerLink";
-import { LinkInvite } from "./screens/LinkInvite";
+import { LinkInvite, LinkRequestDialog, LinkWaiting } from "./screens/LinkInvite";
 import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
@@ -23,7 +23,8 @@ import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import type { Profile } from "@wannadoo/core";
 import { clearPendingInvite, forgetOpenInvite, loadLinkState, loadPendingInvite, saveLinkState } from "./lib/session";
 import type { LinkState } from "./lib/session";
-import { loadPartner, unlink } from "./lib/couples";
+import { confirmLink, declineLink, loadLinkRequests, loadPartner, NO_LINK_REQUESTS, unlink } from "./lib/couples";
+import type { LinkRequests } from "./lib/couples";
 import { trail as curatedTrail } from "@wannadoo/core";
 import type { Stop, Trail } from "@wannadoo/core";
 import { useLivePosition } from "./lib/useLivePosition";
@@ -456,6 +457,8 @@ type Route =
   | { name: "partner" }
   // keyId: the inviter's key ID from a link or QR; null for a typed code.
   | { name: "accept"; code: string; keyId: string | null }
+  // The invitee's phone while the inviter has yet to confirm.
+  | { name: "waiting" }
   | { name: "linked" }
   | { name: "settings" }
   | { name: "trailList" }
@@ -491,6 +494,10 @@ function SignedInApp({
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
+  // Open link requests while unlinked (docs/private-trails.md, section 6); null until first loaded.
+  const [linkRequests, setLinkRequests] = useState<LinkRequests | null>(null);
+  // The other side's key ID for the emoji check on a link request.
+  const [requestKeyId, setRequestKeyId] = useState<string | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
   const [route, setRoute] = useState<Route | null>(null);
   const [unlinkedNotice, setUnlinkedNotice] = useState(false);
@@ -695,7 +702,7 @@ function SignedInApp({
       setPartner(next);
       setRoute((r) => {
         if (r === null) return firstRoute(next, loadLinkState(me.id));
-        if (next && r.name === "partner") return { name: "linked" };
+        if (next && (r.name === "partner" || r.name === "waiting")) return { name: "linked" };
         if (!next && r.name === "linked") return { name: "home" };
         return r;
       });
@@ -703,12 +710,17 @@ function SignedInApp({
     [me.id],
   );
 
-  // Stale answers lose to newer requests and to an unlink on this phone.
+  // Stale answers lose to newer requests and to an unlink on this phone. While unlinked it also loads link requests: an
+  // invitee who asked to link waits on its own screen, and an inviter gets the question.
   const refreshPartner = useCallback(async () => {
     const id = ++partnerRequest.current;
     try {
       const next = await loadPartner(me.id);
-      if (id === partnerRequest.current) applyPartner(next);
+      const requests = next ? NO_LINK_REQUESTS : await loadLinkRequests(me.id);
+      if (id !== partnerRequest.current) return;
+      applyPartner(next);
+      setLinkRequests(requests);
+      if (requests.outgoing) setRoute((r) => (r?.name === "partner" ? { name: "waiting" } : r));
     } catch (e) {
       console.error("Couldn't load the partner", e);
       // Offline at launch: open where this device would, and keep the partner it knew.
@@ -753,8 +765,9 @@ function SignedInApp({
     if (trailScreen) void refreshRun();
   }, [trailScreen, refreshRun]);
 
-  // The inviting phone stays in the foreground while the partner scans, so it checks now and then.
-  const onInviteScreen = route?.name === "partner";
+  // The inviting phone stays in the foreground while the partner scans, and the invitee's while it waits for the
+  // confirmation, so both check now and then.
+  const onInviteScreen = route?.name === "partner" || route?.name === "waiting";
   useEffect(() => {
     if (!onInviteScreen) return;
     const timer = window.setInterval(() => {
@@ -777,6 +790,44 @@ function SignedInApp({
       active = false;
     };
   }, [showsKeyCheck, partnerId, me.id]);
+
+  // The other side of a link request, for the emoji check: the invitee on the inviter's question, the inviter while
+  // this phone waits.
+  const requestOtherId =
+    linkRequests?.incoming?.otherId ?? (route?.name === "waiting" ? (linkRequests?.outgoing?.otherId ?? null) : null);
+  useEffect(() => {
+    if (!requestOtherId) return;
+    let active = true;
+    partnerKeyIdForCheck(me.id, requestOtherId).then(
+      (id) => active && setRequestKeyId(id),
+      (e: unknown) => console.error("Couldn't load the other side's key", e),
+    );
+    return () => {
+      active = false;
+      setRequestKeyId(null);
+    };
+  }, [requestOtherId, me.id]);
+
+  async function handleConfirmLink() {
+    const request = linkRequests?.incoming;
+    if (!request) return;
+    const status = await confirmLink(request.id);
+    if (status === "linked") await handleLinked();
+    else await refreshPartner();
+  }
+
+  async function handleDeclineLink() {
+    const request = linkRequests?.incoming;
+    if (!request) return;
+    await declineLink(request.id);
+    await refreshPartner();
+  }
+
+  function handlePending() {
+    clearPendingInvite();
+    setRoute({ name: "waiting" });
+    void refreshPartner();
+  }
 
   function handleRecoveryCodeSeen() {
     markRecoveryHintDone(me.id);
@@ -1098,8 +1149,22 @@ function SignedInApp({
           code={route.code}
           keyId={route.keyId}
           myId={me.id}
-          onLinked={handleLinked}
+          onPending={handlePending}
           onDone={handleInviteDone}
+        />
+      )}
+
+      {route.name === "waiting" && (
+        <LinkWaiting
+          request={linkRequests === null ? undefined : linkRequests.outgoing}
+          myKeyId={keys.keyId}
+          inviterKeyId={requestKeyId}
+          onCancel={async (request) => {
+            await declineLink(request.id);
+            setRoute(homeRoute());
+            await refreshPartner();
+          }}
+          onDone={() => setRoute(homeRoute())}
         />
       )}
 
@@ -1252,6 +1317,17 @@ function SignedInApp({
             onLeave={() => setRoute({ name: "activity" })}
           />
         ))}
+
+      {linkRequests?.incoming && !partner && (
+        <LinkRequestDialog
+          key={linkRequests.incoming.id}
+          request={linkRequests.incoming}
+          myKeyId={keys.keyId}
+          inviteeKeyId={requestKeyId}
+          onConfirm={handleConfirmLink}
+          onDecline={handleDeclineLink}
+        />
+      )}
 
       {unlinkedNotice ? (
         <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />
