@@ -23,10 +23,11 @@ create temp table ids (name text primary key, id uuid);
 grant all on ids to authenticated;
 
 select pg_temp.login('77777777-0000-0000-0000-00000000000a');
-insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+insert into ids values ('run', public.start_run('private', null, '[
   {"user_id": "77777777-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
   {"user_id": "77777777-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
-]', gen_random_uuid()));
+]', gen_random_uuid(), p_partner => 'invite', p_details => 'd', p_details_nonce => 'n', p_summary => 's',
+  p_summary_nonce => 'm', p_stop_count => 1));
 select is(
   (select started_by from public.trail_runs where id = (select id from ids where name = 'run')),
   '77777777-0000-0000-0000-00000000000a'::uuid,
@@ -34,6 +35,7 @@ select is(
 );
 
 select pg_temp.login('77777777-0000-0000-0000-00000000000b');
+select is(public.accept_run((select id from ids where name = 'run')), 'joined', 'the partner joins');
 select is(
   (select started_by from public.trail_runs where id = (select id from ids where name = 'run')),
   '77777777-0000-0000-0000-00000000000a'::uuid,
