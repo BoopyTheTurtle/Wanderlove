@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import type { Profile } from "@wannadoo/core";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
@@ -28,6 +28,10 @@ export type SettingsProps = {
   // Solo only: opens the partner screen.
   onLinkPartner: () => void;
   onSignOut: () => void;
+  // Signs the account out on every other device; may reject.
+  onSignOutOthers: () => Promise<void>;
+  // Signs out and removes everything Wannadoo keeps on this phone for the user, then reloads; may reject.
+  onLeaveClean: () => Promise<void>;
   // Bottom nav back to the map.
   onExplore: () => void;
 };
@@ -46,10 +50,14 @@ export function Settings({
   onUnlink,
   onLinkPartner,
   onSignOut,
+  onSignOutOthers,
+  onLeaveClean,
   onExplore,
 }: SettingsProps) {
   const [confirming, setConfirming] = useState(false);
   const [codeDialog, setCodeDialog] = useState<"closed" | "show" | "new">("closed");
+  const [deviceDialog, setDeviceDialog] = useState<"closed" | "others" | "clean">("closed");
+  const [othersSignedOut, setOthersSignedOut] = useState(false);
 
   return (
     <div className="screen settings-screen">
@@ -102,6 +110,26 @@ export function Settings({
         )}
       </section>
 
+      <section className="card settings-card settings-devices" aria-labelledby="settings-devices-title">
+        <p className="card-kicker" id="settings-devices-title">
+          Your phones
+        </p>
+        <button type="button" className="settings-outline" onClick={() => setDeviceDialog("others")}>
+          Sign out everywhere else
+        </button>
+        {othersSignedOut ? (
+          <p className="settings-note settings-done" role="status">
+            Done. Every other phone and browser is signed out.
+          </p>
+        ) : (
+          <p className="settings-note">For a phone you lost or no longer trust. This one stays signed in.</p>
+        )}
+        <button type="button" className="settings-outline" onClick={() => setDeviceDialog("clean")}>
+          Leave this phone clean
+        </button>
+        <p className="settings-note">Signs out and removes your keys and trail data from this phone.</p>
+      </section>
+
       <div className="settings-foot">
         <a className="settings-notice-link" href="/tester-notice" target="_blank" rel="noopener">
           Tester notice
@@ -120,6 +148,46 @@ export function Settings({
 
       {partner && confirming && (
         <UnlinkDialog name={partner.name} onUnlink={onUnlink} onClose={() => setConfirming(false)} />
+      )}
+
+      {deviceDialog === "others" && (
+        <ConfirmDialog
+          id="sign-out-others"
+          title="Sign out everywhere else?"
+          body="Every other phone and browser signed in to your account is signed out. One that is open right now may take up to an hour to notice. This phone stays signed in."
+          action="Sign out others"
+          busyAction="Signing out…"
+          error="Couldn't sign out the other devices. Check your connection and try again."
+          onConfirm={async () => {
+            await onSignOutOthers();
+            setOthersSignedOut(true);
+          }}
+          onClose={() => setDeviceDialog("closed")}
+        />
+      )}
+
+      {deviceDialog === "clean" && (
+        <ConfirmDialog
+          id="leave-clean"
+          title="Leave this phone clean?"
+          body={
+            <>
+              {recoveryCode && (
+                <strong>
+                  You haven&rsquo;t saved your recovery code yet. Save it first, from Recovery code below.{" "}
+                </strong>
+              )}
+              This signs you out and removes your photo keys and trail data from this phone. Your trails and photos stay
+              in your account. To see your photos here again, sign in with your recovery code, or make new keys and ask{" "}
+              {partner?.name ?? "your partner"} to share your trails again.
+            </>
+          }
+          action="Sign out and clean"
+          busyAction="Cleaning…"
+          error="Couldn't sign out. Check your connection and try again."
+          onConfirm={onLeaveClean}
+          onClose={() => setDeviceDialog("closed")}
+        />
       )}
 
       {recoveryCode && codeDialog === "show" && (
@@ -157,10 +225,45 @@ function UnlinkDialog({
   onUnlink: () => Promise<void>;
   onClose: () => void;
 }) {
+  return (
+    <ConfirmDialog
+      id="unlink"
+      title={`Unlink from ${name}?`}
+      body={`You stop sharing new trails. You both keep the photos from trails you walked together. ${name} won’t get a message.`}
+      action="Unlink"
+      busyAction="Unlinking…"
+      error="Couldn't unlink. Check your connection and try again."
+      onConfirm={onUnlink}
+      onClose={onClose}
+    />
+  );
+}
+
+// A calm confirmation for an action this screen can't undo: the action in red, Cancel focused first.
+function ConfirmDialog({
+  id,
+  title,
+  body,
+  action,
+  busyAction,
+  error: errorText,
+  onConfirm,
+  onClose,
+}: {
+  id: string;
+  title: string;
+  body: ReactNode;
+  action: string;
+  busyAction: string;
+  // Shown when onConfirm rejects.
+  error: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const unlinkRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -168,7 +271,7 @@ function UnlinkDialog({
     return () => opener?.focus();
   }, []);
 
-  // The buttons were disabled while unlinking, so focus needs a home again after a failure.
+  // The buttons were disabled while working, so focus needs a home again after a failure.
   useEffect(() => {
     if (error) cancelRef.current?.focus();
   }, [error]);
@@ -177,15 +280,16 @@ function UnlinkDialog({
     setBusy(true);
     setError(null);
     try {
-      await onUnlink();
+      await onConfirm();
       onClose();
-    } catch {
-      setError("Couldn't unlink. Check your connection and try again.");
+    } catch (e) {
+      console.error(`${action} failed`, e);
+      setError(errorText);
       setBusy(false);
     }
   }
 
-  // Escape cancels wherever focus sits, except while unlinking.
+  // Escape cancels wherever focus sits, except while working.
   useEffect(() => {
     if (busy) return;
     function onEscape(event: globalThis.KeyboardEvent) {
@@ -199,7 +303,7 @@ function UnlinkDialog({
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === "Tab") {
       event.preventDefault();
-      const next = document.activeElement === cancelRef.current ? unlinkRef.current : cancelRef.current;
+      const next = document.activeElement === cancelRef.current ? confirmRef.current : cancelRef.current;
       next?.focus();
     }
   }
@@ -210,23 +314,26 @@ function UnlinkDialog({
         className="settings-dialog"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="unlink-title"
-        aria-describedby="unlink-body"
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-body`}
         aria-busy={busy}
       >
-        <h2 id="unlink-title">Unlink from {name}?</h2>
-        <p id="unlink-body">
-          You stop sharing new trails. You both keep the photos from trails you walked together. {name} won&rsquo;t get
-          a message.
-        </p>
+        <h2 id={`${id}-title`}>{title}</h2>
+        <p id={`${id}-body`}>{body}</p>
         {error && (
           <p className="field-error" role="alert">
             {error}
           </p>
         )}
         <div className="settings-dialog-actions">
-          <button ref={unlinkRef} type="button" className="settings-danger" onClick={confirm} disabled={busy}>
-            {busy ? "Unlinking…" : "Unlink"}
+          <button
+            ref={confirmRef}
+            type="button"
+            className="settings-danger"
+            onClick={() => void confirm()}
+            disabled={busy}
+          >
+            {busy ? busyAction : action}
           </button>
           <button ref={cancelRef} type="button" className="settings-cancel" onClick={onClose} disabled={busy}>
             Cancel

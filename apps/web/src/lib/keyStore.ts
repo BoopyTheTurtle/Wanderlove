@@ -57,6 +57,20 @@ export async function clearDeviceKeys(userId: string): Promise<void> {
   clearRunKeys();
 }
 
+// Leaving the phone clean: removes the user's keys, and the whole key database once no user's keys remain in it.
+export async function forgetDeviceKeys(userId: string): Promise<void> {
+  await clearDeviceKeys(userId);
+  const left = await withStore<number>("readonly", (store) => store.count());
+  if (left > 0) return;
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    // Another tab holds the database open; the empty database stays until it closes, which reveals nothing.
+    request.onblocked = () => resolve();
+  });
+}
+
 // Removes the recovery code from this device once the user has seen it, and returns the keys without it.
 export async function forgetRecoveryCode(userId: string): Promise<DeviceKeys | null> {
   const keys = await loadDeviceKeys(userId);
@@ -86,6 +100,18 @@ export function markRecoveryHintDone(userId: string): void {
     globalThis.localStorage.setItem(RECOVERY_HINT_KEY, JSON.stringify([...list, userId]));
   } catch {
     // Without storage the hint may show again, which is harmless.
+  }
+}
+
+// Leaving the phone clean: forgets that this user dismissed the hint.
+export function forgetRecoveryHint(userId: string): void {
+  try {
+    const done: unknown = JSON.parse(globalThis.localStorage.getItem(RECOVERY_HINT_KEY) ?? "[]");
+    const list = Array.isArray(done) ? done.filter((id) => id !== userId) : [];
+    if (list.length === 0) globalThis.localStorage.removeItem(RECOVERY_HINT_KEY);
+    else globalThis.localStorage.setItem(RECOVERY_HINT_KEY, JSON.stringify(list));
+  } catch {
+    // Nothing to forget.
   }
 }
 

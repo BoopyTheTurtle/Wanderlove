@@ -59,6 +59,34 @@
 .settings-unlink:hover {
   background: #c63a500d;
 }
+/* Your phones: two quiet actions, each with a line saying what it does */
+.settings-devices .card-kicker {
+  margin-bottom: 12px;
+}
+.settings-outline {
+  width: 100%;
+  height: 48px;
+  border: 1.5px solid var(--brand-soft);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-outline:hover {
+  background: var(--brand-wash);
+}
+.settings-devices .settings-note {
+  margin: 6px 2px 14px;
+}
+.settings-devices .settings-note:last-child {
+  margin-bottom: 0;
+}
+.settings-devices .settings-done {
+  color: var(--ink);
+  font-weight: 600;
+}
 .settings-foot {
   display: grid;
   justify-items: center;

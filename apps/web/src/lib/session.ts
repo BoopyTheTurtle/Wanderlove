@@ -30,7 +30,8 @@ function readAll(): Stored {
 
 function writeAll(all: Stored) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    if (Object.keys(all).length === 0) localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   } catch {
     // Storage full or blocked: the app still works, it just forgets the choice.
   }
@@ -53,6 +54,13 @@ export function saveLinkState(userId: string, change: Partial<LinkState>): LinkS
 // Sign-out forgets the partner but keeps the solo choice, which reveals nothing.
 export function forgetPartner(userId: string) {
   saveLinkState(userId, { knownPartnerId: null });
+}
+
+// Leaving the phone clean: forgets the solo choice too.
+export function forgetLinkState(userId: string) {
+  const all = readAll();
+  delete all[userId];
+  writeAll(all);
 }
 
 // The inviter's key ID from an invite link's fragment (#k=<key_id>), or null. The fragment never reaches the server.

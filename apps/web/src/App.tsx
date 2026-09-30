@@ -21,14 +21,7 @@ import { KeyUnlock } from "./screens/KeyUnlock";
 import { PartnerKeyConfirm, PartnerKeyMismatch } from "./screens/PartnerKeyConfirm";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import type { Profile } from "@wannadoo/core";
-import {
-  clearPendingInvite,
-  forgetOpenInvite,
-  forgetPartner,
-  loadLinkState,
-  loadPendingInvite,
-  saveLinkState,
-} from "./lib/session";
+import { clearPendingInvite, forgetOpenInvite, loadLinkState, loadPendingInvite, saveLinkState } from "./lib/session";
 import type { LinkState } from "./lib/session";
 import { loadPartner, unlink } from "./lib/couples";
 import { trail as curatedTrail } from "@wannadoo/core";
@@ -51,16 +44,18 @@ import { uploadPhoto } from "./lib/photos";
 import type { PreparedPhoto, RunPhoto } from "./lib/photos";
 import {
   dropLegacyTrailData,
+  keepWalkingPathOnly,
   loadFollowedRun,
   loadWalkingPath,
   saveFollowedRun,
   saveWalkingPath,
 } from "./lib/runDevice";
+import { clearAllForUser, clearOnSignOut } from "./lib/deviceData";
 import type { WalkingPath } from "./lib/runDevice";
 import { generateRoute, withWalkingPath } from "@wannadoo/core";
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
-import { signOut, useAuth } from "./lib/auth";
+import { signOut, signOutOtherDevices, useAuth } from "./lib/auth";
 import { isOnboarded, loadOwnProfile, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
 import { isLocalStack } from "./lib/supabase";
@@ -94,13 +89,24 @@ const PARTNER_KEY_POLL_MS = 60000;
 
 const SHERLOCK_ID = "sherlock-holmes-spikeri";
 
-// Signing out clears what this phone keeps about the signed-in user's links, except the solo choice. Trail runs live
-// on the server.
+// Signing out clears what this phone keeps about the signed-in user's links and walks, except the solo choice and the
+// photo keys (lib/deviceData.ts). Trail runs live on the server.
 function signOutAndClear(userId: string) {
-  forgetPartner(userId);
-  clearPendingInvite();
-  forgetOpenInvite();
+  clearOnSignOut(userId);
   signOut().catch((e: unknown) => console.error("Sign-out failed", e));
+}
+
+// "Leave this phone clean": signs out, then removes everything this phone keeps for the user, keys included. The
+// reload drops what only memory held, such as run keys and the place cache. Throws when the sign-out fails, and then
+// clears nothing.
+async function signOutAndLeaveClean(userId: string) {
+  await signOut();
+  try {
+    await clearAllForUser(userId);
+  } catch (e) {
+    console.error("Couldn't clear this phone", e);
+  }
+  window.location.replace("/");
 }
 
 // Gates the app on auth: sign-in, then onboarding, then the trail flow.
@@ -511,7 +517,7 @@ function SignedInApp({
   const { position, simulated, setSimulatedPosition } = useLivePosition();
 
   const runId = run?.id ?? null;
-  const cachedPath = useMemo(() => (runId ? loadWalkingPath(runId) : null), [runId]);
+  const cachedPath = useMemo(() => (runId ? loadWalkingPath(me.id, runId) : null), [me.id, runId]);
   const walkingPath = runId ? (routedPaths[runId] ?? cachedPath) : null;
   const runTrail = useMemo<Trail | null>(() => {
     if (!run) return null;
@@ -592,6 +598,8 @@ function SignedInApp({
       runRef.current = next;
       setRun(next);
       saveFollowedRun(me.id, next?.id ?? null);
+      // A walking path can start at a home: the phone keeps it only while its run is open (abuse threat model, L4).
+      keepWalkingPathOnly(me.id, next && isRunActive(next) ? next.id : null);
       setRunSync("ready");
       setSyncTick((t) => t + 1);
       if (ended) {
@@ -645,16 +653,19 @@ function SignedInApp({
     }
   }, [me.id, applyRun]);
 
-  // Draws the walking path for a run once per device; the snapshot has none, and the foot router rate-limits.
+  // Draws the walking path for an open run once per device; the snapshot has none, and the foot router rate-limits.
+  // A run that ended keeps no path.
   useEffect(() => {
-    if (!run || walkingPath || routing.current.has(run.id)) return;
+    if (!run || !isRunActive(run) || walkingPath || routing.current.has(run.id)) return;
     const id = run.id;
     routing.current.add(id);
     withWalkingPath(run.trail).then(
       (routed) => {
         const path = routed.path;
         if (!path) return;
-        saveWalkingPath(id, path, routed.distanceMeters);
+        const current = runRef.current;
+        if (current?.id !== id || !isRunActive(current)) return;
+        saveWalkingPath(me.id, id, path, routed.distanceMeters);
         setRoutedPaths((all) => ({
           ...all,
           [id]: { path, distanceMeters: routed.distanceMeters, savedAt: Date.now() },
@@ -662,7 +673,7 @@ function SignedInApp({
       },
       (e: unknown) => console.error("Couldn't draw the walking path", e),
     );
-  }, [run, walkingPath]);
+  }, [run, walkingPath, me.id]);
 
   // Takes in the partner the server returned. A partner this device knew about who is gone means the other
   // person unlinked: say so once, with no reason (main spec 6.3), and carry on solo.
@@ -876,7 +887,7 @@ function SignedInApp({
       const { run: started } = await startRun(trail, { id: me.id, keys });
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
-        saveWalkingPath(started.id, trail.path, trail.distanceMeters);
+        saveWalkingPath(me.id, started.id, trail.path, trail.distanceMeters);
         const saved = { path: trail.path, distanceMeters: trail.distanceMeters, savedAt: Date.now() };
         setRoutedPaths((all) => ({ ...all, [started.id]: saved }));
       }
@@ -918,11 +929,28 @@ function SignedInApp({
     void generateSurprise();
   }
 
-  function handleSignOut() {
+  // Stops in-flight loads first, so none writes the run back to this phone after sign-out cleared it.
+  function stopForSignOut() {
     requestId.current++;
     runRequest.current++;
+    runRef.current = null;
     setSimulatedPosition(null);
+  }
+
+  function handleSignOut() {
+    stopForSignOut();
     onSignOut();
+  }
+
+  async function handleLeaveClean() {
+    const held = runRef.current;
+    stopForSignOut();
+    try {
+      await signOutAndLeaveClean(me.id);
+    } catch (e) {
+      runRef.current = held;
+      throw e;
+    }
   }
 
   function handleSimulateArrival(stop: Stop) {
@@ -1048,6 +1076,8 @@ function SignedInApp({
           onUnlink={handleUnlink}
           onLinkPartner={() => setRoute({ name: "partner" })}
           onSignOut={handleSignOut}
+          onSignOutOthers={signOutOtherDevices}
+          onLeaveClean={handleLeaveClean}
           onExplore={() => setRoute({ name: "home" })}
         />
       )}
