@@ -155,3 +155,6 @@
   color: var(--ink);
   font-size: 17px;
 }
+.settings-dialog p.recovery-code span {
+  display: block;
+}

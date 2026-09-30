@@ -244,8 +244,10 @@ function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => vo
           Your photos are encrypted on your phone. On a new phone, this code unlocks them. Without it, your partner can
           share your trails with you again.
         </p>
-        <p className="recovery-code" aria-label="Recovery code">
-          {formatted}
+        <p className="recovery-code" aria-label={formatted}>
+          {/* Two lines of three groups, so the code never breaks inside a group */}
+          <span>{formatted.slice(0, 14)}</span>
+          <span>{formatted.slice(15)}</span>
         </p>
         <div className="settings-dialog-actions">
           <button type="button" className="settings-cancel" onClick={() => void copy()}>
