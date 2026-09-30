@@ -103,6 +103,12 @@ avatar sheet's style is approved and the journey map is on its third concept. A6
 **Stage 1 merged September 30** (PRs 31 to 33): home and Activity, and the one-month photo deletion, which runs daily
 from `main` because GitHub schedules only the default branch.
 
+**Stage 1b merged September 30** (PRs 34 to 39), including the starter's "Waiting for Emma to join…" screen after a
+Together start.
+
+**Stage 2 code merged September 30** (PRs 40 to 44). Its done-when still needs the live run of the 200 simulated starts
+(`tools/route-sim`) and Edgar's audit of 30 routes; the cloud agents can't reach Overpass or the foot router.
+
 ## 4. Build stages
 
 Each stage lists its done-when. A stage merges only after the local stack, the pgTAP tests where the schema changes,

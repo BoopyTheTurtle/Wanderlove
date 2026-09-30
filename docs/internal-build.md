@@ -90,18 +90,25 @@ Last updated September 30, 2026. Resume from **Next** below.
   `chore/repo-structure`; Edgar approves every merge.
 
 **MVP, from September 30:** work continues in [mvp-roadmap.md](mvp-roadmap.md). Stage A research is drafted
-(docs/research), Stage 1 is merged (PRs 31 to 33: home, Activity, and the one-month photo deletion), and the safety
-batch (stage 1b) is in progress.
+(docs/research), Stage 1 is merged (PRs 31 to 33: home, Activity, and the one-month photo deletion), and so is the
+safety batch, stage 1b (PRs 34 to 39): private trails, Just me, joining by choice with a waiting screen for the
+starter, quiet unlink, confirmed links, and Hide from my album. Stage 2's code is merged (PRs 40 to 44): five-stop loops
+of about 2 km with the A4 safety checks, daylight and season notes, the after-sunset warning with a shorter loop, quiet
+stops, and a simulation script. Surprise routes are on, but no route has run against the live Overpass and FOSSGIS
+services yet; the cloud agents' network blocks both.
 
 **Next:**
 
-1. **[You]** Add the `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` GitHub secrets, then run "Purge expired photos"
-   once with dry run ticked.
-2. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
+1. **[You]** Run the stage 2 simulation from your PC (`tools/route-sim/README.md`), or allow `overpass-api.de`,
+   `overpass.private.coffee`, and `routing.openstreetmap.de` in the cloud environment so an agent can. The first live
+   request shows whether the Overpass query works; then audit the 30 picked routes (route-safety.md, section 5).
+2. **[You]** On your phone: start a quest from Home and check the safety note, the after-sunset card, and a real
+   surprise route; start Together and watch the waiting screen move on when the partner joins.
+3. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
    once; check the camera scanner under the new security headers.
-3. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
-4. **[Agent]** Safety batch wave 1, then wave 2 (MVP roadmap, stage 1b).
-5. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers: message them with the URL and the
+4. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
+5. **[Agent]** Stage 3, the quest engine (MVP roadmap), once the live route check passes.
+6. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers: message them with the URL and the
    notice, and start a deletion log.
 
 **Lessons from phase 2:**
