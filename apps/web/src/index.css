@@ -506,35 +506,6 @@ img {
   margin-top: 1px;
 }
 
-.segmented {
-  margin: 0 20px 14px;
-  padding: 4px;
-  background: var(--card);
-  border-radius: 999px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  box-shadow: var(--shadow);
-}
-.segmented button {
-  border: 0;
-  background: transparent;
-  padding: 9px 0;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-}
-.segmented button.active {
-  background: var(--brand);
-  color: #fff;
-  box-shadow: 0 4px 12px #8b2e4540;
-}
-.segmented button[aria-disabled="true"] {
-  color: var(--muted);
-  cursor: default;
-}
-
 .map-card {
   margin: 0 20px 14px;
   height: 262px;
@@ -1846,14 +1817,6 @@ img.profile-avatar {
   border-color: var(--sh-line);
   color: var(--sh-muted);
 }
-.theme-sherlock .segmented {
-  background: var(--sh-card);
-  border: 1.5px solid var(--sh-wine);
-  box-shadow: none;
-}
-.theme-sherlock .segmented button.active {
-  box-shadow: none;
-}
 .theme-sherlock .card,
 .theme-sherlock .map-card {
   border: 1.5px solid var(--sh-wine);
@@ -2697,9 +2660,6 @@ img.profile-avatar {
   border-color: #fff;
   color: var(--brand-dark);
 }
-.segmented {
-  background: #ffffffe6;
-}
 .link-chip {
   background: #ffffff26;
   color: var(--on-bg);
@@ -3134,6 +3094,17 @@ img.profile-avatar {
   font-size: 13px;
   font-weight: 600;
   text-align: center;
+}
+
+/* Above the album's save buttons: the server keeps a trail's photos for a month */
+.album-actions-keep {
+  color: var(--on-bg-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+.album-actions--sherlock .album-actions-keep {
+  color: var(--sh-muted);
 }
 
 /* The album in the Sherlock field book */

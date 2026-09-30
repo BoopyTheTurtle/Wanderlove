@@ -119,6 +119,7 @@ export function MapScreen({
   onOpenChallenge,
   onViewAlbum,
   onBack,
+  onHome,
   me,
   partner,
   onLinkPartner,
@@ -142,6 +143,8 @@ export function MapScreen({
   onOpenChallenge: (stopId: string) => void;
   onViewAlbum: () => void;
   onBack: () => void;
+  // Explore in the bottom nav leads back to the home screen.
+  onHome: () => void;
   me: Profile | null;
   partner: Profile | null;
   onLinkPartner: () => void;
@@ -221,18 +224,6 @@ export function MapScreen({
           <span className="notif-dot" />
         </button>
       </header>
-
-      <div className="segmented" role="tablist">
-        <button type="button" role="tab" aria-selected="true" className="active">
-          Map
-        </button>
-        <button type="button" role="tab" aria-selected="false" aria-disabled="true" title="Tasks — coming soon">
-          Tasks
-        </button>
-        <button type="button" role="tab" aria-selected="false" aria-disabled="true" title="Quizzes — coming soon">
-          Quizzes
-        </button>
-      </div>
 
       <div className="map-card">
         <MapContainer
@@ -462,7 +453,7 @@ export function MapScreen({
         </>
       )}
 
-      <BottomNav onProfile={onProfile} />
+      <BottomNav onExplore={onHome} onProfile={onProfile} />
     </div>
   );
 }

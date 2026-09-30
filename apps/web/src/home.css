@@ -1,0 +1,111 @@
+/* Home: a placeholder journey, with the couple on one point of a path that opens the next quest. */
+.journey-screen {
+  display: flex;
+  flex-direction: column;
+}
+.journey {
+  flex: 1;
+  min-height: 440px;
+  margin: 0 20px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.journey-path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.journey-path path {
+  fill: none;
+  stroke: #ffffff59;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 14;
+}
+.journey-dot {
+  fill: #ffffff33;
+  stroke: #ffffff8c;
+  stroke-width: 2;
+}
+.journey-dot.past {
+  fill: var(--on-bg-muted);
+  stroke: none;
+}
+.journey-dot.far {
+  opacity: 0.6;
+}
+
+.journey-point {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.journey-pair {
+  display: flex;
+  animation: journey-bob 3.2s ease-in-out infinite;
+}
+.journey-pair .profile-avatar {
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 6px 16px #2e0d1640;
+}
+.journey-pair .profile-avatar + .profile-avatar {
+  margin-left: -14px;
+}
+@keyframes journey-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.quest-point {
+  border: 0;
+  background: transparent;
+  color: var(--on-bg);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.quest-point:active {
+  transform: scale(0.96);
+}
+.quest-point-dot {
+  width: 92px;
+  height: 92px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 10px #ffffff2e,
+    0 0 0 22px #ffffff14,
+    0 14px 30px #2e0d1655;
+  animation: quest-glow 2.6s ease-in-out infinite;
+}
+@keyframes quest-glow {
+  50% {
+    box-shadow:
+      0 0 0 14px #ffffff33,
+      0 0 0 30px #ffffff0f,
+      0 14px 30px #2e0d1655;
+  }
+}
+.quest-point strong {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.quest-point small {
+  max-width: 260px;
+  color: var(--on-bg-muted);
+  font-size: 13px;
+  font-weight: 600;
+}

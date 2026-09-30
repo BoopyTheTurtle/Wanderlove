@@ -7,6 +7,10 @@ import { ChallengeScreen } from "./screens/ChallengeScreen";
 import { CompleteScreen } from "./screens/CompleteScreen";
 import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
+import { Home } from "./screens/Home";
+import { Activity } from "./screens/Activity";
+import { NavContext } from "./components/nav";
+import type { NavHandlers } from "./components/nav";
 import { WhoAmI } from "./screens/WhoAmI";
 import { LinkedScreen, PartnerLink } from "./screens/PartnerLink";
 import { LinkInvite } from "./screens/LinkInvite";
@@ -435,6 +439,10 @@ function LoadingScreen({
 }
 
 type Route =
+  | { name: "home" }
+  | { name: "activity" }
+  // A past run's album, opened from Activity.
+  | { name: "album"; runId: string; trailId: string }
   | { name: "partner" }
   // keyId: the inviter's key ID from a link or QR; null for a typed code.
   | { name: "accept"; code: string; keyId: string | null }
@@ -520,7 +528,8 @@ function SignedInApp({
   // The Sherlock trail swaps the plain wine look for the field-book theme from the map onwards.
   const themeTrail =
     route?.name === "map" ? shownTrail : route?.name === "challenge" || route?.name === "complete" ? runTrail : null;
-  const theme = themeTrail?.id === SHERLOCK_ID ? "sherlock" : undefined;
+  const themeTrailId = route?.name === "album" ? route.trailId : themeTrail?.id;
+  const theme = themeTrailId === SHERLOCK_ID ? "sherlock" : undefined;
   const mapStatus: RouteStatus = run
     ? "active"
     : runSync === "loading"
@@ -592,8 +601,9 @@ function SignedInApp({
       setRoute((r) => {
         if (r === null) return r;
         const onTrail = r.name === "map" || r.name === "challenge" || r.name === "complete";
-        if (ended && onTrail) return { name: "trailList" };
-        if (joined && (r.name === "trailList" || r.name === "linked" || r.name === "partner")) return { name: "map" };
+        if (ended && onTrail) return { name: "home" };
+        if (joined && (r.name === "home" || r.name === "trailList" || r.name === "linked" || r.name === "partner"))
+          return { name: "map" };
         if (switched && (r.name === "challenge" || r.name === "complete")) return { name: "map" };
         return r;
       });
@@ -602,7 +612,7 @@ function SignedInApp({
   );
 
   // Loads the open run, which may be one the partner started. When the run this phone followed is no longer open,
-  // its fate decides what happens: finished keeps it for the album, abandoned drops it with a notice.
+  // its fate decides what happens: finished keeps it for the album, abandoned drops it with a notice and goes home.
   const refreshRun = useCallback(async (): Promise<void> => {
     const id = ++runRequest.current;
     try {
@@ -672,7 +682,7 @@ function SignedInApp({
       setRoute((r) => {
         if (r === null) return firstRoute(next, loadLinkState(me.id));
         if (next && r.name === "partner") return { name: "linked" };
-        if (!next && r.name === "linked") return { name: "map" };
+        if (!next && r.name === "linked") return { name: "home" };
         return r;
       });
     },
@@ -780,14 +790,14 @@ function SignedInApp({
       />
     ) : null;
 
-  // Where the app rests: the map, unless the user has neither a partner nor chosen to walk solo.
+  // Where the app rests: home, unless the user has neither a partner nor chosen to walk solo.
   function homeRoute(): Route {
-    return partner || linkState.solo ? { name: "map" } : { name: "partner" };
+    return partner || linkState.solo ? { name: "home" } : { name: "partner" };
   }
 
   function handleWalkSolo() {
     setLinkState(saveLinkState(me.id, { solo: true }));
-    setRoute({ name: "map" });
+    setRoute({ name: "home" });
   }
 
   function handleInviteDone() {
@@ -802,10 +812,10 @@ function SignedInApp({
       const next = await loadPartner(me.id);
       if (id !== partnerRequest.current) return;
       applyPartner(next);
-      setRoute(next ? { name: "linked" } : { name: "map" });
+      setRoute(next ? { name: "linked" } : { name: "home" });
     } catch (e) {
       console.error("Couldn't load the partner", e);
-      setRoute({ name: "map" });
+      setRoute({ name: "home" });
     }
   }
 
@@ -881,6 +891,28 @@ function SignedInApp({
     }
   }
 
+  // Home's quest point: back to the open quest, or on to a new one. A finished run this phone still holds for its album
+  // makes way, so the map shows a fresh draft; its album stays in Activity.
+  function handleStartQuest() {
+    const current = runRef.current;
+    if (current && !isRunActive(current)) {
+      runRequest.current++;
+      applyRun(null, false);
+      setSimulatedPosition(null);
+    }
+    if (draft.status === "error") setDraft({ status: "idle" });
+    setRoute({ name: "map" });
+  }
+
+  const nav = useMemo<NavHandlers>(
+    () => ({
+      explore: () => setRoute({ name: "home" }),
+      activity: () => setRoute({ name: "activity" }),
+      profile: () => setRoute({ name: "settings" }),
+    }),
+    [],
+  );
+
   async function handleNewRoute() {
     if (!confirmAbandon() || !(await leaveRun())) return;
     void generateSurprise();
@@ -953,7 +985,24 @@ function SignedInApp({
     );
 
   return (
-    <PhoneFrame theme={theme}>
+    <NavFrame nav={nav} theme={theme}>
+      {route.name === "home" && (
+        <Home
+          me={me}
+          partner={partner}
+          openQuest={run && isRunActive(run) ? run.trail.name : null}
+          onStartQuest={handleStartQuest}
+          onLinkPartner={() => setRoute({ name: "partner" })}
+        />
+      )}
+
+      {route.name === "activity" && (
+        <Activity
+          refreshKey={syncTick}
+          onOpen={(past) => setRoute({ name: "album", runId: past.id, trailId: past.trailId })}
+        />
+      )}
+
       {route.name === "partner" && (
         <PartnerLink
           me={me}
@@ -982,7 +1031,7 @@ function SignedInApp({
           partner={partner}
           myKeyId={keys.keyId}
           partnerKeyId={partnerKeyId}
-          onContinue={() => setRoute({ name: "trailList" })}
+          onContinue={() => setRoute({ name: "home" })}
         />
       )}
 
@@ -999,7 +1048,7 @@ function SignedInApp({
           onUnlink={handleUnlink}
           onLinkPartner={() => setRoute({ name: "partner" })}
           onSignOut={handleSignOut}
-          onExplore={() => setRoute({ name: "map" })}
+          onExplore={() => setRoute({ name: "home" })}
         />
       )}
 
@@ -1040,6 +1089,7 @@ function SignedInApp({
           onProfile={() => setRoute({ name: "settings" })}
           onSignOut={handleSignOut}
           onBack={() => setRoute({ name: "trailList" })}
+          onHome={() => setRoute({ name: "home" })}
         />
       )}
 
@@ -1085,7 +1135,7 @@ function SignedInApp({
             partnerName={runPartnerName}
             syncTick={syncTick}
             notice={recoveryHint}
-            onViewMap={() => setRoute({ name: "map" })}
+            onLeave={() => setRoute({ name: "map" })}
           />
         ) : (
           <CompleteScreen
@@ -1094,7 +1144,30 @@ function SignedInApp({
             partnerName={runPartnerName}
             syncTick={syncTick}
             notice={recoveryHint}
-            onViewMap={() => setRoute({ name: "map" })}
+            onLeave={() => setRoute({ name: "map" })}
+          />
+        ))}
+
+      {route.name === "album" &&
+        (route.trailId === SHERLOCK_ID ? (
+          <SherlockCompleteScreen
+            key={route.runId}
+            runId={route.runId}
+            meId={me.id}
+            partnerName={partner?.name ?? null}
+            syncTick={syncTick}
+            past
+            onLeave={() => setRoute({ name: "activity" })}
+          />
+        ) : (
+          <CompleteScreen
+            key={route.runId}
+            runId={route.runId}
+            meId={me.id}
+            partnerName={partner?.name ?? null}
+            syncTick={syncTick}
+            past
+            onLeave={() => setRoute({ name: "activity" })}
           />
         ))}
 
@@ -1111,16 +1184,25 @@ function SignedInApp({
           />
         )
       )}
-    </PhoneFrame>
+    </NavFrame>
   );
 }
 
-// A pending invite from a /link/<code> URL comes first; then the map, unless the user has yet to choose between
-// linking and walking solo.
+// The phone frame, with the bottom nav's destinations for every screen inside it.
+function NavFrame({ nav, theme, children }: { nav: NavHandlers; theme?: string; children: ReactNode }) {
+  return (
+    <NavContext.Provider value={nav}>
+      <PhoneFrame theme={theme}>{children}</PhoneFrame>
+    </NavContext.Provider>
+  );
+}
+
+// A pending invite from a /link/<code> URL comes first; then home, unless the user has yet to choose between linking
+// and walking solo.
 function firstRoute(partner: Profile | null, state: LinkState): Route {
   const pending = loadPendingInvite();
   if (pending) return { name: "accept", code: pending.code, keyId: pending.keyId };
-  if (partner || state.solo || state.knownPartnerId) return { name: "map" };
+  if (partner || state.solo || state.knownPartnerId) return { name: "home" };
   return { name: "partner" };
 }
 
