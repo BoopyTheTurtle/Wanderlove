@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LatLng } from "../geo";
+import { buildHazardIndex } from "./hazards";
 import type { OsmElement } from "./overpass";
 import { buildRoadNetwork, checkRoute, parseOsrmRoute, speedKmh } from "./routeChecks";
 import type { LegSpec } from "./testFixtures";
-import { START, node, offset, osrmResponse, way } from "./testFixtures";
+import { START, node, offset, osrmResponse, square, way } from "./testFixtures";
 
 // An east–west road 200 m north of the start, with a vertex X straight north of it.
 const ROAD_NORTH = 200;
@@ -17,14 +18,25 @@ const roadPoints = [
 ];
 const A = offset(400, 0); // a stop across the road
 
-function check(
-  legs: LegSpec[],
-  stops: LatLng[],
-  network: { roads?: OsmElement[]; crossings?: OsmElement[]; fords?: OsmElement[] },
-  snap?: number[],
-) {
+type NetworkSpec = {
+  roads?: OsmElement[];
+  crossings?: OsmElement[];
+  fords?: OsmElement[];
+  rails?: OsmElement[];
+  railCrossings?: OsmElement[];
+  service?: OsmElement[];
+  // Hazard areas, from which the closed land for the H5 path rule comes.
+  hazards?: OsmElement[];
+};
+
+function check(legs: LegSpec[], stops: LatLng[], network: NetworkSpec, snap?: number[]) {
   const loop = parseOsrmRoute(osrmResponse(legs, snap))!;
-  const net = buildRoadNetwork(network.roads ?? [], network.crossings ?? [], network.fords ?? []);
+  const net = buildRoadNetwork(network.roads ?? [], network.crossings ?? [], network.fords ?? [], {
+    rails: network.rails,
+    railCrossings: network.railCrossings,
+    service: network.service,
+    closedLand: buildHazardIndex(network.hazards ?? []).closedLand,
+  });
   return checkRoute(loop, net, START, stops);
 }
 
@@ -182,6 +194,94 @@ describe("sidewalk check (H2)", () => {
   it("rejects a fast primary road without a sidewalk tag rather than calling it rural", () => {
     const verdict = check(alongRoad, [stop], road({ highway: "primary", maxspeed: "90" }));
     expect(verdict.ok).toBe(false);
+  });
+});
+
+describe("railway check (H7)", () => {
+  // Tracks run where the road runs in the tests above: east–west, 200 m north, with a vertex at X.
+  const rail = (tags: Record<string, string> = {}) => way(roadPoints, { railway: "rail", ...tags });
+
+  it("rejects crossing a railway away from a marked crossing", () => {
+    const verdict = check(acrossAtX(), [A], { rails: [rail()] });
+    expect(verdict.issues).toEqual([expect.objectContaining({ reason: "H7-rail-crossing", stop: 0 })]);
+    const light = check(acrossAtX(), [A], { rails: [way(roadPoints, { railway: "light_rail" })] });
+    expect(light.issues.map((i) => i.reason)).toEqual(["H7-rail-crossing"]);
+  });
+
+  it("accepts a crossing at a node tagged railway=crossing or level_crossing, matched by coordinates", () => {
+    const verdict = check(acrossAtX(), [A], { rails: [rail()], railCrossings: [node(X, undefined, 456)] });
+    expect(verdict.ok).toBe(true);
+  });
+
+  it("matches a crossing node above 10^10 by coordinates, never by its rounded ID", () => {
+    // What JSON.parse makes of OSRM's "1.354455585e+10".
+    const rounded = 1.354455585e10;
+    const marked = check(acrossAtX([rounded]), [A], {
+      rails: [rail()],
+      railCrossings: [node(X, undefined, 13544555853)],
+    });
+    expect(marked.ok).toBe(true);
+
+    // A crossing elsewhere whose ID equals the rounded value must not vouch for the unmarked vertex X.
+    const elsewhere = check(acrossAtX([rounded]), [A], {
+      rails: [rail()],
+      railCrossings: [node(offset(ROAD_NORTH, 3), undefined, 13544555850)],
+    });
+    expect(elsewhere.issues.map((i) => i.reason)).toEqual(["H7-rail-crossing"]);
+  });
+
+  it("ignores tram tracks, which run in the street", () => {
+    const verdict = check(acrossAtX(), [A], { rails: [way(roadPoints, { railway: "tram" })] });
+    expect(verdict.ok).toBe(true);
+  });
+
+  it("accepts tracks on a bridge or in a tunnel", () => {
+    expect(check(acrossAtX(), [A], { rails: [rail({ bridge: "yes" })] }).ok).toBe(true);
+    expect(check(acrossAtX(), [A], { rails: [rail({ tunnel: "yes" })] }).ok).toBe(true);
+    expect(check(acrossAtX(), [A], { rails: [rail({ bridge: "no" })] }).ok).toBe(false);
+  });
+
+  it("does not count a path that only touches the tracks without crossing", () => {
+    // Up to X and back down the same side.
+    const touch = [START, offset(100, 0), X, offset(100, 50), START];
+    const B = offset(100, 50);
+    const verdict = check([{ path: touch.slice(0, 4) }, { path: touch.slice(3) }], [B], { rails: [rail()] });
+    expect(verdict.ok).toBe(true);
+  });
+});
+
+describe("service roads on closed land (H5)", () => {
+  // start → north up a service road between 250 and 350 m → the stop A at 400 m, and back the same way.
+  const yard = [offset(250, 0), offset(300, 0), offset(350, 0)];
+  const legs: LegSpec[] = [
+    { path: [START, offset(100, 0), ...yard, A] },
+    { path: [A, ...[...yard].reverse(), offset(100, 0), START] },
+  ];
+  const industrial = way(square(offset(300, 0), 120), { landuse: "industrial" });
+
+  it("rejects a service road or track inside industrial, military, quarry, or railway land", () => {
+    const verdict = check(legs, [A], { service: [way(yard, { highway: "service" })], hazards: [industrial] });
+    expect(verdict.issues).toEqual([expect.objectContaining({ reason: "H5-industrial-service", stop: 0 })]);
+
+    const lands: Record<string, string>[] = [{ military: "barracks" }, { landuse: "quarry" }, { landuse: "railway" }];
+    for (const land of lands) {
+      const verdictOn = check(legs, [A], {
+        service: [way(yard, { highway: "track" })],
+        hazards: [way(square(offset(300, 0), 120), land)],
+      });
+      expect(verdictOn.issues.map((i) => i.reason)).toEqual(["H5-industrial-service"]);
+    }
+  });
+
+  it("allows the same service road outside closed land", () => {
+    const elsewhere = way(square(offset(-1000, 0), 120), { landuse: "industrial" });
+    const verdict = check(legs, [A], { service: [way(yard, { highway: "service" })], hazards: [elsewhere] });
+    expect(verdict.ok).toBe(true);
+  });
+
+  it("allows a public street through an industrial zone", () => {
+    const verdict = check(legs, [A], { service: [way(yard, { highway: "residential" })], hazards: [industrial] });
+    expect(verdict.ok).toBe(true);
   });
 });
 
