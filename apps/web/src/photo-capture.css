@@ -10,7 +10,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 14px;
-  background: var(--teal-wash);
+  background: var(--brand-wash);
   box-shadow: var(--shadow);
 }
 .photo-capture-preview img {
@@ -26,13 +26,13 @@
   inset: auto 0 0;
   height: 4px;
   overflow: hidden;
-  background: var(--teal-soft);
+  background: var(--brand-soft);
 }
 .photo-capture-progress span {
   position: absolute;
   inset: 0 auto 0 0;
   width: 40%;
-  background: var(--teal);
+  background: var(--brand);
   animation: photo-capture-slide 1.1s ease-in-out infinite;
 }
 @keyframes photo-capture-slide {
@@ -63,7 +63,7 @@
   display: none;
 }
 
-/* A white chip, so the message reads on a card and on the green gradient alike. */
+/* A white chip, so the message reads on a card and on the wine gradient alike. */
 .photo-capture-error {
   padding: 8px 12px;
   border-radius: 10px;

@@ -122,7 +122,7 @@ export function PartnerLink({
                 value={inviteUrl(invite.code)}
                 size={176}
                 marginSize={4}
-                fgColor="#1b3431"
+                fgColor="#3a1a22"
                 bgColor="#ffffff"
                 level="M"
                 title="Invite QR code"

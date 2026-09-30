@@ -12,7 +12,7 @@ const STRANGER: Profile = {
   username: "stranger",
   email: "stranger@wannadoo.test",
   initials: "S",
-  color: "#6b8783",
+  color: "#8a5c5e",
 };
 
 // Dev-only switcher: signs in as one of the users seeded in the local Supabase stack.
