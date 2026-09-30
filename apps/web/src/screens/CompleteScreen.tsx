@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
 import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
@@ -14,6 +15,7 @@ export function CompleteScreen({
   meId,
   partnerName,
   syncTick,
+  notice,
   onViewMap,
 }: {
   runId: string;
@@ -21,6 +23,8 @@ export function CompleteScreen({
   // The partner who shared this run, or null on a solo run.
   partnerName: string | null;
   syncTick: number;
+  // A one-time note from the app, such as the recovery code hint; shown below the main buttons.
+  notice?: ReactNode;
   onViewMap: () => void;
 }) {
   const loaded = useRun(runId, syncTick);
@@ -118,6 +122,8 @@ export function CompleteScreen({
       <button type="button" className="btn-outline-light" onClick={handleShare}>
         <ShareIcon size={16} /> Share the trail
       </button>
+
+      {notice}
 
       {loaded.status === "ready" && (
         <AlbumActions

@@ -5,6 +5,7 @@ import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { BottomNav } from "../components/BottomNav";
 import { formatRecoveryCode } from "../lib/crypto";
+import { PairEmoji } from "./PartnerKeyConfirm";
 import "../keys.css";
 import "../settings.css";
 
@@ -13,8 +14,15 @@ export type SettingsProps = {
   email: string;
   // null means walking solo.
   partner: Profile | null;
-  // This phone's copy of the photo recovery code; null when it does not hold one.
+  // The photo recovery code while this phone holds it unseen; null once the user has seen it.
   recoveryCode: string | null;
+  // The user closed the code dialog: the phone forgets the code (security review, finding 3).
+  onRecoveryCodeSeen: () => void;
+  // Makes a new key pair and code (lib/keys.ts, rotateAccountKeys); the new code then arrives as recoveryCode.
+  onNewRecoveryCode: () => Promise<void>;
+  // This phone's key ID and the partner's, for the emoji check; the partner's is null while loading or keyless.
+  myKeyId: string;
+  partnerKeyId: string | null;
   // May reject: the screen then shows an error and keeps the partner.
   onUnlink: () => Promise<void>;
   // Solo only: opens the partner screen.
@@ -31,13 +39,17 @@ export function Settings({
   email,
   partner,
   recoveryCode,
+  onRecoveryCodeSeen,
+  onNewRecoveryCode,
+  myKeyId,
+  partnerKeyId,
   onUnlink,
   onLinkPartner,
   onSignOut,
   onExplore,
 }: SettingsProps) {
   const [confirming, setConfirming] = useState(false);
-  const [showingCode, setShowingCode] = useState(false);
+  const [codeDialog, setCodeDialog] = useState<"closed" | "show" | "new">("closed");
 
   return (
     <div className="screen settings-screen">
@@ -67,6 +79,12 @@ export function Settings({
                 <p className="settings-note">You&rsquo;re exploring with {partner.name}</p>
               </div>
             </div>
+            {partnerKeyId && (
+              <div className="settings-key-check">
+                <PairEmoji a={myKeyId} b={partnerKeyId} />
+                <p className="settings-note">{partner.name}&rsquo;s Profile shows the same four.</p>
+              </div>
+            )}
             <button type="button" className="settings-unlink" onClick={() => setConfirming(true)}>
               Unlink
             </button>
@@ -88,15 +106,13 @@ export function Settings({
         <a className="settings-notice-link" href="/tester-notice" target="_blank" rel="noopener">
           Tester notice
         </a>
-        {recoveryCode && (
-          <button
-            type="button"
-            className="settings-notice-link settings-link-button"
-            onClick={() => setShowingCode(true)}
-          >
-            Recovery code
-          </button>
-        )}
+        <button
+          type="button"
+          className="settings-notice-link settings-link-button"
+          onClick={() => setCodeDialog(recoveryCode ? "show" : "new")}
+        >
+          {recoveryCode ? "Recovery code" : "Make a new recovery code"}
+        </button>
         <button type="button" className="text-button" onClick={onSignOut}>
           Sign out
         </button>
@@ -106,7 +122,26 @@ export function Settings({
         <UnlinkDialog name={partner.name} onUnlink={onUnlink} onClose={() => setConfirming(false)} />
       )}
 
-      {recoveryCode && showingCode && <RecoveryCodeDialog code={recoveryCode} onClose={() => setShowingCode(false)} />}
+      {recoveryCode && codeDialog === "show" && (
+        <RecoveryCodeDialog
+          code={recoveryCode}
+          onClose={() => {
+            setCodeDialog("closed");
+            onRecoveryCodeSeen();
+          }}
+        />
+      )}
+
+      {codeDialog === "new" && (
+        <NewCodeDialog
+          partnerName={partner?.name ?? null}
+          onMake={async () => {
+            await onNewRecoveryCode();
+            setCodeDialog("show");
+          }}
+          onClose={() => setCodeDialog("closed")}
+        />
+      )}
 
       <BottomNav active="profile" onExplore={onExplore} />
     </div>
@@ -202,7 +237,81 @@ function UnlinkDialog({
   );
 }
 
-// The photo recovery code, on request only: it unlocks the photos on a new phone.
+// Confirms a new recovery code. The private key cannot leave the phone, so a new code means new keys.
+function NewCodeDialog({
+  partnerName,
+  onMake,
+  onClose,
+}: {
+  partnerName: string | null;
+  onMake: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+    return () => opener?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (busy) return;
+    function onEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [busy, onClose]);
+
+  async function make() {
+    setBusy(true);
+    setError(false);
+    try {
+      await onMake();
+    } catch (e) {
+      console.error("Couldn't make a new recovery code", e);
+      setError(true);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="settings-backdrop">
+      <div
+        className="settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-code-title"
+        aria-describedby="new-code-body"
+        aria-busy={busy}
+      >
+        <h2 id="new-code-title">Make a new recovery code?</h2>
+        <p id="new-code-body">
+          Your photos stay. Your old code stops working, and any other phone you use will ask for the new one.
+          {partnerName && ` ${partnerName} will be asked to confirm your new keys.`}
+        </p>
+        {error && (
+          <p className="field-error" role="alert">
+            Couldn&rsquo;t make a new code. Check your connection and try again.
+          </p>
+        )}
+        <div className="settings-dialog-actions">
+          <button type="button" className="btn-primary" onClick={() => void make()} disabled={busy}>
+            {busy ? "Making…" : "Make new code"}
+          </button>
+          <button ref={cancelRef} type="button" className="settings-cancel" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The photo recovery code, shown once: it unlocks the photos on a new phone. Closing forgets it on this phone.
 function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -241,8 +350,8 @@ function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => vo
       >
         <h2 id="recovery-title">Recovery code</h2>
         <p id="recovery-body">
-          Your photos are encrypted on your phone. On a new phone, this code unlocks them. Without it, your partner can
-          share your trails with you again.
+          <strong>Write this down. It won&rsquo;t be shown again.</strong> On a new phone, this code unlocks your
+          photos. Without it, your partner can share your trails with you again.
         </p>
         <p className="recovery-code" aria-label={formatted}>
           {/* Two lines of three groups, so the code never breaks inside a group */}
@@ -253,8 +362,8 @@ function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => vo
           <button type="button" className="settings-cancel" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy code"}
           </button>
-          <button ref={closeRef} type="button" className="settings-cancel" onClick={onClose}>
-            Close
+          <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
+            I&rsquo;ve saved it
           </button>
         </div>
       </div>

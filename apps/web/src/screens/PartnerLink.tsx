@@ -6,21 +6,27 @@ import { ProfileAvatar } from "../components/ProfileAvatar";
 import { QrScanner } from "../components/QrScanner";
 import { CameraIcon, HeartIcon, ShareIcon } from "../components/Icons";
 import { formatCode, inviteUrl, isCompleteCode, normalizeCode, openInvite } from "../lib/couples";
+import { inviteKeyIdFromHash } from "../lib/session";
 import type { Profile } from "@wannadoo/core";
+import { PairEmoji } from "./PartnerKeyConfirm";
 
 type Invite = { status: "loading" } | { status: "error" } | { status: "ready"; code: string; expiresAt: number };
 
 // Shown while walking solo: an invite to share, a field for a partner's code, and the way to walk solo.
 export function PartnerLink({
   me,
+  keyId,
   onEnterCode,
   onWalkSolo,
   onInviteRefused,
   onSignOut,
 }: {
   me: Profile;
-  // A typed code, normalised and complete; opens the accept screen.
-  onEnterCode: (code: string) => void;
+  // This phone's key ID; the invite link and QR carry it so the partner's phone can check it.
+  keyId: string;
+  // A typed or scanned code, normalised and complete, with the inviter's key ID when the QR or link carried one;
+  // opens the accept screen.
+  onEnterCode: (code: string, keyId: string | null) => void;
   onWalkSolo: () => void;
   // The server refused to create an invite, most likely because this user got linked meanwhile.
   onInviteRefused: () => void;
@@ -56,7 +62,7 @@ export function PartnerLink({
   }, [makeInvite]);
 
   async function share(code: string) {
-    const url = inviteUrl(code);
+    const url = inviteUrl(code, keyId);
     setShareNote(null);
     if (navigator.share) {
       try {
@@ -81,14 +87,15 @@ export function PartnerLink({
       setTypedError("An invite code has 10 letters and numbers.");
       return;
     }
-    onEnterCode(code);
+    // A pasted invite link may carry the key ID; a typed code cannot.
+    onEnterCode(code, inviteKeyIdFromHash(typed.trim()));
   }
 
   function handleScan(text: string): string | void {
-    const code = scannedInviteCode(text);
-    if (!code) return "That isn’t a Wannadoo invite.";
+    const scanned = scannedInvite(text);
+    if (!scanned) return "That isn’t a Wannadoo invite.";
     setScanning(false);
-    onEnterCode(code);
+    onEnterCode(scanned.code, scanned.keyId);
   }
 
   return (
@@ -119,7 +126,7 @@ export function PartnerLink({
             <div className="qr-frame">
               {/* Dark on white with a four-module quiet zone: phone cameras, iPhones especially, need both. */}
               <QRCodeSVG
-                value={inviteUrl(invite.code)}
+                value={inviteUrl(invite.code, keyId)}
                 size={176}
                 marginSize={4}
                 fgColor="#3a1a22"
@@ -235,22 +242,26 @@ export function PartnerLink({
   );
 }
 
-// The code in a scanned QR: an invite link from any origin, so a staging QR works too, or a bare code.
-// Anything else is null. Scanned text is machine-made, so a bare code must already be exact.
-function scannedInviteCode(text: string): string | null {
+// The code in a scanned QR, with the inviter's key ID from the link's fragment: an invite link from any origin, so a
+// staging QR works too, or a bare code. Anything else is null. Scanned text is machine-made, so a bare code must
+// already be exact.
+function scannedInvite(text: string): { code: string; keyId: string | null } | null {
   const trimmed = text.trim();
   let candidate: string | null = null;
+  let keyId: string | null = null;
   if (/^https?:\/\//i.test(trimmed)) {
     try {
-      const match = new URL(trimmed).pathname.match(/^\/link\/([^/]+)\/?$/);
+      const url = new URL(trimmed);
+      const match = url.pathname.match(/^\/link\/([^/]+)\/?$/);
       if (match) candidate = normalizeCode(match[1]);
+      keyId = inviteKeyIdFromHash(url.hash);
     } catch {
       return null;
     }
   } else {
     candidate = trimmed.replace(/[\s-]/g, "").toUpperCase();
   }
-  return candidate && isCompleteCode(candidate) ? candidate : null;
+  return candidate && isCompleteCode(candidate) ? { code: candidate, keyId } : null;
 }
 
 function hoursLeft(expiresAt: number): string {
@@ -258,8 +269,22 @@ function hoursLeft(expiresAt: number): string {
   return hours === 1 ? "about an hour" : `${hours} hours`;
 }
 
-// Shown once a link succeeds, on either phone.
-export function LinkedScreen({ me, partner, onContinue }: { me: Profile; partner: Profile; onContinue: () => void }) {
+// Shown once a link succeeds, on either phone. The four emoji come from both key IDs, so the partners can check
+// that each phone holds the other's real key (lib/keyEmoji.ts).
+export function LinkedScreen({
+  me,
+  partner,
+  myKeyId,
+  partnerKeyId,
+  onContinue,
+}: {
+  me: Profile;
+  partner: Profile;
+  myKeyId: string;
+  // Null while loading, or when the partner has no key yet.
+  partnerKeyId: string | null;
+  onContinue: () => void;
+}) {
   return (
     <div className="screen light-screen partner-screen">
       <StatusBar />
@@ -275,6 +300,15 @@ export function LinkedScreen({ me, partner, onContinue }: { me: Profile; partner
         <h1>You&rsquo;re exploring with {partner.name}</h1>
         <p>You both see the trails you walk together and their photos.</p>
       </div>
+      {partnerKeyId && (
+        <div className="card link-card key-check-card">
+          <p className="key-check-lead">Check that {partner.name}&rsquo;s phone shows the same four:</p>
+          <PairEmoji a={myKeyId} b={partnerKeyId} />
+          <p className="key-check-note">
+            They keep your photos between the two of you. If they differ, unlink in Profile.
+          </p>
+        </div>
+      )}
       <div className="partner-actions">
         <button type="button" className="btn-primary" onClick={onContinue}>
           Let&rsquo;s go

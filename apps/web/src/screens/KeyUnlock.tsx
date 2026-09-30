@@ -57,8 +57,8 @@ export function KeyUnlock({
         <h1>Unlock your photos</h1>
         <p className="intro">
           {replaced
-            ? "Your keys changed on another phone. Enter the recovery code from Profile on that phone."
-            : "This phone doesn’t hold your photo keys yet. Enter the recovery code from Profile on your other phone."}
+            ? "Your keys changed on another phone. Enter the recovery code you saved from it."
+            : "This phone doesn’t hold your photo keys yet. Enter the recovery code you saved from Profile."}
         </p>
       </div>
 

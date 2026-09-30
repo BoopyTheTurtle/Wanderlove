@@ -7,9 +7,13 @@ export type DeviceKeys = {
   // Raw public key, base64.
   publicKey: string;
   keyId: string;
-  // The recovery code that opens the sealed private key, normalized, for Settings to show. Whoever holds this device
-  // holds the private key already, so keeping the code here reveals nothing more.
+  // The recovery code that opens the sealed private key, normalized, kept only until the user has seen it once in
+  // Profile (security review, finding 3): a code left on the device would let a script in the page carry the private
+  // key away for good.
   recoveryCode?: string;
+  // A new pair this device is switching to (lib/keys.ts, rotateAccountKeys). Kept beside the current pair until the
+  // switch completes, so a failure halfway can resume or leave the current pair working.
+  next?: DeviceKeys;
 };
 
 const DB_NAME = "wannadoo-keys";
@@ -51,6 +55,38 @@ export async function loadDeviceKeys(userId: string): Promise<DeviceKeys | null>
 export async function clearDeviceKeys(userId: string): Promise<void> {
   await withStore("readwrite", (store) => store.delete(userId));
   clearRunKeys();
+}
+
+// Removes the recovery code from this device once the user has seen it, and returns the keys without it.
+export async function forgetRecoveryCode(userId: string): Promise<DeviceKeys | null> {
+  const keys = await loadDeviceKeys(userId);
+  if (!keys) return null;
+  const rest: DeviceKeys = { ...keys };
+  delete rest.recoveryCode;
+  await saveDeviceKeys(userId, rest);
+  return rest;
+}
+
+// The one-time hint after a finished trail ("get your recovery code in Profile"), remembered per device and user.
+const RECOVERY_HINT_KEY = "wannadoo_recovery_hint_done";
+
+export function recoveryHintDone(userId: string): boolean {
+  try {
+    const done: unknown = JSON.parse(globalThis.localStorage.getItem(RECOVERY_HINT_KEY) ?? "[]");
+    return Array.isArray(done) && done.includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+export function markRecoveryHintDone(userId: string): void {
+  try {
+    const done: unknown = JSON.parse(globalThis.localStorage.getItem(RECOVERY_HINT_KEY) ?? "[]");
+    const list = Array.isArray(done) ? done.filter((id) => id !== userId) : [];
+    globalThis.localStorage.setItem(RECOVERY_HINT_KEY, JSON.stringify([...list, userId]));
+  } catch {
+    // Without storage the hint may show again, which is harmless.
+  }
 }
 
 // Unwrapped run keys for this session, by run ID. Memory only; gone on reload.
