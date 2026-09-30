@@ -10,12 +10,13 @@ import { allStopsDone, canAddPhotos, PHOTOS_REMOVED_NOTE, photosRemoved, runEnde
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
 
-const CLUE_DATA: { id: string; word: string; num: number }[] = [
-  { id: "spikeri-promenade-clue1", word: "TRUE", num: 1 },
-  { id: "spikeri-warehouses-clue2", word: "LOVE", num: 2 },
-  { id: "spikeri-square-clue3", word: "IS BUILT", num: 3 },
-  { id: "spikeri-creative-quarter-clue4", word: "FROM", num: 4 },
-  { id: "daugava-bench-clue5", word: "SMALL MOMENTS", num: 5 },
+// One clue per stop, in trail order: a private run's stops are "s1".."s5", so clues go by position.
+const CLUE_DATA: { word: string; num: number }[] = [
+  { word: "TRUE", num: 1 },
+  { word: "LOVE", num: 2 },
+  { word: "IS BUILT", num: 3 },
+  { word: "FROM", num: 4 },
+  { word: "SMALL MOMENTS", num: 5 },
 ];
 
 // The field-book palette: wine, coral, orange, rose and gold.
@@ -78,10 +79,11 @@ export function SherlockCompleteScreen({
             <span className="sh-curiosities-label">Our collected curiosities</span>
           </div>
           <div className="sh-stamp-grid">
-            {CLUE_DATA.map(({ id, word, num }) => {
-              const done = !!run?.completions[id];
+            {CLUE_DATA.map(({ word, num }, i) => {
+              const stopId = run?.trail.stops[i]?.id;
+              const done = stopId !== undefined && !!run?.completions[stopId];
               return (
-                <div key={id} className={`sh-stamp-cell ${done ? "sh-stamp-cell--done" : "sh-stamp-cell--todo"}`}>
+                <div key={num} className={`sh-stamp-cell ${done ? "sh-stamp-cell--done" : "sh-stamp-cell--todo"}`}>
                   <span className="sh-stamp-cell-num">0{num}</span>
                   <span className="sh-stamp-cell-word">{done ? word : "Still out there"}</span>
                 </div>

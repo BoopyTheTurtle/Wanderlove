@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useRunKeyLoader } from "./photoKeys";
 import { loadRun, type Run } from "./runs";
 
 export type LoadedRun =
@@ -12,10 +13,11 @@ export function useRun(runId: string, refreshKey: number): LoadedRun {
     status: "loading",
   });
   const [attempt, setAttempt] = useState(0);
+  const openKey = useRunKeyLoader();
 
   useEffect(() => {
     let current = true;
-    loadRun(runId).then(
+    loadRun(runId, openKey).then(
       (run) => {
         if (!current) return;
         if (run) setState({ status: "ready", run });
@@ -29,7 +31,7 @@ export function useRun(runId: string, refreshKey: number): LoadedRun {
     return () => {
       current = false;
     };
-  }, [runId, refreshKey, attempt]);
+  }, [runId, refreshKey, attempt, openKey]);
 
   const retry = useCallback(() => {
     setState({ status: "loading" });

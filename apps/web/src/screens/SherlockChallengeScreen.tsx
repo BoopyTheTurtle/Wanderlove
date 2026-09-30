@@ -17,13 +17,15 @@ type Clue = {
   task?: "compliments" | "done";
 };
 
-const CLUE_DATA: Record<string, Clue> = {
-  "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19", answerType: "number" },
-  "spikeri-warehouses-clue2": { word: "LOVE", num: 2, task: "compliments" },
-  "spikeri-square-clue3": { word: "IS BUILT", num: 3, task: "done" },
-  "spikeri-creative-quarter-clue4": { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
-  "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5, task: "done" },
-};
+// One clue per stop, in trail order. A private run renames its stops "s1".."s5" (lib/runSnapshot.ts), so clues go by
+// position rather than by stop ID.
+const CLUES: Clue[] = [
+  { word: "TRUE", num: 1, answer: "19", answerType: "number" },
+  { word: "LOVE", num: 2, task: "compliments" },
+  { word: "IS BUILT", num: 3, task: "done" },
+  { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
+  { word: "SMALL MOMENTS", num: 5, task: "done" },
+];
 
 // Case and extra spaces don't count against an answer.
 function normalise(text: string) {
@@ -67,7 +69,7 @@ export function SherlockChallengeScreen({
   const [guess, setGuess] = useState("");
   // Bumped on every wrong guess so the popup replays each time.
   const [nope, setNope] = useState(0);
-  const clue = CLUE_DATA[stop.id];
+  const clue = CLUES[trail.stops.findIndex((s) => s.id === stop.id)];
   const [taskDone, setTaskDone] = useState(false);
   const isText = clue?.answerType === "text";
   const done = stop.id in completions;
@@ -77,8 +79,7 @@ export function SherlockChallengeScreen({
   const completedCount = trail.stops.filter((s) => s.id in completions).length;
   // Words from solved clues, plus this clue's once it is revealed, in trail order.
   const collected = trail.stops
-    .filter((s) => s.id in completions || (s.id === stop.id && solved))
-    .map((s) => CLUE_DATA[s.id]?.word)
+    .flatMap((s, i) => (s.id in completions || (s.id === stop.id && solved) ? [CLUES[i]?.word] : []))
     .filter((w): w is string => !!w);
 
   useEffect(() => {

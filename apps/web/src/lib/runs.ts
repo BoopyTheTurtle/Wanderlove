@@ -3,8 +3,13 @@ import { loadPartner } from "./couples";
 import { generateRunKey } from "./crypto";
 import { buildRunKeyWraps, checkPartnerKey, type PartnerKeyCheck, type Recipient } from "./keys";
 import { setRunKey, type DeviceKeys } from "./keyStore";
-import { fromRunSnapshot, toRunSnapshot } from "./runSnapshot";
+import { fromRunDetails, fromRunSnapshot, fromRunSummary, toRunDetails, toRunSummary } from "./runSnapshot";
+import { openJson, sealJson } from "./sealed";
 import { supabase } from "./supabase";
+
+// A run's photo key, or null for a run without one (lib/photoKeys.ts, RunKeyLoader). A private run's trail opens
+// with the same key.
+export type OpenRunKey = (runId: string) => Promise<CryptoKey | null>;
 
 // Who completed a stop, and when. The first completion wins; a partner's later one is dropped.
 export type StopCompletion = { by: string; at: string };
@@ -22,10 +27,19 @@ export type Run = {
   completions: Completions;
 };
 
-type RunRow = {
+// What a row holds of its trail: a plain snapshot on a run from before private trails, or the sealed details and
+// summary (docs/private-trails.md, section 1). The monthly trim drops the details and keeps the summary.
+type TrailColumns = {
   id: string;
   trail_id: string;
   trail_snapshot: unknown;
+  details_ciphertext?: string | null;
+  details_nonce?: string | null;
+  summary_ciphertext: string | null;
+  summary_nonce: string | null;
+};
+
+type RunRow = TrailColumns & {
   couple_id: string | null;
   started_by: string | null;
   started_at: string;
@@ -35,14 +49,31 @@ type RunRow = {
 };
 
 const RUN_COLUMNS =
-  "id, trail_id, trail_snapshot, couple_id, started_by, started_at, completed_at, abandoned_at, stop_completions(stop_id, completed_by, completed_at)";
+  "id, trail_id, trail_snapshot, details_ciphertext, details_nonce, summary_ciphertext, summary_nonce, couple_id, started_by, started_at, completed_at, abandoned_at, stop_completions(stop_id, completed_by, completed_at)";
 
-export function runFromRow(row: RunRow): Run {
+// The trail of a run: a legacy run's snapshot as it is, a private run's details opened with the run key, or its
+// summary once the details are gone. Throws when the key is missing or the ciphertext won't open.
+export async function trailFromRow(row: TrailColumns, openKey: OpenRunKey): Promise<Trail> {
+  if (row.trail_snapshot !== null) return fromRunSnapshot(row.trail_snapshot, row.trail_id);
+  const key = await openKey(row.id);
+  if (!key) throw new Error("This trail's key is missing");
+  if (row.details_ciphertext && row.details_nonce) {
+    const sealed = { ciphertext: row.details_ciphertext, nonce: row.details_nonce };
+    return fromRunDetails(await openJson(sealed, key, row.id, "details"));
+  }
+  if (row.summary_ciphertext && row.summary_nonce) {
+    const sealed = { ciphertext: row.summary_ciphertext, nonce: row.summary_nonce };
+    return fromRunSummary(await openJson(sealed, key, row.id, "summary"));
+  }
+  throw new Error("This trail has neither details nor a summary");
+}
+
+export function runFromRow(row: RunRow, trail: Trail): Run {
   const completions: Completions = {};
   for (const c of row.stop_completions) completions[c.stop_id] = { by: c.completed_by, at: c.completed_at };
   return {
     id: row.id,
-    trail: fromRunSnapshot(row.trail_snapshot, row.trail_id),
+    trail,
     coupleId: row.couple_id,
     startedBy: row.started_by,
     startedAt: row.started_at,
@@ -91,7 +122,8 @@ export function isKeysRequired(error: { code?: string; message?: string } | null
   return error?.code === "P0001" && error.message === "keys_required";
 }
 
-async function currentPlan(me: Recipient): Promise<RunKeyPlan> {
+async function currentPlan(me: Recipient, alone: boolean): Promise<RunKeyPlan> {
+  if (alone) return { kind: "encrypted", recipients: [me] };
   const check = await checkPartnerKey(me.userId);
   // "none" covers both a solo caller and a partner without keys; only the partner lookup tells them apart.
   const partnerId = check.status === "none" ? ((await loadPartner(me.userId))?.id ?? null) : check.key.partnerId;
@@ -100,23 +132,53 @@ async function currentPlan(me: Recipient): Promise<RunKeyPlan> {
 
 export type StartedRun = { run: Run; plan: RunKeyPlan };
 
-// Starts a run for the caller and their active partner, and abandons any run either still has open. Only a
-// stop-only snapshot reaches the server. The phone picks the run ID, makes the run's photo key, and wraps it for each
-// member in the same call; this phone then caches the key. When a key changed meanwhile (keys_mismatch) it checks the
-// keys again and retries once. Throws RunKeysNotReadyError when the partner can't receive a key yet.
-export async function startRun(trail: Trail, me: { id: string; keys: DeviceKeys }): Promise<StartedRun> {
+// Who a new run is for: "together" invites the active partner, who joins only by accepting (docs/private-trails.md,
+// section 2); "alone" is Just me, which the partner never sees. Without a partner both start a solo run.
+export type QuestMode = "together" | "alone";
+
+// start_run's arguments for a private trail: its details and summary sealed with the run key and bound to the run ID.
+// The server gets no trail name, place, or stop ID, only how many stops there are.
+export async function sealedStartArgs(trail: Trail, runKey: CryptoKey, runId: string) {
+  const details = await sealJson(toRunDetails(trail), runKey, runId, "details");
+  const summary = await sealJson(toRunSummary(trail), runKey, runId, "summary");
+  return {
+    p_trail_id: "private",
+    p_details: details.ciphertext,
+    p_details_nonce: details.nonce,
+    p_summary: summary.ciphertext,
+    p_summary_nonce: summary.nonce,
+    p_stop_count: trail.stops.length,
+  };
+}
+
+// Starts a private run and abandons any run the caller still has open. The phone picks the run ID, makes the run key,
+// seals the trail with it, and wraps it for the caller and, on a Together start, the partner, all in one call; this
+// phone then caches the key. When a key changed meanwhile (keys_mismatch) it checks the keys again and retries once.
+// Throws RunKeysNotReadyError when the partner can't receive a key yet.
+export async function startRun(
+  trail: Trail,
+  me: { id: string; keys: DeviceKeys },
+  mode: QuestMode = "together",
+): Promise<StartedRun> {
   const self: Recipient = { userId: me.id, publicKey: me.keys.publicKey, keyId: me.keys.keyId };
-  const base = { p_trail_id: trail.id, p_snapshot: toRunSnapshot(trail) };
+  const alone = mode === "alone";
   for (let attempt = 0; attempt < 2; attempt++) {
-    const plan = await currentPlan(self);
+    const plan = await currentPlan(self, alone);
     if (plan.kind === "wait") throw new RunKeysNotReadyError(plan.reason);
     const runId = crypto.randomUUID();
     const runKey = await generateRunKey();
     const p_keys = await buildRunKeyWraps(runId, runKey, plan.recipients);
-    const { data, error } = await supabase.rpc("start_run", { ...base, p_keys, p_run_id: runId });
+    const { data, error } = await supabase.rpc("start_run", {
+      ...(await sealedStartArgs(trail, runKey, runId)),
+      p_snapshot: null,
+      p_keys,
+      p_run_id: runId,
+      // Without a partner the plan holds the caller alone, and "none" starts the same solo run as "invite" would.
+      p_partner: plan.recipients.length > 1 ? "invite" : "none",
+    });
     if (!error) {
       setRunKey(data, runKey);
-      return { run: await readBack(data), plan };
+      return { run: await readBack(data, async () => runKey), plan };
     }
     if (isKeysRequired(error)) throw new Error("The server refused a trail without photo keys", { cause: error });
     if (!isKeysMismatch(error)) throw error;
@@ -124,14 +186,15 @@ export async function startRun(trail: Trail, me: { id: string; keys: DeviceKeys 
   throw new RunKeysNotReadyError("keys-mismatch");
 }
 
-async function readBack(runId: string): Promise<Run> {
-  const run = await loadRun(runId);
+async function readBack(runId: string, openKey: OpenRunKey): Promise<Run> {
+  const run = await loadRun(runId, openKey);
   if (!run) throw new Error("The new run could not be read back");
   return run;
 }
 
-// The caller's open run, including one the partner started, or null. RLS limits runs to those the caller belongs to.
-export async function loadActiveRun(): Promise<Run | null> {
+// The caller's open run, including a partner's run the caller joined, or null. RLS limits runs to those the caller
+// belongs to, so an invitation not yet accepted stays out.
+export async function loadActiveRun(openKey: OpenRunKey): Promise<Run | null> {
   const { data, error } = await supabase
     .from("trail_runs")
     .select(RUN_COLUMNS)
@@ -141,14 +204,14 @@ export async function loadActiveRun(): Promise<Run | null> {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  return data ? runFromRow(data) : null;
+  return data ? runFromRow(data, await trailFromRow(data, openKey)) : null;
 }
 
 // Any run the caller belongs to, open or ended; null when it doesn't exist or the caller can't see it.
-export async function loadRun(runId: string): Promise<Run | null> {
+export async function loadRun(runId: string, openKey: OpenRunKey): Promise<Run | null> {
   const { data, error } = await supabase.from("trail_runs").select(RUN_COLUMNS).eq("id", runId).maybeSingle();
   if (error) throw error;
-  return data ? runFromRow(data) : null;
+  return data ? runFromRow(data, await trailFromRow(data, openKey)) : null;
 }
 
 // A walk that has ended, as the Activity list shows it.
@@ -165,29 +228,36 @@ export type PastRun = {
   outcome: "finished" | "left";
 };
 
-type PastRunRow = {
-  id: string;
-  trail_id: string;
-  trail_snapshot: unknown;
+type PastRunRow = TrailColumns & {
   started_at: string;
   completed_at: string | null;
   abandoned_at: string | null;
+  stop_count: number | null;
   stop_completions: { stop_id: string }[];
   photos: { count: number }[];
 };
 
+// The list needs names only, so a private run's summary is enough; its details stay on the server.
 const PAST_RUN_COLUMNS =
-  "id, trail_id, trail_snapshot, started_at, completed_at, abandoned_at, stop_completions(stop_id), photos(count)";
+  "id, trail_id, trail_snapshot, summary_ciphertext, summary_nonce, stop_count, started_at, completed_at, abandoned_at, stop_completions(stop_id), photos(count)";
+
+// Stands in for a private trail this phone can't open, such as one whose key waits for the partner's re-share.
+export function lockedTrail(stopCount: number): Trail {
+  return fromRunSummary({
+    trailId: "private",
+    name: "A trail this phone can’t open yet",
+    stops: Array.from({ length: Math.max(stopCount, 1) }, (_, i) => `Stop ${i + 1}`),
+  });
+}
 
 // Null for a run that is still open.
-export function pastRunFromRow(row: PastRunRow): PastRun | null {
+export function pastRunFromRow(row: PastRunRow, trail: Trail): PastRun | null {
   const endedAt = row.completed_at ?? row.abandoned_at;
   if (!endedAt) return null;
-  const trail = fromRunSnapshot(row.trail_snapshot, row.trail_id);
   const done = new Set(row.stop_completions.map((c) => c.stop_id));
   return {
     id: row.id,
-    trailId: row.trail_id,
+    trailId: trail.id,
     trailName: trail.name,
     stopCount: trail.stops.length,
     stopsDone: trail.stops.filter((s) => done.has(s.id)).length,
@@ -206,8 +276,9 @@ export function isJourney(run: PastRun): boolean {
 
 const PAST_RUN_LIMIT = 50;
 
-// The caller's ended runs worth listing, newest ending first. RLS limits runs, stops, and photos to the caller's own.
-export async function listPastRuns(): Promise<PastRun[]> {
+// The caller's ended runs worth listing, newest ending first, each named from its summary. RLS limits runs, stops,
+// and photos to the caller's own. A private trail this phone can't open is listed without its names.
+export async function listPastRuns(openKey: OpenRunKey): Promise<PastRun[]> {
   const { data, error } = await supabase
     .from("trail_runs")
     .select(PAST_RUN_COLUMNS)
@@ -215,11 +286,20 @@ export async function listPastRuns(): Promise<PastRun[]> {
     .order("started_at", { ascending: false })
     .limit(PAST_RUN_LIMIT);
   if (error) throw error;
-  return data
-    .flatMap((row) => {
-      const run = pastRunFromRow(row);
-      return run && isJourney(run) ? [run] : [];
-    })
+  const runs = await Promise.all(
+    data.map(async (row) => {
+      let trail: Trail;
+      try {
+        trail = await trailFromRow(row, openKey);
+      } catch (e) {
+        console.error("Couldn't open a past trail", row.id, e);
+        trail = lockedTrail(row.stop_count ?? 0);
+      }
+      return pastRunFromRow(row, trail);
+    }),
+  );
+  return runs
+    .filter((run): run is PastRun => run !== null && isJourney(run))
     .sort((a, b) => Date.parse(b.endedAt) - Date.parse(a.endedAt));
 }
 

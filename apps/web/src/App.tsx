@@ -624,12 +624,12 @@ function SignedInApp({
   const refreshRun = useCallback(async (): Promise<void> => {
     const id = ++runRequest.current;
     try {
-      const active = await loadActiveRun();
+      const active = await loadActiveRun(loadRunKey);
       const heldId = runRef.current?.id ?? loadFollowedRun(me.id);
       let next = active;
       let ended = false;
       if (heldId && heldId !== active?.id) {
-        const held = await loadRun(heldId);
+        const held = await loadRun(heldId, loadRunKey);
         if (held && isRunActive(held)) next = held;
         else if (held?.completedAt) next = active ?? held;
         else if (held?.abandonedAt) ended = true;
@@ -651,7 +651,7 @@ function SignedInApp({
       console.error("Couldn't load the trail", e);
       if (id === runRequest.current) setRunSync((s) => (s === "ready" ? s : "error"));
     }
-  }, [me.id, applyRun]);
+  }, [me.id, applyRun, loadRunKey]);
 
   // Draws the walking path for an open run once per device; the snapshot has none, and the foot router rate-limits.
   // A run that ended keeps no path.
@@ -970,7 +970,7 @@ function SignedInApp({
       throw e;
     }
     runRequest.current++;
-    const fresh = (await loadRun(current.id).catch(() => null)) ?? {
+    const fresh = (await loadRun(current.id, loadRunKey).catch(() => null)) ?? {
       ...current,
       completions: { ...current.completions, [stopId]: { by: me.id, at: new Date().toISOString() } },
     };
