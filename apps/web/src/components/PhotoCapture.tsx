@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { RunKeyPendingError } from "../lib/keys";
 import { preparePhoto, type PreparedPhoto } from "../lib/photos";
 import { CameraIcon } from "./Icons";
 import "../photo-capture.css";
@@ -37,9 +38,13 @@ export function PhotoCapture({
     try {
       await onUpload(photo);
       setStatus("done");
-    } catch {
+    } catch (err) {
       setStatus("failed");
-      setError("Upload failed. Your photo is safe here; try again.");
+      setError(
+        err instanceof RunKeyPendingError
+          ? "This trail’s photos are locked on this phone until your partner confirms your new keys. Your photo is safe here."
+          : "Upload failed. Your photo is safe here; try again.",
+      );
     }
   }
 

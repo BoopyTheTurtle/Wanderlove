@@ -39,6 +39,7 @@ import {
   isRunActive,
   loadActiveRun,
   loadRun,
+  RunKeysNotReadyError,
   startRun,
 } from "./lib/runs";
 import type { Run } from "./lib/runs";
@@ -69,6 +70,7 @@ import {
 } from "./lib/keys";
 import type { PartnerKeyCheck } from "./lib/keys";
 import type { DeviceKeys } from "./lib/keyStore";
+import { RunKeyContext, runKeyLoader, useRunKeyLoader } from "./lib/photoKeys";
 import type { ReactNode } from "react";
 
 type ProfileState = { status: "loading" } | { status: "error" } | { status: "ready"; row: ProfileRow };
@@ -163,14 +165,22 @@ export default function App() {
   return (
     <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
       {(keys) => (
-        <SignedInApp
-          me={toProfile(profile.row, auth.user.email ?? "")}
-          recoveryCode={keys.recoveryCode ?? null}
-          onSignOut={() => signOutAndClear(auth.user.id)}
-        />
+        <RunKeyProvider userId={auth.user.id} keys={keys}>
+          <SignedInApp
+            me={toProfile(profile.row, auth.user.email ?? "")}
+            keys={keys}
+            onSignOut={() => signOutAndClear(auth.user.id)}
+          />
+        </RunKeyProvider>
       )}
     </KeyGate>
   );
+}
+
+// Every screen below reaches run photo keys through this (lib/photoKeys.ts), so the device keys stay here.
+function RunKeyProvider({ userId, keys, children }: { userId: string; keys: DeviceKeys; children: ReactNode }) {
+  const load = useMemo(() => runKeyLoader(userId, keys), [userId, keys]);
+  return <RunKeyContext.Provider value={load}>{children}</RunKeyContext.Provider>;
 }
 
 type KeyGateState =
@@ -347,6 +357,19 @@ function KeyGate({
   );
 }
 
+// What the map says when a start fails. A start waits for the partner's keys, so photos never upload unencrypted.
+function startErrorMessage(e: unknown, partnerName: string): string {
+  if (e instanceof RunKeysNotReadyError) {
+    if (e.reason === "partner-without-keys") {
+      return `${partnerName} needs to open Wannadoo once on their phone before you start, so your photos stay private.`;
+    }
+    if (e.reason === "partner-unconfirmed") {
+      return `${partnerName}’s keys changed. Reopen Wannadoo to confirm them, then start.`;
+    }
+  }
+  return "Couldn’t start the route. Check your connection and try again.";
+}
+
 function LoadingScreen({
   error,
   message = "Couldn’t load your profile. Check your connection and try again.",
@@ -404,13 +427,16 @@ type Draft =
 
 function SignedInApp({
   me,
-  recoveryCode,
+  keys,
   onSignOut,
 }: {
   me: Profile;
-  recoveryCode: string | null;
+  // This device's photo keys: an encrypted start wraps the run key for them.
+  keys: DeviceKeys;
   onSignOut: () => void;
 }) {
+  const recoveryCode = keys.recoveryCode ?? null;
+  const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
@@ -430,7 +456,8 @@ function SignedInApp({
   // The first load only restores where the app was; announcing starts from then on.
   const runLoadedOnce = useRef(false);
   const [starting, setStarting] = useState(false);
-  const [startFailed, setStartFailed] = useState(false);
+  // Why the last start failed, shown on the map; null when it didn't.
+  const [startError, setStartError] = useState<string | null>(null);
   // Walking paths drawn on this phone, per run; the server keeps stops only.
   const [routedPaths, setRoutedPaths] = useState<Record<string, WalkingPath>>({});
   const routing = useRef(new Set<string>());
@@ -473,7 +500,7 @@ function SignedInApp({
 
   async function generateSurprise() {
     const id = ++requestId.current;
-    setStartFailed(false);
+    setStartError(null);
     setDraft({ status: "loading" });
     try {
       const start = await getStartPosition();
@@ -486,7 +513,7 @@ function SignedInApp({
 
   function loadCurated() {
     const id = ++requestId.current;
-    setStartFailed(false);
+    setStartError(null);
     setDraft({ status: "ready", trail: curatedTrail, approximateStart: false });
     void withWalkingPath(curatedTrail).then((routed) => {
       if (id === requestId.current) setDraft({ status: "ready", trail: routed, approximateStart: false });
@@ -755,10 +782,10 @@ function SignedInApp({
     if (draft.status !== "ready" || starting) return;
     const trail = draft.trail;
     setStarting(true);
-    setStartFailed(false);
+    setStartError(null);
     runRequest.current++;
     try {
-      const started = await startRun(trail);
+      const { run: started } = await startRun(trail, { id: me.id, keys });
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(started.id, trail.path, trail.distanceMeters);
@@ -770,7 +797,7 @@ function SignedInApp({
       setDraft({ status: "idle" });
     } catch (e) {
       console.error("Couldn't start the route", e);
-      setStartFailed(true);
+      setStartError(startErrorMessage(e, partner?.name ?? "your partner"));
     } finally {
       setStarting(false);
     }
@@ -832,7 +859,7 @@ function SignedInApp({
     if (!current) throw new Error("No trail is running");
     let photo = uploaded.current.get(prepared);
     if (!photo) {
-      photo = await uploadPhoto(current.id, stopId, prepared);
+      photo = await uploadPhoto(current.id, stopId, prepared, await loadRunKey(current.id));
       uploaded.current.set(prepared, photo);
     }
     // A photo at a stop that is already done just joins the others.
@@ -899,7 +926,7 @@ function SignedInApp({
           approximateStart={draft.status === "ready" ? draft.approximateStart : false}
           onStartRoute={() => void handleStartRoute()}
           starting={starting}
-          startFailed={startFailed}
+          startError={startError}
           onNewRoute={() => void handleNewRoute()}
           onRetrySync={() => {
             setRunSync("loading");

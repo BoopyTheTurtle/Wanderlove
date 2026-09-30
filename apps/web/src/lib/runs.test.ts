@@ -6,11 +6,14 @@ import {
   canAddPhotos,
   completedCount,
   isRunActive,
+  isKeysMismatch,
   isStopDone,
   nextStop,
+  planRunKeys,
   runFromRow,
   type Run,
 } from "./runs";
+import type { PartnerKey } from "./keys";
 
 // The helpers under test are pure; the client module only needs env vars that tests don't have.
 vi.mock("./supabase", () => ({ supabase: {} }));
@@ -112,5 +115,46 @@ describe("startedBy", () => {
   it("carries who started the run, or null for older runs", () => {
     expect(runFromRow(row()).startedBy).toBe("user-a");
     expect(runFromRow({ ...row(), started_by: null }).startedBy).toBeNull();
+  });
+});
+
+describe("planRunKeys", () => {
+  const me = { userId: "me", publicKey: "my-public", keyId: "my-key" };
+  const key: PartnerKey = { partnerId: "partner", publicKey: "their-public", keyId: "their-key" };
+
+  it("wraps for the caller alone on a solo run", () => {
+    expect(planRunKeys(me, null, { status: "none" })).toEqual({ kind: "encrypted", recipients: [me] });
+  });
+
+  it("wraps for both members when the partner's key is trusted", () => {
+    expect(planRunKeys(me, "partner", { status: "trusted", key })).toEqual({
+      kind: "encrypted",
+      recipients: [me, { userId: "partner", publicKey: "their-public", keyId: "their-key" }],
+    });
+  });
+
+  it("starts plain when the partner has no keys yet", () => {
+    expect(planRunKeys(me, "partner", { status: "none" })).toEqual({ kind: "wait", reason: "partner-without-keys" });
+  });
+
+  it("starts plain while the partner's key waits for trust", () => {
+    const check = { status: "confirm", key, reason: "changed", partnerName: "Emma" } as const;
+    expect(planRunKeys(me, "partner", check)).toEqual({ kind: "wait", reason: "partner-unconfirmed" });
+  });
+
+  it("never wraps for a trusted key of someone other than the active partner", () => {
+    expect(planRunKeys(me, "someone-else", { status: "trusted", key })).toEqual({
+      kind: "wait",
+      reason: "partner-without-keys",
+    });
+  });
+});
+
+describe("isKeysMismatch", () => {
+  it("recognises start_run's keys_mismatch and nothing else", () => {
+    expect(isKeysMismatch({ code: "P0001", message: "keys_mismatch" })).toBe(true);
+    expect(isKeysMismatch({ code: "P0001", message: "run_id_required" })).toBe(false);
+    expect(isKeysMismatch({ code: "42501", message: "not signed in" })).toBe(false);
+    expect(isKeysMismatch(null)).toBe(false);
   });
 });

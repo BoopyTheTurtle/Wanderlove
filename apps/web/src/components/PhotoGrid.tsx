@@ -1,11 +1,31 @@
 import { useState } from "react";
 import { fetchPhotoBlob } from "../lib/album";
+import { useRunKeyLoader } from "../lib/photoKeys";
 import type { RunPhoto } from "../lib/photos";
 import { saveFiles } from "../lib/saveFiles";
+import type { PhotoView, ShownPhoto } from "../lib/useRunPhotos";
 import "../album-actions.css";
 
+const PLACEHOLDER: Record<Exclude<PhotoView, "shown">, string> = {
+  opening: "Opening…",
+  locked: "Locked",
+  broken: "Can’t open this photo",
+};
+
+// Said where a trail's encrypted photos wait for this phone's run key (lib/useRunPhotos.ts, `locked`).
+export function LockedPhotosNote({ partnerName, className }: { partnerName: string | null; className: string }) {
+  return (
+    <p className={className}>
+      {partnerName
+        ? `Photos unlock once ${partnerName} confirms your new keys on their phone.`
+        : "This trail’s photos were locked with your earlier keys, so this phone can’t open them."}
+    </p>
+  );
+}
+
 // Photos from both partners, each labelled with who took it. Every photo offers Save, to the phone's photos or as a
-// download. Only your own photos offer Delete, which removes them for both of you, so it asks first.
+// download. Only your own photos offer Delete, which removes them for both of you, so it asks first. An encrypted photo
+// shows a placeholder until this phone has decrypted it.
 export function PhotoGrid({
   photos,
   meId,
@@ -13,7 +33,7 @@ export function PhotoGrid({
   onDelete,
   fileNamePrefix,
 }: {
-  photos: RunPhoto[];
+  photos: ShownPhoto[];
   meId: string;
   // The partner who shares this run, or null on a solo run.
   partnerName: string | null;
@@ -27,6 +47,7 @@ export function PhotoGrid({
   // A photo fetched but refused the share sheet for want of a fresh tap; the next tap on its Save shares it.
   const [ready, setReady] = useState<{ id: string; file: File } | null>(null);
   const [saveFailed, setSaveFailed] = useState<string | null>(null);
+  const loadKey = useRunKeyLoader();
 
   async function handleDelete(photo: RunPhoto) {
     const question = partnerName ? `Delete this photo? It disappears for ${partnerName} too.` : "Delete this photo?";
@@ -50,7 +71,7 @@ export function PhotoGrid({
       let file = ready?.id === photo.id ? ready.file : null;
       if (!file) {
         const name = fileNamePrefix ? `${fileNamePrefix}-${index + 1}.jpg` : `wannadoo-${photo.id.slice(0, 8)}.jpg`;
-        file = new File([await fetchPhotoBlob(photo)], name, { type: "image/jpeg" });
+        file = new File([await fetchPhotoBlob(photo, loadKey)], name, { type: "image/jpeg" });
       }
       const outcome = await saveFiles([file], file.name);
       setReady(outcome === "needs-tap" ? { id: photo.id, file } : null);
@@ -67,16 +88,27 @@ export function PhotoGrid({
       {photos.map((photo, index) => {
         const mine = photo.uploaderId === meId;
         const isReady = ready?.id === photo.id;
+        const alt = mine ? "Your photo" : `Photo by ${partnerName ?? "your partner"}`;
         return (
           <li key={photo.id} className="photo-tile">
-            <img src={photo.url} alt={mine ? "Your photo" : `Photo by ${partnerName ?? "your partner"}`} />
+            {photo.view === "shown" && photo.src ? (
+              <img src={photo.src} alt={alt} />
+            ) : (
+              <span
+                className={`photo-tile-placeholder photo-tile-placeholder--${photo.view}`}
+                role="img"
+                aria-label={alt}
+              >
+                {PLACEHOLDER[photo.view === "shown" ? "opening" : photo.view]}
+              </span>
+            )}
             <span className="photo-tile-foot">
               <span className="photo-tile-by">{mine ? "You" : (partnerName ?? "Partner")}</span>
               <span className="photo-tile-actions">
                 <button
                   type="button"
                   className={`photo-tile-save${isReady ? " photo-tile-save--ready" : ""}`}
-                  disabled={saving !== null}
+                  disabled={saving !== null || photo.view !== "shown"}
                   onClick={() => void handleSave(photo, index)}
                 >
                   {saving === photo.id ? "Saving…" : isReady ? "Tap to save" : "Save"}

@@ -1,5 +1,7 @@
 import type { Stop } from "@wannadoo/core";
-import { listRunPhotos, type RunPhoto } from "./photos";
+import { DecryptionError } from "./crypto";
+import { listRunPhotos, openStoredPhoto, type RunPhoto } from "./photos";
+import type { RunKeyLoader } from "./photoKeys";
 import { slugify } from "./saveFiles";
 
 // The run's photos as files to save, and the story-format collage drawn from them (main spec 6.5).
@@ -104,8 +106,9 @@ async function fetchOk(url: string): Promise<Blob | null> {
   return res.ok ? res.blob() : null;
 }
 
-// One photo's JPEG. A signed URL lasts an hour, so a refused one gets replaced by a fresh listing before giving up.
-export async function fetchPhotoBlob(photo: RunPhoto): Promise<Blob> {
+// One photo's stored object: plain JPEG or ciphertext. A signed URL lasts an hour, so a refused one gets replaced by a
+// fresh listing before giving up.
+async function fetchStored(photo: RunPhoto): Promise<Blob> {
   const first = await fetchOk(photo.url);
   if (first) return first;
   const fresh = (await listRunPhotos(photo.runId)).find((p) => p.id === photo.id);
@@ -114,17 +117,32 @@ export async function fetchPhotoBlob(photo: RunPhoto): Promise<Blob> {
   return second;
 }
 
+// One photo's JPEG. An encrypted photo already open on screen comes from its blob: URL; otherwise it downloads and,
+// when encrypted, decrypts with the run key. Throws DecryptionError when that fails.
+export async function fetchPhotoBlob(photo: RunPhoto, loadKey: RunKeyLoader): Promise<Blob> {
+  if (photo.src?.startsWith("blob:")) {
+    const local = await fetchOk(photo.src).catch(() => null);
+    if (local) return local;
+  }
+  const stored = await fetchStored(photo);
+  return openStoredPhoto(photo, stored, photo.nonce === null ? null : await loadKey(photo.runId));
+}
+
 export type AlbumFile = AlbumItem & { file: File };
 
 // Every photo of the run as a named JPEG file, in album order. Lists the photos afresh, so each signed URL has its
-// full hour ahead of it. Reports progress after each download.
+// full hour ahead of it. An encrypted photo that fails to decrypt is left out rather than failing the whole album.
+// Reports progress after each download.
 export async function loadAlbumFiles(
   runId: string,
   stops: Stop[],
+  loadKey: RunKeyLoader,
   onProgress?: (done: number, total: number) => void,
 ): Promise<AlbumFile[]> {
   const items = orderAlbum(await listRunPhotos(runId), stops);
-  const out: AlbumFile[] = new Array(items.length);
+  // Load the key once up front, so a phone still waiting for its key fails fast instead of per photo.
+  const runKey = items.some((i) => i.photo.nonce !== null) ? await loadKey(runId) : null;
+  const out: (AlbumFile | null)[] = new Array(items.length).fill(null);
   let next = 0;
   let done = 0;
   onProgress?.(0, items.length);
@@ -133,16 +151,24 @@ export async function loadAlbumFiles(
     while (next < items.length) {
       const i = next++;
       const item = items[i];
-      const blob = await fetchPhotoBlob(item.photo);
-      out[i] = {
-        ...item,
-        file: new File([blob], item.fileName, { type: "image/jpeg", lastModified: Date.parse(item.photo.createdAt) }),
-      };
+      try {
+        const blob = await openStoredPhoto(item.photo, await fetchStored(item.photo), runKey);
+        out[i] = {
+          ...item,
+          file: new File([blob], item.fileName, {
+            type: "image/jpeg",
+            lastModified: Date.parse(item.photo.createdAt),
+          }),
+        };
+      } catch (e) {
+        if (!(e instanceof DecryptionError)) throw e;
+        console.error("Left a photo that won't decrypt out of the album", item.photo.id);
+      }
       onProgress?.(++done, items.length);
     }
   }
   await Promise.all(Array.from({ length: Math.min(3, items.length) }, worker));
-  return out;
+  return out.filter((f): f is AlbumFile => f !== null);
 }
 
 // ---- Drawing -----------------------------------------------------------------------------------------------------

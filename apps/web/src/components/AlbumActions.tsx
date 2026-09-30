@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Stop } from "@wannadoo/core";
 import { drawAlbum, loadAlbumFiles, pickCollage, type AlbumTheme } from "../lib/album";
+import { RunKeyPendingError } from "../lib/keys";
+import { useRunKeyLoader } from "../lib/photoKeys";
 import { dayStamp, saveFiles, slugify } from "../lib/saveFiles";
 import "../album-actions.css";
 
@@ -40,6 +42,7 @@ export function AlbumActions({
   const [state, setState] = useState<State>({ kind: "idle" });
   const [preview, setPreview] = useState<string | null>(null);
   const alive = useRef(true);
+  const loadKey = useRunKeyLoader();
 
   useEffect(() => {
     alive.current = true;
@@ -73,7 +76,7 @@ export function AlbumActions({
     const initial = job === "album" ? "Making your album…" : `Preparing ${photos(photoCount)}…`;
     update({ kind: "busy", job, message: initial });
     try {
-      const files = await loadAlbumFiles(runId, stops, (done, total) => {
+      const files = await loadAlbumFiles(runId, stops, loadKey, (done, total) => {
         if (total === 0) return;
         update({
           kind: "busy",
@@ -102,6 +105,9 @@ export function AlbumActions({
       if (alive.current) setPreview(URL.createObjectURL(blob));
       await save(job, [new File([blob], `${base}-album.jpg`, { type: "image/jpeg" })], `${base}-album.jpg`);
     } catch (e) {
+      if (e instanceof RunKeyPendingError) {
+        return update({ kind: "done", job, message: "Your photos are still locked on this phone." });
+      }
       console.error(job === "album" ? "Couldn't make the album" : "Couldn't save the photos", e);
       update({ kind: "error", job });
     }

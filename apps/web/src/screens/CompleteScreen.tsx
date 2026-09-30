@@ -1,6 +1,6 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
-import { PhotoGrid } from "../components/PhotoGrid";
+import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
 import { CompassIcon, ShareIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
@@ -28,7 +28,9 @@ export function CompleteScreen({
   const trail = loaded.status === "ready" ? loaded.run.trail : null;
   const photosOpen = loaded.status === "ready" && canAddPhotos(loaded.run);
   const photos = album.photos;
-  const [left, main, right] = [photos[0], photos[photos.length - 1] ?? photos[0], photos[1] ?? photos[0]];
+  // The stack shows only photos this phone can display; encrypted ones join as they decrypt.
+  const shown = photos.filter((p) => p.src !== null);
+  const [left, main, right] = [shown[0], shown[shown.length - 1] ?? shown[0], shown[1] ?? shown[0]];
 
   async function handleShare() {
     if (!trail) return;
@@ -85,11 +87,11 @@ export function CompleteScreen({
       </p>
 
       <div className="album-stack">
-        {left && <img className="album-back left" src={left.url} alt="" />}
-        {right && <img className="album-back right" src={right.url} alt="" />}
-        {main && (
+        {left?.src && <img className="album-back left" src={left.src} alt="" />}
+        {right?.src && <img className="album-back right" src={right.src} alt="" />}
+        {main?.src && (
           <div className="album-main">
-            <img src={main.url} alt="" />
+            <img src={main.src} alt="" />
             <span>{trail.name}</span>
           </div>
         )}
@@ -138,6 +140,7 @@ export function CompleteScreen({
             </button>
           </p>
         )}
+        {album.locked && <LockedPhotosNote partnerName={partnerName} className="album-note" />}
         {album.status === "ready" && photosOpen && (
           <p className="album-note">You can add photos for a day after finishing.</p>
         )}

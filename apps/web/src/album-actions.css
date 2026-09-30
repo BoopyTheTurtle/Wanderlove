@@ -93,6 +93,34 @@
   display: flex;
   gap: 6px;
 }
+/* An encrypted photo not decrypted on this phone yet, or one that can't be. Same box as the image it stands for. */
+.photo-tile-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--teal-wash);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px;
+  box-sizing: border-box;
+}
+.photo-tile-placeholder--opening {
+  animation: photo-tile-pulse 1.4s ease-in-out infinite;
+}
+@keyframes photo-tile-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .photo-tile-placeholder--opening {
+    animation: none;
+  }
+}
 .photo-tile-save {
   border: 0;
   border-radius: 8px;
