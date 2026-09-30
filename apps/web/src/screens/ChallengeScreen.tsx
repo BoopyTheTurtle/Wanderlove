@@ -4,6 +4,8 @@ import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
 import { StopPhotos } from "../components/StopPhotos";
 import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
+import { QUIET_STOP_LINE } from "../lib/routeSafety";
+import "../route-safety.css";
 
 export function ChallengeScreen({
   trail,
@@ -65,6 +67,7 @@ export function ChallengeScreen({
           </span>
           <h2>{stop.name}</h2>
           <p className="task-desc">Answer the prompt together, out loud, then take a photo of the two of you.</p>
+          {stop.quiet && <p className="quiet-note">{QUIET_STOP_LINE}</p>}
 
           <div className="prompt-box">
             <ChatIcon size={18} />

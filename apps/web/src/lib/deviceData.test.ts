@@ -3,6 +3,7 @@ import { clearAllForUser, clearOnSignOut } from "./deviceData";
 import { expectPartnerKey, pinnedPartnerKeyId, withPin } from "./keys";
 import { forgetDeviceKeys, markRecoveryHintDone, recoveryHintDone } from "./keyStore";
 import { memoryStorage } from "./memoryStorage";
+import { countSurpriseQuest, loadSafetyNote } from "./routeSafety";
 import { loadFollowedRun, loadWalkingPath, saveFollowedRun, saveWalkingPath } from "./runDevice";
 import { loadLinkState, loadOpenInvite, loadPendingInvite, saveLinkState, saveOpenInvite } from "./session";
 
@@ -34,6 +35,7 @@ function fillPhone() {
     );
     expectPartnerKey(me, "fedcba9876543210");
     markRecoveryHintDone(me);
+    countSurpriseQuest(me);
   }
   localStorage.setItem("wannadoo_pending_invite", "ABCDE12345");
   localStorage.setItem("wannadoo_pending_invite_key", "0123456789abcdef");
@@ -46,6 +48,7 @@ function emmaUntouched() {
   expect(loadLinkState("emma")).toEqual({ solo: true, knownPartnerId: "daniel" });
   expect(pinnedPartnerKeyId("emma", "daniel")).toBe("0123456789abcdef");
   expect(recoveryHintDone("emma")).toBe(true);
+  expect(loadSafetyNote("emma").quests).toBe(1);
 }
 
 beforeEach(() => {
@@ -76,6 +79,7 @@ describe("clearOnSignOut", () => {
     expect(pinnedPartnerKeyId("daniel", "emma")).toBe("0123456789abcdef");
     expect(recoveryHintDone("daniel")).toBe(true);
     expect(loadLinkState("daniel").solo).toBe(true);
+    expect(loadSafetyNote("daniel").quests).toBe(1);
   });
 });
 
@@ -90,6 +94,7 @@ describe("clearAllForUser", () => {
     expect(pinnedPartnerKeyId("daniel", "emma")).toBeNull();
     expect(JSON.parse(localStorage.getItem("wannadoo_invite_key") ?? "{}")).toEqual({ emma: "fedcba9876543210" });
     expect(recoveryHintDone("daniel")).toBe(false);
+    expect(loadSafetyNote("daniel")).toEqual({ quests: 0, hidden: false });
     expect(loadPendingInvite()).toBeNull();
     expect(loadOpenInvite("daniel")).toBeNull();
     emmaUntouched();

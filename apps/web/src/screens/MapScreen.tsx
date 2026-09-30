@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -11,6 +11,8 @@ import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import type { Profile } from "@wannadoo/core";
 import { BottomNav } from "../components/BottomNav";
+import { SafetyNote, SunsetWarningCard } from "../components/RouteSafety";
+import { safetyNoteLines, sunsetWarning } from "../lib/routeSafety";
 import {
   BellIcon,
   HeartIcon,
@@ -108,6 +110,13 @@ export function MapScreen({
   status,
   error,
   approximateStart,
+  rural = false,
+  loadingMeters = MAX_ROUTE_METERS,
+  shortened = false,
+  safetyNote = { show: false, canHide: false },
+  onHideSafetyNote,
+  onShorterLoop,
+  onMaybeTomorrow,
   onStartRoute,
   startLabel = "Start route",
   notice,
@@ -133,6 +142,18 @@ export function MapScreen({
   status: RouteStatus;
   error?: string;
   approximateStart?: boolean;
+  // Part of a surprise loop follows a fast road without a pavement: the safety note adds the rural line.
+  rural?: boolean;
+  // The length the route being built aims for, for the loading card.
+  loadingMeters?: number;
+  // The draft is already the shorter loop, so the after-sunset warning stops offering one.
+  shortened?: boolean;
+  // The pre-quest note on a surprise route: whether this user still sees it, and may turn it off.
+  safetyNote?: { show: boolean; canHide: boolean };
+  onHideSafetyNote?: () => void;
+  onShorterLoop?: () => void;
+  // "Maybe tomorrow" on the after-sunset warning: back to Home.
+  onMaybeTomorrow?: () => void;
   onStartRoute: () => void;
   // Says who the route starts for: together, just me, or a solo walker.
   startLabel?: string;
@@ -179,6 +200,20 @@ export function MapScreen({
     return [FALLBACK_START.lat, FALLBACK_START.lng];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Safety notes before a surprise route starts. The light is judged once per route, from its start and length.
+  const surpriseReady = status === "ready" && trail?.kind === "surprise";
+  const warning = useMemo(
+    () => (surpriseReady && trail?.start ? sunsetWarning(new Date(), trail.start, trail.durationMinutes) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [surpriseReady, trail?.id],
+  );
+  const noteLines = useMemo(() => safetyNoteLines(new Date(), rural), [rural]);
+  // "Got it" folds the note away while the map stays open; "Walk anyway" answers the warning for this route only.
+  const [noteDismissed, setNoteDismissed] = useState(false);
+  const [walkAnywayFor, setWalkAnywayFor] = useState<string | null>(null);
+  const showWarning = warning !== null && trail !== null && walkAnywayFor !== trail.id;
+  const showNote = surpriseReady && safetyNote.show && !noteDismissed;
 
   const unlocked = currentStop && position ? isWithinRadius(position, currentStop, currentStop.radiusMeters) : false;
   const distance = currentStop && position ? Math.round(haversineDistanceMeters(position, currentStop)) : null;
@@ -308,7 +343,7 @@ export function MapScreen({
             <SparkIcon size={13} /> Surprise route
           </p>
           <h3>Finding a route near you…</h3>
-          <p className="muted-line">Picking spots for a loop under {formatKm(MAX_ROUTE_METERS)}</p>
+          <p className="muted-line">Picking spots for a loop under {formatKm(loadingMeters)}</p>
           <span className="loading-bar" aria-hidden="true" />
         </section>
       )}
@@ -330,6 +365,24 @@ export function MapScreen({
 
       {status === "ready" && trail && (
         <>
+          {showWarning && (
+            <SunsetWarningCard
+              warning={warning}
+              canShorten={!shortened && !!onShorterLoop}
+              busy={starting}
+              onWalkAnyway={() => setWalkAnywayFor(trail.id)}
+              onShorter={() => onShorterLoop?.()}
+              onTomorrow={() => onMaybeTomorrow?.()}
+            />
+          )}
+          {showNote && (
+            <SafetyNote
+              lines={noteLines}
+              canHide={safetyNote.canHide}
+              onDismiss={() => setNoteDismissed(true)}
+              onHide={() => onHideSafetyNote?.()}
+            />
+          )}
           <section className="card route-card">
             <p className="card-kicker">
               <SparkIcon size={13} /> {trail.kind === "surprise" ? "Your surprise route" : "Curated trail"}

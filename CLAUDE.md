@@ -26,7 +26,7 @@ Run everything from the repository root; npm workspaces route each script to the
   keeps only small per-device state such as the solo choice and each run's walking path.
 - `apps/web/src/lib` holds the browser-only pieces. Only `lib/*` imports supabase-js: `auth`, `profile`, `couples`,
   `runs`, and `photos` wrap the backend; the rest covers device storage, live GPS, and the one-shot start position.
-- Route generation queries Overpass for places, builds a loop with cheapest insertion, and trims it to 2.6 km against
+- Route generation queries Overpass for places, builds a loop with cheapest insertion, and trims it to about 2 km against
   the FOSSGIS foot router. Both services rate-limit, so reuse the place cache and avoid request loops.
 
 ## Conventions
