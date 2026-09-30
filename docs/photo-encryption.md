@@ -1,7 +1,7 @@
 # End-to-end encrypted photos: spec
 
-Status: built and verified September 30, 2026 (PRs 23–26); recovery options A and C. One gap from the
-[security review](security-review.md) remains before hand-out: the server still accepts unencrypted photos. Owner: Edgar.
+Status: built and verified September 30, 2026 (PRs 23–26, 29, 30); recovery options A and C. The
+[security review](security-review.md)'s findings 1 to 4 are fixed. Owner: Edgar.
 
 Photos today sit in a private Supabase bucket. Row-level security lets only the members of a trail run read them, and
 only through signed links that expire after an hour. Anyone with the project's dashboard or database access can still
@@ -120,9 +120,9 @@ phone, and a lost recovery code means lost photos.
 notice carries the line. Edgar checked E.5 on real phones: stored photos are `.bin` files that no viewer opens, both
 phones show them, the recovery code unlocks a cleared phone, and new keys work once the partner trusts them.
 
-| #   | Task                                                                                                           | Tag     |
-| --- | -------------------------------------------------------------------------------------------------------------- | ------- |
-| E.6 | Migration: `start_run` requires keys, and a trail with keys takes only `.bin` photos; pgTAP tests (review, #1) | [Agent] |
+| #   | Task                                                                                                                        | Tag     |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ------- |
+| E.6 | Migration: `start_run` requires keys, and a trail with keys takes only `.bin` photos; pgTAP tests (review, #1). Done, PR 29 | [Agent] |
 
 ## 8. Decisions
 

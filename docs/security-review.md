@@ -4,9 +4,9 @@ Task 6.1 of the [internal build](internal-build.md), run September 30, 2026 agai
 `9358356`. It covers the access rules, the storage rules, the key and photo database functions, the shipped bundle,
 and the end-to-end photo encryption from [photo-encryption.md](photo-encryption.md).
 
-The access rules hold. The one gap that matters lets an unencrypted photo reach the server, which the encryption spec
-promised testers would never happen; a small migration closes it before hand-out. Four smaller findings can wait for
-the MVP.
+The access rules hold. The one gap that mattered let an unencrypted photo reach the server, which the encryption spec
+promised testers would never happen. PRs 29 and 30, merged September 30, fix findings 1 to 4; finding 5 stays
+accepted.
 
 ## What passed
 
@@ -39,7 +39,7 @@ tab, their photos upload in the clear, into a trail the other partner believes i
 whenever the trail has keys. Test data gets wiped before launch, so older plain trails need no exception beyond the
 existing rows. pgTAP tests cover the member, the partner, and a stranger.
 
-**Fixed** in migration `20260930100000_require_encryption.sql` (branch `fix/require-encryption`). `start_run` raises
+**Fixed** in migration `20260930100000_require_encryption.sql` (PR 29). `start_run` raises
 `keys_required` without keys; a photo row needs a nonce and the uploader's own copy of the trail key; the bucket takes
 only `.bin` objects of type `application/octet-stream`. Stored `.jpg` photos stay readable. The app refuses to upload
 without a key and tells the user when a trail predates encryption. `09_require_encryption.test.sql` covers the rules.
@@ -52,10 +52,11 @@ contains no raw HTML, so no injection is known; a policy limits the damage if on
 `vercel.json` that allow scripts only from the site, connections only to Supabase, Overpass, FOSSGIS, and the map
 tiles, and no framing.
 
-**Fixed** in `vercel.json` (branch `fix/require-encryption`): a Content-Security-Policy for every route, plus
-`nosniff`, a referrer policy, and a permissions policy that allows only the camera and location. A banner now offers a
-reload when a newer build is live, so stale tabs like the one in finding 1 don't linger. The policy still needs a check
-on a Vercel preview.
+**Fixed** in `vercel.json` (PR 29): a Content-Security-Policy for every route, plus `nosniff`, a referrer policy, and
+a permissions policy that allows only the camera and location. A banner now offers a reload when a newer build is live,
+so stale tabs like the one in finding 1 don't linger. On the Vercel preview the headers arrive and block only Vercel's
+own preview toolbar. A production build served locally with the same headers ran sign-in, linking, the map, an
+encrypted trail and upload, and the album without a blocked request; the camera scanner stays untested.
 
 ### 3. The stored recovery code weakens the device key (low: accept for testing)
 
@@ -66,12 +67,24 @@ This needs an injected script first, which finding 2 makes harder. **Option for 
 on request and reseals the key with it, so no code is ever stored; the catch is that each viewing replaces the
 previous code.
 
+**Fixed** in PR 30, with Edgar's choice of "show once": the phone keeps the code only until Profile shows it once,
+then deletes it. **Make a new recovery code** then makes a new key pair, since the private key can't be resealed,
+rewraps the user's own trail keys for it, and the partner's phone asks to trust the new keys. A switch that stops
+halfway finishes on the next open.
+
 ### 4. The first partner key is trusted without a check (low: MVP)
 
 A phone trusts the partner's key silently the first time it sees it, if the couple has no encrypted trails yet. Someone
 who controls the database, the threat the encryption exists for, could publish their own key as the partner's before
 that moment and read every later trail. Key changes prompt "Trust them?", but most people will tap yes. **Option for
 the MVP:** put the inviter's key fingerprint in the invite QR, so linking also verifies the key.
+
+**Fixed** in PR 30. The invite link and QR carry the inviter's key ID after `#k=`, which never reaches the server. The
+invitee's phone checks it just after linking, since it can't read the inviter's key before, and unlinks on a mismatch.
+Both phones show four emoji made from the pair's key IDs on the linked screen, in Profile, and on the "keys changed"
+prompt, so the partners can compare them; the inviting phone relies on that comparison. Four emoji carry 24 bits:
+enough to catch a swapped key, too few against an attacker who can generate millions of keys. Silent trust remains
+only for a typed invite code, or a couple linked before this change, with no shared encrypted trail.
 
 ### 5. A trail member can spoil the other's key copy or fill storage (low: accept)
 

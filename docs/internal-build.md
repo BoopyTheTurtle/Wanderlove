@@ -80,8 +80,10 @@ Last updated September 30, 2026. Resume from **Next** below.
 - **Encryption verified (E.5).** Edgar checked on September 30 that stored photos don't open in the dashboard, that
   both phones show them, that the recovery code unlocks a cleared phone, and that new keys work once trusted.
 - **Security review (6.1).** Run September 30; see [security-review.md](security-review.md). The access rules hold and
-  every anonymous probe was refused. One finding needs a fix before hand-out: the server still accepts unencrypted
-  trails and photos, which a phone on a stale build would send.
+  every anonymous probe was refused. PRs 29 and 30 fixed findings 1 to 4: the server refuses unencrypted trails and
+  photos (migration deployed), the site sends a Content-Security-Policy and other headers, a banner offers a reload
+  when a newer build is live, the recovery code shows once, and linking checks the partner's key through the invite
+  and four matching emoji.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -89,8 +91,8 @@ Last updated September 30, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[Agent]** Close the security review's findings 1 and 2: a migration so the server refuses unencrypted trails and
-   photos (task E.6), and security headers in `vercel.json`.
+1. **[You]** On two phones after the next reload: link with a fresh invite and compare the four emoji; view the
+   recovery code once in Profile; check the camera scanner still works under the new security headers.
 2. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
    whether the second "Tap to save" is needed).
 3. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
