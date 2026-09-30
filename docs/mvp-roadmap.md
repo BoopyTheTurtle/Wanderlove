@@ -13,25 +13,41 @@ Research and design workflows run first, in parallel, because the build stages d
 
 ## 1. Decisions
 
-| Topic                  | Decision (Edgar, September 30)                                                                                   |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Route shape            | A loop back to the start; about 2 km of real walking, return included                                            |
-| Stops                  | Five, from the user's current position each time                                                                 |
-| Task arc               | Stop 1 introductory, 2 silly game, 3 deep task, 4 silly game, 5 wrap-up                                          |
-| Repeats                | A pair never gets a task it has done; the same person may get it again with a new partner                        |
-| Tasks and places       | Generic tasks first, doable at any stop; place-aware tasks later (section 5)                                     |
-| Photos                 | Each stop still takes a photo or a skip                                                                          |
-| Special quests         | Sherlock stays as the first special quest, in a repository of special quests; their triggers come later          |
-| Solo mode              | Stays, with nothing built for it; if it breaks something, it goes                                                |
-| Avatars                | Male-ish to female-ish, younger to older, hair, clothes, accessories, skin, eyes, randomise; no gender is stored |
-| Leaderboard            | Global and weekly, by couple name only, with no profile reachable from it                                        |
-| Community listening    | Themes only; no usernames, no quotes, no record of who said what                                                 |
-| Push notifications     | Specified now, built with the move to a native app                                                               |
-| Photo retention        | The server keeps a trail's photos for one month after it ends, then deletes them                                 |
-| Points                 | Earned for finishing quests, for uploading photos, and many for sharing photos to social media; more to follow   |
-| Special-quest triggers | To be decided; holiday quests are certain                                                                        |
-| Journey map            | Infinite: the path extends as the couple walks                                                                   |
-| Lifetime stats         | Each couple and each user keeps totals of quests done, photos taken, challenges completed, and points scored     |
+| Topic                  | Decision (Edgar, September 30)                                                                                                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route shape            | A loop back to the start; about 2 km of real walking, return included                                                                                                                                                                                         |
+| Stops                  | Five, from the user's current position each time                                                                                                                                                                                                              |
+| Task arc               | Stop 1 introductory, 2 silly game, 3 deep task, 4 silly game, 5 wrap-up                                                                                                                                                                                       |
+| Repeats                | A pair never gets a task it has done; a skipped task may come back once; the same person may get a task again with a new partner                                                                                                                              |
+| Tasks and places       | Generic tasks first, doable at any stop; place-aware tasks later (section 5)                                                                                                                                                                                  |
+| Photos                 | Each stop still takes a photo or a skip                                                                                                                                                                                                                       |
+| Special quests         | Sherlock stays as the first special quest, in a repository of special quests; their triggers come later                                                                                                                                                       |
+| Solo mode              | Stays, with nothing built for it; if it breaks something, it goes                                                                                                                                                                                             |
+| Avatars                | Male-ish to female-ish, younger to older, hair, clothes, accessories, skin, eyes, randomise; no gender is stored                                                                                                                                              |
+| Leaderboard            | Opt-in weekly leagues of about 30 random couples, by couple name only, showing a band ("top third") rather than a rank; nothing on it is reachable                                                                                                            |
+| Community listening    | Themes only; no usernames, no quotes, no record of who said what                                                                                                                                                                                              |
+| Push notifications     | Specified now, built with the move to a native app                                                                                                                                                                                                            |
+| Photo retention        | The server keeps a trail's photos for one month after it ends, then deletes them                                                                                                                                                                              |
+| Points                 | Low, per A3: 100 per finished quest, 10 per stop reached, 5 per stored photo, 20 per partner-approved share (one per quest, three a week), 30 for the week's first quest, 50 for a special quest; tasks earn none; best three quests a week count for leagues |
+| Special-quest triggers | To be decided; holiday quests are certain; random and milestone triggers are candidates for surprise rewards                                                                                                                                                  |
+| Journey map            | Infinite: the path extends as the couple walks                                                                                                                                                                                                                |
+| Lifetime stats         | Per couple only: quests done, photos taken, challenges completed, points scored. Unlinking clears them, so a new pair starts fresh; per-user stats wait until the app supports other kinds of links                                                           |
+| Task pool              | 30 introductory, 60 silly games (two per quest), 30 deep tasks, 30 wrap-ups                                                                                                                                                                                   |
+| Strangers              | No task involves strangers; couples may still ask someone to take a photo on their own                                                                                                                                                                        |
+| Off-limits topics      | No chores, no debates about what is fair                                                                                                                                                                                                                      |
+| Mobility               | A mobility setting in Profile swaps out tasks that need movement; an adventure level comes later                                                                                                                                                              |
+| Share consent          | The partner approves each shared photo by default; a setting grants standing consent, and one tap withdraws it                                                                                                                                                |
+| Streaks                | None; a weekly rhythm where an empty week looks neutral                                                                                                                                                                                                       |
+| Notifications          | Opt-in, with a friendly nudge to opt in after the first quest; then sparing, as A3 sets out; small relationship reminders between quests belong here                                                                                                          |
+| Success measure        | Walks per couple per month, and couples still walking at three and six months; never app opens                                                                                                                                                                |
+| Abuse                  | The app neither diagnoses relationships nor points to helplines; it studies how an abuser could misuse it and prevents that within reason (A6)                                                                                                                |
+| Long distance          | Out of scope for the MVP; demand gets tested later                                                                                                                                                                                                            |
+| Testers                | Mostly Latvia, some elsewhere in the EU, the UK, and the US                                                                                                                                                                                                   |
+| Quiet stops            | Churches, memorials, and cemeteries stay, with calm tasks only; a curated exclusion list, fed by user reports, removes sites such as mass graves                                                                                                              |
+| After dark             | The app warns and offers a shorter loop; the choice stays with the user                                                                                                                                                                                       |
+| Rural roads            | Allowed with a warning, so rural areas still get routes                                                                                                                                                                                                       |
+| Weather                | Calendar-based notes now; live weather later                                                                                                                                                                                                                  |
+| Legal                  | A lawyer reviews share rewards and liability copy before public launch; points stay low until then                                                                                                                                                            |
 
 ## 2. What the research gives the task pool
 
@@ -67,10 +83,16 @@ These run in parallel and change no app code. Each ends in a short document Edga
 | A2  | **Community listening:** recurring problems and opinions about feeling disconnected, gathered by reading public threads (Reddit and other forums) through web search, recorded as themes with rough frequency only. No scraper, no usernames, no stored quotes | A1, 10  |
 | A3  | **Gamification research:** what research says makes apps and games compulsive, the case against those techniques, a synthesis, and a shortlist of features that pass it                                                                                        | 7, 8, 9 |
 | A4  | **Safety review:** what can go wrong on a random walk (traffic, closed or private land, water, construction, industrial zones, darkness, weather) and which OpenStreetMap tags and checks avoid it                                                             | Stage 2 |
+| A6  | **Abuse threat model:** how a controlling or abusive partner could misuse the app (location, activity data, photos, keys, linking, points, notifications) and what prevents it within reason, with a checklist for every new feature                           | All     |
 | A5  | **Graphics workflow:** Edgar compares the OpenAI API route with the manual ChatGPT route (section 6); then a style guide, an asset folder layout, and the pipeline from concept art to SVG parts                                                               | 5, 6    |
 
 A2 reads rather than scrapes: Reddit's terms restrict automated collection and commercial reuse, and themes need no
-more than careful reading.
+more than careful reading. Reddit refused page reads, so its threads appear only through search summaries; Edgar
+accepted the gap for now.
+
+**Status, September 30:** A1 to A4 are drafted in [docs/research](research/) and Edgar has decided their questions
+(section 1). A5 runs on the OpenAI API route: `tools/images/generate.mjs` with prompts in `docs/design/prompts/`; the
+avatar sheet's style is approved and the journey map is on its third concept. A6 is in progress.
 
 ## 4. Build stages
 
@@ -98,14 +120,16 @@ always from the user's position. Where too few named places exist, fall back to 
 viewpoints, and park paths. Apply A4's filters: skip ways without pedestrian access, private and construction land,
 industrial areas, and stops across major roads without a crossing; flag a start after sunset.
 
-**Done when:** 200 simulated starts across Riga and a rural test area all produce five-stop loops within the limit,
+**Done when:** 200 simulated starts across the five test areas in [route-safety.md](research/route-safety.md), plus a few in
+the UK and the US where testers live, all produce five-stop loops within the limit,
 and a manual audit of 30 of them finds no unsafe stop.
 
 ### 3. Quest engine
 
 The task data model in code (id, category, text, needs-photo, tags), a server-side history of tasks done keyed on the
 two people rather than on the link (so a relink keeps it and a new partner resets it), and selection in the
-1-2-3-2-4 order that skips done tasks. A generic quest screen per category replaces the Sherlock-specific flow for
+1-2-3-2-4 order that skips done tasks. A skipped task may return once. The Profile's mobility setting
+filters out tasks tagged `move`. A generic quest screen per category replaces the Sherlock-specific flow for
 random quests. Special quests move into a registry, with Sherlock as the first entry and a trigger field left empty
 for later. The stage ships with about five tasks per category, enough to test the mechanics.
 
@@ -138,24 +162,25 @@ point and move one point per finished quest; the next point opens a quest. The s
 
 ### 7. Couple name, stats, and points
 
-The couple chooses a name, checked against a word filter. The server keeps lifetime totals per couple and per user:
+The couple chooses a name, checked against a word filter. The server keeps lifetime totals per couple:
 quests done, photos taken, challenges completed, and points scored. The totals live in their own table, because the
 photos themselves go after a month and the counts must outlive them; the journey map's position reads from them.
+Unlinking clears them.
 
 Points come from finished quests, uploaded photos, and, weighted heavily, photos shared to social media; A3 sets the
 amounts and adds further sources later. The server awards points only for what it can confirm: a finished quest and a
 stored photo are facts in the database. A share is weaker evidence, since the phone reports only that the share sheet
 completed, not what the user posted, so share points get a cap per trail. A shared photo usually shows the partner,
-so the share step asks both partners' consent once per couple; points for sharing must never pressure a partner into
-being posted.
+so the partner approves each share on their own phone, unless they have granted standing consent in settings, which
+one tap withdraws; points for sharing must never pressure a partner into being posted.
 
 **Done when:** the totals match the history on both phones, survive the photo deletion, and can't be raised from the
 client beyond the share cap.
 
 ### 8. Weekly leaderboard
 
-A global weekly table of couple names and points. Joining is opt-in; nothing on it links anywhere; the query returns
-names and points only. The tester notice gains a paragraph first.
+Opt-in weekly leagues of about 30 randomly drawn couples, showing couple names and a band ("top third") rather than a
+rank. Nothing on it links anywhere; the query returns names and bands only. The tester notice gains a paragraph first.
 
 **Done when:** a stranger's view reveals nothing beyond the names and points shown, and opting out removes a couple at
 once.
