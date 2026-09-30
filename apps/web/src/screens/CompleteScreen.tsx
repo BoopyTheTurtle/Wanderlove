@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
 import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
-import { CompassIcon, ShareIcon } from "../components/Icons";
+import { BackIcon, CompassIcon, ShareIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
 import { stopFilePrefix } from "../lib/album";
-import { canAddPhotos } from "../lib/runs";
+import { canAddPhotos, completedCount, journeyDay, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
 
@@ -16,7 +16,8 @@ export function CompleteScreen({
   partnerName,
   syncTick,
   notice,
-  onViewMap,
+  past = false,
+  onLeave,
 }: {
   runId: string;
   meId: string;
@@ -25,13 +26,20 @@ export function CompleteScreen({
   syncTick: number;
   // A one-time note from the app, such as the recovery code hint; shown below the main buttons.
   notice?: ReactNode;
-  onViewMap: () => void;
+  // Opened from Activity rather than at the end of the walk: a quieter header, and the main button goes back there.
+  past?: boolean;
+  // Back to the map, or to Activity for a past run.
+  onLeave: () => void;
 }) {
   const loaded = useRun(runId, syncTick);
   const album = useRunPhotos(runId, syncTick);
-  const trail = loaded.status === "ready" ? loaded.run.trail : null;
-  const photosOpen = loaded.status === "ready" && canAddPhotos(loaded.run);
+  const run = loaded.status === "ready" ? loaded.run : null;
+  const trail = run?.trail ?? null;
+  const leftEarly = run?.abandonedAt != null;
+  const endedAt = run ? runEndedAt(run) : null;
+  const photosOpen = run !== null && canAddPhotos(run);
   const photos = album.photos;
+  const removed = album.status === "ready" && photosRemoved(endedAt, photos.length);
   // The stack shows only photos this phone can display; encrypted ones join as they decrypt.
   const shown = photos.filter((p) => p.src !== null);
   const [left, main, right] = [shown[0], shown[shown.length - 1] ?? shown[0], shown[1] ?? shown[0]];
@@ -48,7 +56,7 @@ export function CompleteScreen({
     }
   }
 
-  if (!trail) {
+  if (!run || !trail) {
     return (
       <div className="screen complete-screen">
         <StatusBar light />
@@ -59,8 +67,9 @@ export function CompleteScreen({
               <button type="button" className="btn-primary light" onClick={loaded.retry}>
                 Try again
               </button>
-              <button type="button" className="btn-outline-light" onClick={onViewMap}>
-                <CompassIcon size={16} /> Back to the map
+              <button type="button" className="btn-outline-light" onClick={onLeave}>
+                {past ? <BackIcon size={16} /> : <CompassIcon size={16} />}{" "}
+                {past ? "Back to your journeys" : "Back to the map"}
               </button>
             </>
           ) : (
@@ -73,21 +82,34 @@ export function CompleteScreen({
 
   return (
     <div className="screen complete-screen">
-      <div className="confetti">
-        {Array.from({ length: 20 }).map((_, i) => (
-          <i key={i} />
-        ))}
-      </div>
+      {!past && (
+        <div className="confetti">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <i key={i} />
+          ))}
+        </div>
+      )}
       <StatusBar light />
 
       <div className="complete-avatar">
         <CoupleAvatar size={64} />
       </div>
-      <p className="eyebrow">Trail complete</p>
-      <h2>You made it, together.</h2>
+      <p className="eyebrow">
+        {past && endedAt ? journeyDay(endedAt) : "Trail complete"}
+        {leftEarly && " · Left early"}
+      </p>
+      <h2>{leftEarly ? "Part of the way, together." : "You made it, together."}</h2>
       <p className="complete-wit">
-        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the same way
-        again.
+        {leftEarly ? (
+          <>
+            {completedCount(run)} of {trail.stopCount} stops on {trail.name}.
+          </>
+        ) : (
+          <>
+            {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the same
+            way again.
+          </>
+        )}
       </p>
 
       <div className="album-stack">
@@ -103,7 +125,7 @@ export function CompleteScreen({
 
       <div className="complete-stats">
         <div>
-          <strong>{trail.stopCount}</strong>
+          <strong>{completedCount(run)}</strong>
           <span>Stops</span>
         </div>
         <div>
@@ -116,21 +138,31 @@ export function CompleteScreen({
         </div>
       </div>
 
-      <button type="button" className="btn-primary light" onClick={onViewMap}>
-        <CompassIcon size={18} /> View your map
+      <button type="button" className="btn-primary light" onClick={onLeave}>
+        {past ? (
+          <>
+            <BackIcon size={18} /> Back to your journeys
+          </>
+        ) : (
+          <>
+            <CompassIcon size={18} /> View your map
+          </>
+        )}
       </button>
-      <button type="button" className="btn-outline-light" onClick={handleShare}>
-        <ShareIcon size={16} /> Share the trail
-      </button>
+      {!leftEarly && (
+        <button type="button" className="btn-outline-light" onClick={handleShare}>
+          <ShareIcon size={16} /> Share the trail
+        </button>
+      )}
 
       {notice}
 
-      {loaded.status === "ready" && (
+      {!removed && (
         <AlbumActions
           runId={runId}
           trailName={trail.name}
           stops={trail.stops}
-          date={loaded.run.completedAt ?? loaded.run.startedAt}
+          date={endedAt ?? run.startedAt}
           photoCount={album.status === "ready" ? photos.length : 0}
           theme="default"
         />
@@ -146,6 +178,7 @@ export function CompleteScreen({
             </button>
           </p>
         )}
+        {removed && <p className="album-note">{PHOTOS_REMOVED_NOTE}</p>}
         {album.locked && <LockedPhotosNote partnerName={partnerName} className="album-note" />}
         {album.status === "ready" && photosOpen && (
           <p className="album-note">You can add photos for a day after finishing.</p>

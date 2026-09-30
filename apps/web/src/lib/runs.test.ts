@@ -6,10 +6,13 @@ import {
   canAddPhotos,
   completedCount,
   isRunActive,
+  isJourney,
   isKeysMismatch,
   isKeysRequired,
   isStopDone,
   nextStop,
+  pastRunFromRow,
+  photosRemoved,
   planRunKeys,
   runFromRow,
   type Run,
@@ -166,5 +169,71 @@ describe("isKeysRequired", () => {
     expect(isKeysRequired({ code: "P0001", message: "keys_mismatch" })).toBe(false);
     expect(isKeysRequired({ code: "42501", message: "keys_required" })).toBe(false);
     expect(isKeysRequired(null)).toBe(false);
+  });
+});
+
+describe("pastRunFromRow", () => {
+  function pastRow(over: {
+    completed_at?: string | null;
+    abandoned_at?: string | null;
+    done?: string[];
+    photos?: number;
+  }) {
+    return {
+      id: "run-1",
+      trail_id: trail.id,
+      trail_snapshot: JSON.parse(JSON.stringify(toRunSnapshot(trail))),
+      started_at: "2026-09-29T10:00:00Z",
+      completed_at: over.completed_at ?? null,
+      abandoned_at: over.abandoned_at ?? null,
+      stop_completions: (over.done ?? []).map((stop_id) => ({ stop_id })),
+      photos: [{ count: over.photos ?? 0 }],
+    };
+  }
+
+  it("skips a run that is still open", () => {
+    expect(pastRunFromRow(pastRow({}))).toBeNull();
+  });
+
+  it("summarises a finished run", () => {
+    const run = pastRunFromRow(
+      pastRow({ completed_at: "2026-09-29T11:00:00Z", done: trail.stops.map((s) => s.id), photos: 3 }),
+    );
+    expect(run).toMatchObject({
+      trailName: trail.name,
+      stopCount: trail.stops.length,
+      stopsDone: trail.stops.length,
+      photoCount: 3,
+      endedAt: "2026-09-29T11:00:00Z",
+      outcome: "finished",
+    });
+    expect(run && isJourney(run)).toBe(true);
+  });
+
+  it("counts only the trail's own stops", () => {
+    const run = pastRunFromRow(pastRow({ completed_at: "t", done: [first.id, "osm-node-1"] }));
+    expect(run?.stopsDone).toBe(1);
+  });
+
+  it("keeps a run left part of the way and hides one left before any stop", () => {
+    const partWay = pastRunFromRow(pastRow({ abandoned_at: "2026-09-29T10:30:00Z", done: [first.id] }));
+    expect(partWay?.outcome).toBe("left");
+    expect(partWay && isJourney(partWay)).toBe(true);
+    const unstarted = pastRunFromRow(pastRow({ abandoned_at: "2026-09-29T10:01:00Z" }));
+    expect(unstarted && isJourney(unstarted)).toBe(false);
+  });
+});
+
+describe("photosRemoved", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+
+  it("holds while the month runs or photos remain", () => {
+    expect(photosRemoved("2026-10-01T12:00:01Z", 0, now)).toBe(false);
+    expect(photosRemoved("2026-09-01T12:00:00Z", 2, now)).toBe(false);
+    expect(photosRemoved(null, 0, now)).toBe(false);
+  });
+
+  it("reports the photos gone a month after the run ends", () => {
+    expect(photosRemoved("2026-09-30T12:00:00Z", 0, now)).toBe(true);
   });
 });

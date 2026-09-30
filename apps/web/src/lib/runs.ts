@@ -151,6 +151,78 @@ export async function loadRun(runId: string): Promise<Run | null> {
   return data ? runFromRow(data) : null;
 }
 
+// A walk that has ended, as the Activity list shows it.
+export type PastRun = {
+  id: string;
+  trailId: string;
+  trailName: string;
+  stopCount: number;
+  stopsDone: number;
+  photoCount: number;
+  startedAt: string;
+  endedAt: string;
+  // "left": abandoned part of the way.
+  outcome: "finished" | "left";
+};
+
+type PastRunRow = {
+  id: string;
+  trail_id: string;
+  trail_snapshot: unknown;
+  started_at: string;
+  completed_at: string | null;
+  abandoned_at: string | null;
+  stop_completions: { stop_id: string }[];
+  photos: { count: number }[];
+};
+
+const PAST_RUN_COLUMNS =
+  "id, trail_id, trail_snapshot, started_at, completed_at, abandoned_at, stop_completions(stop_id), photos(count)";
+
+// Null for a run that is still open.
+export function pastRunFromRow(row: PastRunRow): PastRun | null {
+  const endedAt = row.completed_at ?? row.abandoned_at;
+  if (!endedAt) return null;
+  const trail = fromRunSnapshot(row.trail_snapshot, row.trail_id);
+  const done = new Set(row.stop_completions.map((c) => c.stop_id));
+  return {
+    id: row.id,
+    trailId: row.trail_id,
+    trailName: trail.name,
+    stopCount: trail.stops.length,
+    stopsDone: trail.stops.filter((s) => done.has(s.id)).length,
+    photoCount: row.photos[0]?.count ?? 0,
+    startedAt: row.started_at,
+    endedAt,
+    outcome: row.completed_at ? "finished" : "left",
+  };
+}
+
+// A run left before its first stop was a route the couple changed their mind about, not a journey: Activity hides it.
+// A run left part of the way stays, labelled, since its stops and photos are real.
+export function isJourney(run: PastRun): boolean {
+  return run.outcome === "finished" || run.stopsDone > 0 || run.photoCount > 0;
+}
+
+const PAST_RUN_LIMIT = 50;
+
+// The caller's ended runs worth listing, newest ending first. RLS limits runs, stops, and photos to the caller's own.
+export async function listPastRuns(): Promise<PastRun[]> {
+  const { data, error } = await supabase
+    .from("trail_runs")
+    .select(PAST_RUN_COLUMNS)
+    .or("completed_at.not.is.null,abandoned_at.not.is.null")
+    .order("started_at", { ascending: false })
+    .limit(PAST_RUN_LIMIT);
+  if (error) throw error;
+  return data
+    .flatMap((row) => {
+      const run = pastRunFromRow(row);
+      return run && isJourney(run) ? [run] : [];
+    })
+    .sort((a, b) => Date.parse(b.endedAt) - Date.parse(a.endedAt));
+}
+
 // Marks a stop done. When the partner got there first, their completion stands and this call succeeds quietly.
 // Throws when the run has ended or the stop isn't on it.
 export async function completeStop(runId: string, stopId: string): Promise<void> {
@@ -212,4 +284,25 @@ export const PHOTO_GRACE_MS = 24 * 60 * 60 * 1000;
 export function canAddPhotos(run: Run, now = Date.now()): boolean {
   if (run.abandonedAt !== null) return false;
   return run.completedAt === null || now - Date.parse(run.completedAt) < PHOTO_GRACE_MS;
+}
+
+// How long the server keeps a run's photos after it ends; a scheduled job then deletes them (docs/mvp-roadmap.md,
+// stage 1). The app infers the deletion from the end date, as the schema has no record of it yet.
+export const PHOTO_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function runEndedAt(run: Pick<Run, "completedAt" | "abandonedAt">): string | null {
+  return run.completedAt ?? run.abandonedAt;
+}
+
+// The day a walk ended, as Activity and the album show it.
+export function journeyDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export const PHOTOS_REMOVED_NOTE = "Photos from this walk were removed a month after it ended.";
+
+// Whether an ended run with no photos left has passed the retention window, so any photos it had are gone. A run
+// that never had photos reads the same; the album words it to fit both.
+export function photosRemoved(endedAt: string | null, photoCount: number, now = Date.now()): boolean {
+  return endedAt !== null && photoCount === 0 && now - Date.parse(endedAt) >= PHOTO_RETENTION_MS;
 }

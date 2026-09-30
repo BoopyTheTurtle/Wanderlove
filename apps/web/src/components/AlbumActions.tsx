@@ -20,8 +20,9 @@ function photos(n: number): string {
   return `${n} photo${n === 1 ? "" : "s"}`;
 }
 
-// Save all photos and Save album, for a finished trail's complete screen. Both fetch the photos afresh, then hand
-// them to the share sheet on phones or download them elsewhere (lib/saveFiles.ts).
+// Save all photos and Save album, for a finished trail's album. Both fetch the photos afresh, then hand them to the
+// share sheet on phones or download them elsewhere (lib/saveFiles.ts). Above them, a reminder that the server keeps a
+// trail's photos for a month only.
 export function AlbumActions({
   runId,
   trailName,
@@ -139,6 +140,9 @@ export function AlbumActions({
 
   return (
     <section className={`album-actions album-actions--${theme}`} aria-label="Save the album">
+      {!empty && (
+        <p className="album-actions-keep">Photos stay here for a month after your walk. Save the ones you love.</p>
+      )}
       <div className="album-actions-row">
         {(["photos", "album"] as const).map((job) => (
           <button

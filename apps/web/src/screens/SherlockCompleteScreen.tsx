@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { Confetti } from "../components/Confetti";
 import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
-import { ShareIcon, CompassIcon } from "../components/Icons";
+import { BackIcon, ShareIcon, CompassIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
 import { stopFilePrefix } from "../lib/album";
-import { allStopsDone, canAddPhotos } from "../lib/runs";
+import { allStopsDone, canAddPhotos, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
 
@@ -27,7 +27,8 @@ export function SherlockCompleteScreen({
   partnerName,
   syncTick,
   notice,
-  onViewMap,
+  past = false,
+  onLeave,
 }: {
   runId: string;
   meId: string;
@@ -36,13 +37,17 @@ export function SherlockCompleteScreen({
   syncTick: number;
   // A one-time note from the app, such as the recovery code hint; shown below the main buttons.
   notice?: ReactNode;
-  onViewMap: () => void;
+  // Opened from Activity rather than at the end of the walk: no confetti, and the passport leads back there.
+  past?: boolean;
+  // Back to the map, or to Activity for a past run.
+  onLeave: () => void;
 }) {
   const loaded = useRun(runId, syncTick);
   const album = useRunPhotos(runId, syncTick);
   const run = loaded.status === "ready" ? loaded.run : null;
   const allDone = run ? allStopsDone(run) : false;
   const photosOpen = run !== null && canAddPhotos(run);
+  const removed = run !== null && album.status === "ready" && photosRemoved(runEndedAt(run), album.photos.length);
 
   async function handleShare() {
     if (!run) return;
@@ -58,7 +63,7 @@ export function SherlockCompleteScreen({
 
   return (
     <div className="screen sh-complete-screen">
-      {allDone && <Confetti colors={CONFETTI_COLORS} />}
+      {allDone && !past && <Confetti colors={CONFETTI_COLORS} />}
       <StatusBar />
 
       <div className="sh-complete-inner">
@@ -83,8 +88,9 @@ export function SherlockCompleteScreen({
               );
             })}
           </div>
-          <button type="button" className="sh-passport-foot" onClick={onViewMap}>
-            <CompassIcon size={16} /> Back to our map
+          <button type="button" className="sh-passport-foot" onClick={onLeave}>
+            {past ? <BackIcon size={16} /> : <CompassIcon size={16} />}{" "}
+            {past ? "Back to our journeys" : "Back to our map"}
           </button>
         </section>
 
@@ -118,7 +124,7 @@ export function SherlockCompleteScreen({
           ) : !run || album.status === "loading" ? (
             <p className="sh-album-note">Loading photos…</p>
           ) : album.photos.length === 0 && !photosOpen ? (
-            <p className="sh-album-note">No photos on this trail.</p>
+            <p className="sh-album-note">{removed ? PHOTOS_REMOVED_NOTE : "No photos on this trail."}</p>
           ) : (
             <>
               {album.locked && <LockedPhotosNote partnerName={partnerName} className="sh-album-note" />}
@@ -146,7 +152,7 @@ export function SherlockCompleteScreen({
                 runId={run.id}
                 trailName={run.trail.name}
                 stops={run.trail.stops}
-                date={run.completedAt ?? run.startedAt}
+                date={runEndedAt(run) ?? run.startedAt}
                 photoCount={album.photos.length}
                 theme="sherlock"
               />
@@ -155,9 +161,11 @@ export function SherlockCompleteScreen({
         </section>
 
         {/* Actions */}
-        <button type="button" className="sh-btn-ghost" onClick={handleShare}>
-          <ShareIcon size={16} /> Share the trail
-        </button>
+        {!run?.abandonedAt && (
+          <button type="button" className="sh-btn-ghost" onClick={handleShare}>
+            <ShareIcon size={16} /> Share the trail
+          </button>
+        )}
 
         {notice}
       </div>
