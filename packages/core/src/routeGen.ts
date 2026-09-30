@@ -4,6 +4,7 @@ import { haversineDistanceMeters } from "./geo";
 import { classifyGeneric, classifyNamed, isQuietTags, tagRejection } from "./safety/filters";
 import type { Kind } from "./safety/filters";
 import { buildHazardIndex, checkContainment, timedHazards } from "./safety/hazards";
+import type { HazardIndex } from "./safety/hazards";
 import { civilTwilight, seasonNote } from "./daylight";
 import { isExcluded } from "./safety/exclusions";
 import { MAX_QUIET_STOPS, orderStops } from "./safety/quiet";
@@ -30,6 +31,13 @@ const SEARCH_RADIUS = 900;
 const CACHE_RADIUS = 250;
 const MIN_STOP_DISTANCE = 120; // from the start, so the first stop isn't the doorstep
 const MIN_STOP_SPACING = 90;
+// Street-corner stops (the last resort in places with too few mapped sights): scattered on these fractions of the
+// straight-line budget around the start, then moved by the router onto the nearest path. One farther than
+// SPOT_SNAP_METERS from any path is dropped.
+const SPOT_RINGS = [0.18, 0.28, 0.38];
+const SPOT_DIRECTIONS = 12;
+const SPOT_SNAP_METERS = 150;
+const SPOT_LABEL = "Street corner";
 const FILL_ATTEMPTS = 30;
 const WALK_FACTOR = 1.3; // walking distance ≈ straight line × this, used for pre-filtering
 const WALK_METERS_PER_MIN = 75;
@@ -37,7 +45,7 @@ const MINUTES_PER_STOP = 6;
 
 const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move somewhere with more to see.";
 const ROUTER_ERROR = "Couldn't reach the walking router to check this loop. Check your connection and try again.";
-const TOO_FEW_ERROR = "Not enough interesting places nearby for a route. Try somewhere a bit more central.";
+const TOO_FEW_ERROR = "Couldn't find walkable streets around you. Try again from a street or path.";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -63,7 +71,9 @@ const PROMPT_BANK = [
 ];
 
 // `ice` and `darkPark` are the time-dependent rules (H4, H10), applied per call since the places are cached.
-type Candidate = LatLng & Kind & { id: string; name: string; quiet: boolean; ice: boolean; darkPark: boolean };
+// `spot`: a street-corner stop whose position waits for the router to put it on a path.
+type Candidate = LatLng &
+  Kind & { id: string; name: string; quiet: boolean; ice: boolean; darkPark: boolean; spot?: boolean };
 
 export type RouteOptions = {
   // Target loop length in metres; "Shorter loop" passes less than the default.
@@ -91,7 +101,7 @@ export type GeneratedRoute = {
 
 // --- Places -----------------------------------------------------------------
 
-type PlaceData = { named: Candidate[]; generic: Candidate[]; network: RoadNetwork };
+type PlaceData = { named: Candidate[]; generic: Candidate[]; network: RoadNetwork; hazards: HazardIndex };
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
   const ctl = new AbortController();
@@ -200,7 +210,7 @@ async function loadPlaces(center: LatLng, headers?: Record<string, string>): Pro
     service: sections.closedService,
     closedLand: hazards.closedLand,
   });
-  const data = { named, generic, network };
+  const data = { named, generic, network, hazards };
   placeCache = { center, data };
   return data;
 }
@@ -223,7 +233,23 @@ function weightedShuffle<T extends { weight: number }>(items: T[]): T[] {
 }
 
 // Variety: at most this many of a kind, so a route isn't five street sculptures or five benches.
-const KIND_LIMITS: Record<string, number> = { Artwork: 1, Museum: 1, Memorial: 1, "Historic spot": 1, Bench: 3 };
+const KIND_LIMITS: Record<string, number> = {
+  Artwork: 1,
+  Museum: 1,
+  Memorial: 1,
+  "Historic spot": 1,
+  Bench: 3,
+  Café: 1,
+  "Ice cream": 1,
+  Bakery: 1,
+  Library: 1,
+  "Street art": 2,
+  Tree: 2,
+  "Picnic spot": 2,
+  "Drinking fountain": 1,
+  Shelter: 1,
+  "Notice board": 1,
+};
 
 // Adds candidates to `loop` by cheapest insertion until it holds five stops, keeping its straight-line length within
 // `budgetStraight`. The order of discovery stays random, so every route differs.
@@ -260,6 +286,56 @@ function costliestIndex(start: LatLng, loop: Candidate[]): number {
     }
   });
   return bestIdx;
+}
+
+// Street-corner stops for places the map knows little about: points on rings around the start, off hazard land. Their
+// names come later, from the street the router snaps them to.
+function scatterSpots(start: LatLng, budgetStraight: number, hazards: HazardIndex): Candidate[] {
+  const spots: Candidate[] = [];
+  const turn = Math.random() * 2 * Math.PI;
+  for (const ring of SPOT_RINGS) {
+    const r = Math.max(budgetStraight * ring, MIN_STOP_DISTANCE + 20);
+    for (let i = 0; i < SPOT_DIRECTIONS; i++) {
+      const angle = turn + (i * 2 * Math.PI) / SPOT_DIRECTIONS + ring; // stagger the rings
+      const at = offsetMeters(start, Math.sin(angle) * r, Math.cos(angle) * r);
+      if (checkContainment(at, hazards).hazard) continue;
+      spots.push({
+        id: `spot-${at.lat.toFixed(5)}-${at.lng.toFixed(5)}`,
+        name: "A street corner",
+        ...at,
+        label: SPOT_LABEL,
+        weight: 1,
+        quiet: false,
+        ...timedHazards(at, hazards),
+        spot: true,
+      });
+    }
+  }
+  return spots;
+}
+
+function offsetMeters(p: LatLng, east: number, north: number): LatLng {
+  const lat = p.lat + north / 111320;
+  const lng = p.lng + east / (111320 * Math.cos((p.lat * Math.PI) / 180));
+  return { lat, lng };
+}
+
+// Moves each street-corner stop to where the router put it and names it after that street. Returns the index of the
+// first stop that can't stay: too far from any path, on hazard land, or on top of another stop.
+function placeSpots(loop: Candidate[], routed: RoutedLoop, hazards: HazardIndex): number | null {
+  for (let k = 0; k < loop.length; k++) {
+    const cand = loop[k];
+    if (!cand.spot) continue;
+    const snap = routed.snapped[k + 1];
+    if (!snap?.at || routed.snapMeters[k + 1] > SPOT_SNAP_METERS) return k;
+    if (checkContainment(snap.at, hazards).hazard) return k;
+    if (loop.some((s, j) => j !== k && haversineDistanceMeters(s, snap.at!) < MIN_STOP_SPACING)) return k;
+    const onSameStreet = snap.street && loop.some((s) => s.name === `On ${snap.street}`);
+    const name = !snap.street ? "A quiet corner" : onSameStreet ? `Further along ${snap.street}` : `On ${snap.street}`;
+    loop[k] = { ...cand, ...snap.at, name, spot: false };
+    routed.snapMeters[k + 1] = 0; // the stop now sits on the path itself
+  }
+  return null;
 }
 
 // --- Router -----------------------------------------------------------------
@@ -313,8 +389,9 @@ export async function generateRoute(
   let budget = maxMeters / WALK_FACTOR;
   let routerCalls = 0;
 
-  // Named places first; generic points (benches, viewpoints, parks) top up a loop the named ones can't fill.
-  // A random pick can wander off and leave no room for a fifth stop, so try a few; this costs no network.
+  // Named places first; everyday points (cafés, benches, parks) top up a loop the named ones can't fill, and street
+  // corners fill whatever is left, so a quiet suburb still gets a walk. A random pick can wander off and leave no room
+  // for a fifth stop, so try a few; this costs no network.
   const fill = (partial: Candidate[]): Candidate[] | null => {
     const reachable = (c: Candidate) => {
       const d = haversineDistanceMeters(start, c);
@@ -322,10 +399,16 @@ export async function generateRoute(
     };
     const named = data.named.filter(reachable);
     const generic = data.generic.filter(reachable);
-    for (const topUp of generic.length ? [false, true] : [false]) {
+    const spots = scatterSpots(start, budget, data.hazards)
+      .filter((c) => !dropped.has(c.id))
+      .map((c) => ({ ...c, ice: c.ice && winter, darkPark: c.darkPark && dark }))
+      .filter((c) => !c.ice && !c.darkPark);
+    for (const stage of [0, 1, 2]) {
+      if (stage === 1 && !generic.length) continue;
       for (let attempt = 0; attempt < FILL_ATTEMPTS; attempt++) {
         let loop = buildLoop(start, named, budget, partial);
-        if (topUp) loop = buildLoop(start, generic, budget, loop);
+        if (stage >= 1) loop = buildLoop(start, generic, budget, loop);
+        if (stage === 2) loop = buildLoop(start, spots, budget, loop);
         if (loop.length === STOP_COUNT) return loop;
       }
     }
@@ -344,9 +427,13 @@ export async function generateRoute(
 
     if (!routed) throw new Error(ROUTER_ERROR);
 
+    const misplaced = placeSpots(loop, routed, data.hazards);
     const verdict = checkRoute(routed, data.network, start, loop);
     let drop: number;
-    if (!verdict.ok) {
+    if (misplaced !== null) {
+      drop = misplaced;
+      rejections.push({ stopId: loop[drop].id, reason: "spot-off-path" });
+    } else if (!verdict.ok) {
       const issue = verdict.issues[0];
       drop = issue.stop;
       rejections.push({ stopId: loop[drop].id, reason: issue.reason });

@@ -53,10 +53,15 @@ describe("isQuietTags", () => {
 });
 
 describe("classifyGeneric", () => {
-  it("accepts benches, viewpoints, and parks as fallback points", () => {
+  it("accepts everyday places as fallback points", () => {
     expect(classifyGeneric({ amenity: "bench" })?.label).toBe("Bench");
     expect(classifyGeneric({ tourism: "viewpoint" })?.label).toBe("Viewpoint");
     expect(classifyGeneric({ leisure: "park" })?.label).toBe("Park");
+    expect(classifyGeneric({ amenity: "cafe", name: "Kafija" })?.label).toBe("Café");
+    expect(classifyGeneric({ shop: "bakery" })?.label).toBe("Bakery");
+    expect(classifyGeneric({ natural: "tree", denotation: "natural_monument" })?.label).toBe("Tree");
+    expect(classifyGeneric({ tourism: "artwork" })?.label).toBe("Street art");
+    expect(classifyGeneric({ leisure: "picnic_table" })?.label).toBe("Picnic spot");
     expect(classifyGeneric({ amenity: "waste_basket" })).toBeNull();
   });
 });
