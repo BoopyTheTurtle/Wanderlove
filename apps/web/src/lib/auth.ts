@@ -27,6 +27,13 @@ export async function signOut(): Promise<void> {
   if (error) throw error;
 }
 
+// Ends every other session of this account (abuse threat model, K1); this phone stays signed in. Supabase revokes
+// their refresh tokens at once, but an access token already issued keeps working until it expires, within the hour.
+export async function signOutOtherDevices(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: "others" });
+  if (error) throw error;
+}
+
 export async function signInAsDevUser(email: string): Promise<void> {
   if (!isLocalStack) throw new Error("The test-user switcher works only against the local Supabase stack.");
   const { error } = await supabase.auth.signInWithPassword({ email, password: DEV_PASSWORD });
