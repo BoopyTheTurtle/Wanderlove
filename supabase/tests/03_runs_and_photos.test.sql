@@ -10,6 +10,10 @@ insert into public.couples (id) values ('33333333-0000-0000-0000-0000000000cc');
 insert into public.couple_members (couple_id, user_id) values
   ('33333333-0000-0000-0000-0000000000cc', '33333333-0000-0000-0000-00000000000a'),
   ('33333333-0000-0000-0000-0000000000cc', '33333333-0000-0000-0000-00000000000b');
+-- Every run is encrypted (20260930100000), so both members publish a key.
+insert into public.user_keys (user_id, public_key, key_id) values
+  ('33333333-0000-0000-0000-00000000000a', 'pubA', 'a'),
+  ('33333333-0000-0000-0000-00000000000b', 'pubB', 'b');
 
 create function pg_temp.login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -31,7 +35,10 @@ grant all on ids to authenticated;
 -- Starting a run
 select pg_temp.login('33333333-0000-0000-0000-00000000000a');
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [], "start": {"lat": 56.9, "lng": 24.1}}') $$,
+  $$ select public.start_run('t', '{"stops": [], "start": {"lat": 56.9, "lng": 24.1}}', '[
+       {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
+       {"user_id": "33333333-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
+     ]', gen_random_uuid()) $$,
   '23514', null,
   'a snapshot carrying the start point is refused'
 );
@@ -40,7 +47,10 @@ select throws_ok(
   '42501', null,
   'runs cannot be created directly'
 );
-insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}, {"id": "osm-node-2"}]}'));
+insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}, {"id": "osm-node-2"}]}', '[
+  {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
+  {"user_id": "33333333-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
+]', gen_random_uuid()));
 select is((select count(*)::int from public.trail_run_members), 2, 'start_run adds the caller and the partner');
 
 select pg_temp.login('33333333-0000-0000-0000-00000000000b');
@@ -73,14 +83,14 @@ select is((select completed_by from public.stop_completions), '33333333-0000-000
 select pg_temp.login('33333333-0000-0000-0000-00000000000b');
 insert into ids values ('photo', gen_random_uuid());
 select lives_ok(
-  $$ insert into public.photos (id, run_id, stop_id, storage_path, width, height)
-     select p.id, r.id, 'osm-node-1', r.id || '/' || p.id || '.jpg', 1600, 1200
+  $$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
+     select p.id, r.id, 'osm-node-1', r.id || '/' || p.id || '.bin', 1600, 1200, 'nonce'
      from ids p, ids r where p.name = 'photo' and r.name = 'run' $$,
   'a member uploads a photo to the run'
 );
 select throws_ok(
-  $$ insert into public.photos (run_id, stop_id, storage_path, width, height)
-     select id, 'osm-node-1', 'elsewhere/x.jpg', 10, 10 from ids where name = 'run' $$,
+  $$ insert into public.photos (run_id, stop_id, storage_path, width, height, nonce)
+     select id, 'osm-node-1', 'elsewhere/x.bin', 10, 10, 'nonce' from ids where name = 'run' $$,
   '23514', null,
   'a storage path outside the run folder is refused'
 );
@@ -119,7 +129,9 @@ select is((select count(*)::int from public.photos), 1, 'the uploader keeps the 
 select pg_temp.login('33333333-0000-0000-0000-00000000000a');
 select is((select count(*)::int from public.trail_runs), 1, 'the ex keeps the shared run');
 select is((select count(*)::int from public.profile_cards), 2, 'exes still see each other''s card through the shared run');
-insert into ids values ('solo', public.start_run('t', '{"stops": [{"id": "osm-node-3"}]}'));
+insert into ids values ('solo', public.start_run('t', '{"stops": [{"id": "osm-node-3"}]}', '[
+  {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"}
+]', gen_random_uuid()));
 select is(
   (select count(*)::int from public.trail_run_members where run_id = (select id from ids where name = 'solo')),
   1,

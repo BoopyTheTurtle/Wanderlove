@@ -58,7 +58,7 @@ export function StopPhotos({
   if (!done) {
     return (
       <div className="stop-photos">
-        <PhotoCapture key={captureKey} onUpload={upload} disabled={locked || skipping} />
+        <PhotoCapture key={captureKey} runId={runId} onUpload={upload} disabled={locked || skipping} />
         <button type="button" className="skip-photo" disabled={locked || skipping} onClick={() => void skip()}>
           {skipping ? "Saving…" : "Skip photo"}
         </button>
@@ -86,7 +86,7 @@ export function StopPhotos({
       {photos.status === "ready" && here.length === 0 && <p className="stop-photos-note">No photos here yet.</p>}
       {photos.locked && <LockedPhotosNote partnerName={partnerName} className="stop-photos-note" />}
       {here.length > 0 && <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={photos.remove} />}
-      {canAdd && <PhotoCapture key={captureKey} onUpload={upload} label="Add a photo" />}
+      {canAdd && <PhotoCapture key={captureKey} runId={runId} onUpload={upload} label="Add a photo" />}
     </div>
   );
 }

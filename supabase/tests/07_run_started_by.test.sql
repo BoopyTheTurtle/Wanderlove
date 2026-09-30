@@ -10,6 +10,9 @@ insert into public.couples (id) values ('77777777-0000-0000-0000-0000000000cc');
 insert into public.couple_members (couple_id, user_id) values
   ('77777777-0000-0000-0000-0000000000cc', '77777777-0000-0000-0000-00000000000a'),
   ('77777777-0000-0000-0000-0000000000cc', '77777777-0000-0000-0000-00000000000b');
+insert into public.user_keys (user_id, public_key, key_id) values
+  ('77777777-0000-0000-0000-00000000000a', 'pubA', 'a'),
+  ('77777777-0000-0000-0000-00000000000b', 'pubB', 'b');
 
 create function pg_temp.login(uid uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -20,7 +23,10 @@ create temp table ids (name text primary key, id uuid);
 grant all on ids to authenticated;
 
 select pg_temp.login('77777777-0000-0000-0000-00000000000a');
-insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}'));
+insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  {"user_id": "77777777-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
+  {"user_id": "77777777-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
+]', gen_random_uuid()));
 select is(
   (select started_by from public.trail_runs where id = (select id from ids where name = 'run')),
   '77777777-0000-0000-0000-00000000000a'::uuid,

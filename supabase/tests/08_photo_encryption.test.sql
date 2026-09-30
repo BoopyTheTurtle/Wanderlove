@@ -123,12 +123,10 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select pg_temp.login('88888888-0000-0000-0000-00000000000a');
-insert into ids values ('plain', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}'));
-select isnt((select id from ids where name = 'plain'), null, 'start_run without keys still starts a plain run');
-select is(
-  (select count(*)::int from public.run_keys where run_id = (select id from ids where name = 'plain')),
-  0,
-  'a plain run has no wrapped keys'
+select throws_ok(
+  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}') $$,
+  'P0001', 'keys_required',
+  'start_run without keys is refused (09_require_encryption covers the details)'
 );
 
 select throws_ok(
@@ -163,12 +161,6 @@ select throws_ok(
   'P0001', 'keys_mismatch',
   'a wrap for the partner''s old key is refused'
 );
-select is(
-  (select abandoned_at from public.trail_runs where id = (select id from ids where name = 'plain')),
-  null,
-  'a refused start leaves the open run alone'
-);
-
 insert into ids values ('enc', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
   {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "wA", "ephemeral_public_key": "eA", "for_key_id": "a"},
   {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "wB", "ephemeral_public_key": "eB", "for_key_id": "b1"}
@@ -193,6 +185,11 @@ select throws_ok(
      ]') $$,
   'P0001', 'run_id_required',
   'keys without a run ID are refused'
+);
+select is(
+  (select abandoned_at from public.trail_runs where id = (select id from ids where name = 'enc')),
+  null,
+  'a refused start leaves the open run alone'
 );
 select is(
   (select wrapped_key from public.run_keys where run_id = (select id from ids where name = 'enc')),
@@ -296,8 +293,8 @@ select lives_ok(
 reset role;
 select is(
   (select allowed_mime_types from storage.buckets where id = 'photos'),
-  array['image/jpeg', 'application/octet-stream'],
-  'the bucket takes JPEG and encrypted bytes'
+  array['application/octet-stream'],
+  'the bucket takes only encrypted bytes (20260930100000)'
 );
 select is(
   private.run_id_from_path('88888888-0000-0000-0000-0000000000aa/88888888-0000-0000-0000-0000000000f1.bin'),
@@ -326,8 +323,8 @@ select throws_ok(
             values ('88888888-0000-0000-0000-0000000000f3', '%1$s', 'osm-node-1',
                     '%1$s/88888888-0000-0000-0000-0000000000f3.bin', 800, 600) $$,
          (select id from ids where name = 'enc')),
-  '23514', null,
-  'a row without a nonce must point at a .jpg file'
+  '42501', null,
+  'a row without a nonce is refused (20260930100000)'
 );
 select lives_ok(
   format($$ insert into storage.objects (bucket_id, name, owner_id)

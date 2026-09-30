@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DecryptionError, generateRunKey } from "./crypto";
-import { openStoredPhoto, photoPath, sealPhoto } from "./photos";
+import { RunWithoutKeysError, openStoredPhoto, photoPath, sealPhoto } from "./photos";
 
 // The helpers under test are pure; the client module only needs env vars that tests don't have.
 vi.mock("./supabase", () => ({ supabase: {} }));
@@ -22,10 +22,8 @@ describe("photoPath", () => {
 });
 
 describe("sealPhoto", () => {
-  it("keeps a plain run's JPEG as it is", async () => {
-    const sealed = await sealPhoto(RUN, PHOTO, jpeg, null);
-    expect(sealed).toMatchObject({ path: `${RUN}/${PHOTO}.jpg`, contentType: "image/jpeg", nonce: null });
-    expect(sealed.body).toBe(jpeg);
+  it("refuses a run without a key rather than upload the JPEG in the clear", async () => {
+    await expect(sealPhoto(RUN, PHOTO, jpeg, null)).rejects.toBeInstanceOf(RunWithoutKeysError);
   });
 
   it("encrypts on a run with a key, and opens again to the same JPEG", async () => {

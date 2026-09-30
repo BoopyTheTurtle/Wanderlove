@@ -39,6 +39,11 @@ tab, their photos upload in the clear, into a trail the other partner believes i
 whenever the trail has keys. Test data gets wiped before launch, so older plain trails need no exception beyond the
 existing rows. pgTAP tests cover the member, the partner, and a stranger.
 
+**Fixed** in migration `20260930100000_require_encryption.sql` (branch `fix/require-encryption`). `start_run` raises
+`keys_required` without keys; a photo row needs a nonce and the uploader's own copy of the trail key; the bucket takes
+only `.bin` objects of type `application/octet-stream`. Stored `.jpg` photos stay readable. The app refuses to upload
+without a key and tells the user when a trail predates encryption. `09_require_encryption.test.sql` covers the rules.
+
 ### 2. No security headers (low: fix with finding 1)
 
 `www.wannadoo.app` sends no Content-Security-Policy, no framing rule, and no `nosniff`. Encryption rests on the app's
@@ -46,6 +51,11 @@ own code (spec section 1), so a script injected into the page could use the keys
 contains no raw HTML, so no injection is known; a policy limits the damage if one appears. **Fix:** headers in
 `vercel.json` that allow scripts only from the site, connections only to Supabase, Overpass, FOSSGIS, and the map
 tiles, and no framing.
+
+**Fixed** in `vercel.json` (branch `fix/require-encryption`): a Content-Security-Policy for every route, plus
+`nosniff`, a referrer policy, and a permissions policy that allows only the camera and location. A banner now offers a
+reload when a newer build is live, so stale tabs like the one in finding 1 don't linger. The policy still needs a check
+on a Vercel preview.
 
 ### 3. The stored recovery code weakens the device key (low: accept for testing)
 
