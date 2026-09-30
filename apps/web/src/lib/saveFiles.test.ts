@@ -128,12 +128,37 @@ describe("saveFiles", () => {
     });
     vi.useFakeTimers();
     try {
-      expect(await saveFiles([photo(), new File([bytes("b")], "02-b-1.jpg")], "trail.zip")).toBe("downloaded");
+      expect(await saveFiles([photo(), new File([bytes("b")], "02-b-1.jpg")], "trail.zip")).toBe("zipped");
     } finally {
       vi.useRealTimers();
     }
     expect(clicked).toEqual([expect.objectContaining({ download: "trail.zip", href: "blob:zip" })]);
     const entries = readZip(new Uint8Array(await zipped!.arrayBuffer()));
     expect(entries.map((e) => e.name)).toEqual(["01-a-1.jpg", "02-b-1.jpg"]);
+  });
+
+  it("downloads each photo on Android instead of opening the share sheet", async () => {
+    const clicked: string[] = [];
+    const share = vi.fn(async () => {});
+    vi.stubGlobal("navigator", { share, canShare: () => true, userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8)" });
+    vi.stubGlobal("window", { matchMedia: () => ({ matches: true }) });
+    vi.stubGlobal("document", {
+      createElement: () => {
+        const a = { href: "", download: "", rel: "", click: () => clicked.push(a.download), remove: () => {} };
+        return a;
+      },
+      body: { appendChild: () => {} },
+    });
+    vi.stubGlobal("URL", { createObjectURL: () => "blob:x", revokeObjectURL: () => {} });
+    vi.useFakeTimers();
+    try {
+      const saving = saveFiles([photo(), new File([bytes("b")], "02-b-1.jpg")], "trail.zip");
+      await vi.runAllTimersAsync();
+      expect(await saving).toBe("downloaded");
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(share).not.toHaveBeenCalled();
+    expect(clicked).toEqual(["01-a-1.jpg", "02-b-1.jpg"]);
   });
 });

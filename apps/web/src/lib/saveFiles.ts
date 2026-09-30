@@ -1,9 +1,10 @@
-// Getting files off the phone: the share sheet where it takes files ("Save Image" puts them in the photo library),
-// a plain download elsewhere, and a ZIP when a download holds several files.
+// Getting files off the phone: the share sheet on iPhones ("Save Image" puts them in the photo library), a plain
+// download of each photo on Android (the gallery picks them up from Downloads), and a ZIP when a desktop download holds
+// several files.
 
 // How a save ended. "needs-tap" means the browser refused the share sheet because too long passed since the tap
 // (iOS Safari allows little time after an async wait); the caller asks for one more tap and saves again.
-export type SaveOutcome = "shared" | "downloaded" | "cancelled" | "needs-tap";
+export type SaveOutcome = "shared" | "downloaded" | "zipped" | "cancelled" | "needs-tap";
 
 // ---- CRC-32 and a store-only ZIP writer -----------------------------------------------------------------------
 
@@ -144,6 +145,11 @@ export function canShareFiles(files: File[]): boolean {
   }
 }
 
+// Android's share sheet offers apps, not a save, so Android downloads instead.
+export function isAndroid(): boolean {
+  return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent ?? "");
+}
+
 export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -157,10 +163,12 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-// Shares the files where the phone can save them; otherwise downloads the one file, or all of them as `zipName`.
+// Shares the files where the phone can save them (iPhone). Android downloads each file, so photos land in the gallery;
+// elsewhere one file downloads as it is and several as `zipName`.
 export async function saveFiles(files: File[], zipName: string): Promise<SaveOutcome> {
   if (files.length === 0) throw new Error("Nothing to save");
-  if (canShareFiles(files)) {
+  const android = isAndroid();
+  if (!android && canShareFiles(files)) {
     try {
       await navigator.share({ files });
       return "shared";
@@ -171,13 +179,18 @@ export async function saveFiles(files: File[], zipName: string): Promise<SaveOut
       throw e;
     }
   }
-  if (files.length === 1) {
-    downloadBlob(files[0], files[0].name);
+  if (files.length === 1 || android) {
+    for (const [i, file] of files.entries()) {
+      // Chrome drops downloads started in the same instant, so space them out.
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, 400));
+      downloadBlob(file, file.name);
+    }
+    return "downloaded";
   } else {
     const entries = await Promise.all(
       files.map(async (f) => ({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) })),
     );
     downloadBlob(new Blob([makeZip(entries)], { type: "application/zip" }), zipName);
+    return "zipped";
   }
-  return "downloaded";
 }
