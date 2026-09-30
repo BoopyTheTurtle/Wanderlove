@@ -47,9 +47,8 @@ That maps onto the arc:
 - **Wrap-up:** active-constructive reflection on the walk itself, ending on something that went right.
 
 Four cautions follow from the critique. Tasks invite; they never diagnose, and the app claims no therapeutic effect.
-Every task can be skipped without comment. Deep tasks avoid conflict topics, which the research shows often hide
-"are you there for me?", because a street corner is the wrong place to open that. And the pool favours real attention
-over technique: a question works when it reflects listening, not as a trick.
+Every task can be skipped without comment. If deep tasks broach potential conflict topics, they do so gently, since the research shows conflicts often hide
+"are you there for me?". Then the silly games allow showing that you are there for the other person, no matter what, through tough and through goofy. And the pool favours real attention over technique: a question works when it reflects listening, not as a trick.
 
 The five interviews and the date-activities list in [docs/research](research/) are further inputs to task writing.
 
