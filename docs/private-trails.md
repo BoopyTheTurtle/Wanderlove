@@ -1,12 +1,12 @@
 # Private trails: database design
 
-Status: database side built September 30, 2026 (safety batch, wave 1, piece D); the app switches over in wave 2.
-Owner: Edgar.
+Status: database side built September 30, 2026 (safety batch, wave 1, piece D); the app switched over in wave 2 the
+same day, and `20260930210000_wave2_cleanup.sql` removed the old paths. Owner: Edgar.
 
 This design turns decisions 1 to 7 of the [abuse threat model](research/abuse-threat-model.md) (section 6) into schema.
-Five migrations add it, from `20260930150000_private_trails.sql` to `20260930190000_recovery_viewed.sql`. Every
-addition is optional: the app deployed today keeps its calls, its plain snapshots, and its OSM stop IDs, and wave 2
-moves to the new paths one by one. The last section lists what a cleanup migration can then remove.
+Five migrations add it, from `20260930150000_private_trails.sql` to `20260930190000_recovery_viewed.sql`; wave 1 kept
+the old calls working, and the cleanup migration removed them once the app had moved (section 9). Section 11 records
+how the app uses the design.
 
 ## 1. Sealed trails
 
@@ -37,13 +37,14 @@ Activity simpler. The album recognises Sherlock from the decrypted details inste
 
 ## 2. Joining by choice
 
-`start_run` gains `p_partner`, with three values:
+`start_run` gains `p_partner`. Wave 1 offered three values; the cleanup removed `join` and the default, so a call now
+names `invite` or `none`:
 
-| Value            | Members at start   | Key copies         | Abandons                           |
-| ---------------- | ------------------ | ------------------ | ---------------------------------- |
-| `join` (default) | caller and partner | caller and partner | every open run of either, as today |
-| `invite`         | caller             | caller and partner | the caller's open runs only        |
-| `none` (Just me) | caller             | caller             | the caller's open runs only        |
+| Value            | Members at start   | Key copies         | Abandons                    |
+| ---------------- | ------------------ | ------------------ | --------------------------- |
+| `join` (removed) | caller and partner | caller and partner | every open run of either    |
+| `invite`         | caller             | caller and partner | the caller's open runs only |
+| `none` (Just me) | caller             | caller             | the caller's open runs only |
 
 With `invite`, the partner gets a row in the new `run_invites` table. The starting phone wraps the partner's copy of the
 key at start, since it alone holds the key and the partner may accept after it goes offline. The copy opens nothing on
@@ -64,9 +65,9 @@ completions, its key, or an invitation. The partner's profile view changes neith
 only shared runs.
 
 Starting a Just me run abandons the caller's own open runs, including a shared one they were walking; the partner then
-sees that shared run end, as when the caller leaves it today. It never touches a run the partner walks alone. One gap
-stays while the old default lives: a `join` start by the partner abandons the walker's Just me run, because `join`
-enrols both people. Wave 2 retires `join`, which closes the gap.
+sees that shared run end, as when the caller leaves it today. It never touches a run the partner walks alone. Wave 1
+left one gap: a `join` start by the partner abandoned the walker's Just me run, because `join` enrolled both people.
+The cleanup removed `join`, which closed it.
 
 ## 4. History after a month
 
@@ -94,8 +95,8 @@ callable by the service role alone.
 window on trails the couple just finished. Runs without a couple, solo and Just me, keep their window.
 
 `unlink` no longer records who ended the link. The migration clears every stored `couples.ended_by` and withdraws read
-access to the column; members read `id`, `created_at`, and `ended_at` only. Nothing in the app read the column. The
-"You are no longer linked" dialog lives in the app, and wave 2 removes it.
+access to the column; members read `id`, `created_at`, and `ended_at` only. Nothing in the app read the column, and the
+cleanup dropped it. Wave 2 removed the "You are no longer linked" dialog: the other phone goes solo without a word.
 
 ## 6. Both sides confirm a link
 
@@ -110,7 +111,7 @@ The new path adds the inviter's confirmation to linking:
    the inviter may confirm.
 4. `decline_link(p_request)` lets either side drop the request.
 
-`redeem_invite` still links at once for today's app.
+The cleanup dropped `redeem_invite`, which linked at once, so every link now needs the inviter's confirmation.
 
 ## 7. Recovery code viewed on
 
@@ -122,7 +123,7 @@ recognise.
 
 ## 8. Call shapes for wave 2
 
-| Task                | Today's call (still works)                            | Wave 2's call                                                                                                             |
+| Task                | Before wave 2 (removed or unused)                     | Wave 2's call                                                                                                             |
 | ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Start a shared run  | `start_run(p_trail_id, p_snapshot, p_keys, p_run_id)` | `start_run('private', null, p_keys, p_run_id, p_partner => 'invite', p_details…, p_summary…, p_stop_count)`               |
 | Start alone, linked | none                                                  | the same with `p_partner => 'none'` and the caller's wrap only                                                            |
@@ -133,19 +134,24 @@ recognise.
 | Unlink              | `unlink()`                                            | unchanged; drop the "no longer linked" dialog                                                                             |
 | Show recovery code  | nothing recorded                                      | `mark_recovery_viewed()`, and read `recovery_viewed_at`                                                                   |
 
-Wave 2 needs one more change in `lib/keys.ts`: the partner re-share must skip runs the caller holds a key copy for but
-has not joined, since `share_run_keys` refuses a non-member.
+Wave 2 also changed `lib/keys.ts`: the partner re-share and a key rotation skip runs the caller holds a key copy for
+but has not joined, since `share_run_keys` refuses a non-member.
 
 ## 9. Cleanup after wave 2
 
-Once every phone runs wave 2, a cleanup migration can remove:
+`20260930210000_wave2_cleanup.sql` removed:
 
-- `start_run`'s `join` mode, then its default, and plain snapshots for new runs (`p_snapshot` must be null);
-- `redeem_invite`, once no deployed app calls it;
-- the column `couples.ended_by`;
-- `private.run_has_stop`'s branch for plain snapshots, once the last plain run is trimmed (about a month after the
-  switch) and every trimmed run carries `s` IDs; the check constraint's plain shape could then go too, if old runs are
-  migrated to sealed summaries or dropped;
+- `start_run`'s `join` mode and its default, and plain snapshots for new runs (`p_snapshot` must be null; a plain one
+  raises `details_required`);
+- `redeem_invite`;
+- the column `couples.ended_by`.
+
+Deploy the wave 2 app before pushing that migration, since an older app still calls the old shapes. Two items wait for
+the test-data wipe, because legacy plain runs still exist:
+
+- `private.run_has_stop`'s branch for plain snapshots, once the last plain run is trimmed and every trimmed run carries
+  `s` IDs; the check constraint's plain shape could then go too, if old runs are migrated to sealed summaries or
+  dropped;
 - the `lat 0, lng 0` placeholders in trimmed snapshots.
 
 ## 10. Decisions for Edgar
@@ -162,3 +168,24 @@ Once every phone runs wave 2, a cleanup migration can remove:
    `share_run_keys`. The threat model rates it low; closing it takes one more check in that function.
 5. **Dates in UTC.** The trim keeps the walk's day in UTC, so a Riga walk that started between midnight and 03:00
    local time moves to the day before. Rounding to local days would need each couple's time zone on the server.
+
+## 11. How the app uses it (wave 2)
+
+- **Sealing.** `lib/sealed.ts` seals JSON with AES-GCM under the run key, with `"<run_id>:details"` or
+  `"<run_id>:summary"` as additional data. The details hold the trail's own ID and everything the old snapshot held,
+  with stops renamed `s1` to `sN` on the phone before sealing; the summary holds the trail ID, kind, name, duration,
+  stop names, and the local start day. `lib/runs.ts` opens the details, falls back to the summary once the trim drops
+  them, and reads a legacy snapshot as before. The Sherlock screens find their clues by stop position.
+- **Activity** names each past trail from its summary. A trail this phone can't open yet, such as one whose key waits
+  for the partner's re-share, shows as "A trail this phone can't open yet".
+- **Starting.** While linked, Home asks Together or Just me; walking solo starts at once. The partner's phone shows a
+  card, "Daniel started a quest", with Join and Not now, on Home and on the map before a quest starts. Joining asks
+  first when it would end the user's own quest with progress.
+- **Linking.** "Ask to link" redeems the invite and checks the inviter's key against the invite's `#k=` while the
+  request is open; a mismatch withdraws it. The invitee waits on its own screen with the emoji check and a way to
+  withdraw; the inviter's phone asks "Emma used your invite" with the same emoji, Confirm, and Decline. The check after
+  linking stays as a backstop for a phone that was offline.
+- **Hide from my album.** Someone else's photo offers Hide, which writes `photo_hidden`; the read policy then leaves it
+  out of every listing. Profile counts hidden photos and shows them all again.
+- **Recovery code.** Profile calls `mark_recovery_viewed()` when it shows the code and shows "Recovery code viewed on
+  <date>".
