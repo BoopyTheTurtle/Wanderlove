@@ -13,6 +13,8 @@ import { LinkInvite } from "./screens/LinkInvite";
 import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
+import { KeyUnlock } from "./screens/KeyUnlock";
+import { PartnerKeyConfirm } from "./screens/PartnerKeyConfirm";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
 import type { Profile } from "@wannadoo/core";
 import {
@@ -57,6 +59,17 @@ import { signOut, useAuth } from "./lib/auth";
 import { isOnboarded, loadOwnProfile, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
 import { isLocalStack } from "./lib/supabase";
+import {
+  KeysAlreadyExistError,
+  checkPartnerKey,
+  loadKeyState,
+  prepareAccountKeys,
+  saveAccountKeys,
+  trustPartnerKey,
+} from "./lib/keys";
+import type { PartnerKeyCheck } from "./lib/keys";
+import type { DeviceKeys } from "./lib/keyStore";
+import type { ReactNode } from "react";
 
 type ProfileState = { status: "loading" } | { status: "error" } | { status: "ready"; row: ProfileRow };
 
@@ -65,6 +78,8 @@ const INVITE_POLL_MS = 4000;
 // How often the app checks the partner and the trail while it is in view, so a trail the partner starts, their
 // progress, and a link or unlink show up without refocusing. Partners often keep both phones open side by side.
 const SYNC_POLL_MS = 10000;
+// How often the app checks whether the partner's photo keys changed while it is in view.
+const PARTNER_KEY_POLL_MS = 60000;
 
 const SHERLOCK_ID = "sherlock-holmes-spikeri";
 
@@ -144,22 +159,202 @@ export default function App() {
     );
   }
 
-  // Keyed by user, so switching accounts starts the trail flow afresh.
+  // Keyed by user, so switching accounts starts the key check and the trail flow afresh.
   return (
-    <SignedInApp
-      key={auth.user.id}
-      me={toProfile(profile.row, auth.user.email ?? "")}
-      onSignOut={() => signOutAndClear(auth.user.id)}
-    />
+    <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
+      {(keys) => (
+        <SignedInApp
+          me={toProfile(profile.row, auth.user.email ?? "")}
+          recoveryCode={keys.recoveryCode ?? null}
+          onSignOut={() => signOutAndClear(auth.user.id)}
+        />
+      )}
+    </KeyGate>
+  );
+}
+
+type KeyGateState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "unlock"; canUseCode: boolean; replaced: boolean }
+  | { status: "ready"; keys: DeviceKeys };
+
+type PartnerKeyPrompt = Extract<PartnerKeyCheck, { status: "confirm" }>;
+
+// Loads this device's keys, making and publishing a pair when the account has none. Shared while in flight, so a
+// double mount doesn't make two pairs; a pair another phone stored first sends this one to unlock.
+const keyLoads = new Map<string, Promise<KeyGateState>>();
+
+function loadOrCreateKeys(userId: string): Promise<KeyGateState> {
+  const inFlight = keyLoads.get(userId);
+  if (inFlight) return inFlight;
+  const load = (async (): Promise<KeyGateState> => {
+    const state = await loadKeyState(userId);
+    if (state.status !== "setup") return state;
+    try {
+      return { status: "ready", keys: await saveAccountKeys(userId, await prepareAccountKeys(), { replace: false }) };
+    } catch (e) {
+      if (!(e instanceof KeysAlreadyExistError)) throw e;
+      const again = await loadKeyState(userId);
+      if (again.status === "setup") throw e;
+      return again;
+    }
+  })().finally(() => keyLoads.delete(userId));
+  keyLoads.set(userId, load);
+  return load;
+}
+
+// Photo keys come before the rest of the app (photo-encryption.md, sections 4 and 5): a new account gets its keys
+// quietly, with the recovery code in Settings; a phone without keys unlocks with the code or starts fresh for the
+// partner to re-share; and a partner key that changed waits for the user's trust. The app stays mounted, hidden,
+// while that last question is open.
+function KeyGate({
+  userId,
+  onSignOut,
+  children,
+}: {
+  userId: string;
+  onSignOut: () => void;
+  children: (keys: DeviceKeys) => ReactNode;
+}) {
+  const [gate, setGate] = useState<KeyGateState>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const [prompt, setPrompt] = useState<PartnerKeyPrompt | null>(null);
+  // A key the user answered "Not now" for; asked again on the next app open.
+  const dismissedKeyId = useRef<string | null>(null);
+  const checkRequest = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    loadOrCreateKeys(userId).then(
+      (state) => active && setGate(state),
+      (e: unknown) => {
+        console.error("Couldn't load the photo keys", e);
+        if (active) setGate({ status: "error" });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [userId, attempt]);
+
+  function reload() {
+    setGate({ status: "loading" });
+    setAttempt((n) => n + 1);
+  }
+
+  // Option C: a fresh pair replaces the account's earlier one; its new code shows in Settings.
+  function startFresh() {
+    setGate({ status: "loading" });
+    prepareAccountKeys()
+      .then((pending) => saveAccountKeys(userId, pending, { replace: true }))
+      .then(
+        (keys) => setGate({ status: "ready", keys }),
+        (e: unknown) => {
+          console.error("Couldn't make new keys", e);
+          setGate({ status: "error" });
+        },
+      );
+  }
+
+  const keys = gate.status === "ready" ? gate.keys : null;
+
+  const checkPartner = useCallback(async () => {
+    const id = ++checkRequest.current;
+    try {
+      const result = await checkPartnerKey(userId);
+      if (id !== checkRequest.current) return;
+      setPrompt(result.status === "confirm" && result.key.keyId !== dismissedKeyId.current ? result : null);
+    } catch (e) {
+      console.error("Couldn't check the partner's keys", e);
+    }
+  }, [userId]);
+
+  // On open, on returning to the foreground, and now and then while in view.
+  useEffect(() => {
+    if (!keys) return;
+    void checkPartner();
+    function onVisible() {
+      if (document.visibilityState === "visible") void checkPartner();
+    }
+    const timer = window.setInterval(onVisible, PARTNER_KEY_POLL_MS);
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [keys, checkPartner]);
+
+  if (gate.status === "loading")
+    return (
+      <PhoneFrame>
+        <LoadingScreen />
+      </PhoneFrame>
+    );
+  if (gate.status === "error")
+    return (
+      <PhoneFrame>
+        <LoadingScreen
+          error
+          message="Couldn’t load your photo keys. Check your connection and try again."
+          onRetry={reload}
+          onSignOut={onSignOut}
+        />
+      </PhoneFrame>
+    );
+  if (gate.status === "unlock")
+    return (
+      <PhoneFrame>
+        <KeyUnlock
+          userId={userId}
+          canUseCode={gate.canUseCode}
+          replaced={gate.replaced}
+          onUnlocked={(ready) => setGate({ status: "ready", keys: ready })}
+          onStartFresh={startFresh}
+          onSignOut={onSignOut}
+        />
+      </PhoneFrame>
+    );
+
+  const readyKeys = gate.keys;
+  return (
+    <>
+      {prompt && (
+        <PhoneFrame>
+          <PartnerKeyConfirm
+            key={prompt.key.keyId}
+            partnerName={prompt.partnerName}
+            reason={prompt.reason}
+            onTrust={async () => {
+              checkRequest.current++;
+              await trustPartnerKey(userId, readyKeys, prompt.key);
+              setPrompt(null);
+            }}
+            onNotNow={() => {
+              checkRequest.current++;
+              dismissedKeyId.current = prompt.key.keyId;
+              setPrompt(null);
+            }}
+          />
+        </PhoneFrame>
+      )}
+      <div className="key-gate-app" hidden={prompt !== null}>
+        {children(readyKeys)}
+      </div>
+    </>
   );
 }
 
 function LoadingScreen({
   error,
+  message = "Couldn’t load your profile. Check your connection and try again.",
   onRetry,
   onSignOut,
 }: {
   error?: boolean;
+  message?: string;
   onRetry?: () => void;
   onSignOut?: () => void;
 }) {
@@ -172,7 +367,7 @@ function LoadingScreen({
         </p>
         {error ? (
           <>
-            <p className="intro">Couldn&rsquo;t load your profile. Check your connection and try again.</p>
+            <p className="intro">{message}</p>
             <div className="auth-links">
               <button type="button" className="text-button" onClick={onRetry}>
                 Try again
@@ -207,7 +402,15 @@ type Draft =
   | { status: "error"; error: string }
   | { status: "ready"; trail: Trail; approximateStart: boolean };
 
-function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) {
+function SignedInApp({
+  me,
+  recoveryCode,
+  onSignOut,
+}: {
+  me: Profile;
+  recoveryCode: string | null;
+  onSignOut: () => void;
+}) {
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
@@ -669,6 +872,7 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
           me={me}
           email={me.email}
           partner={partner}
+          recoveryCode={recoveryCode}
           onUnlink={handleUnlink}
           onLinkPartner={() => setRoute({ name: "partner" })}
           onSignOut={handleSignOut}

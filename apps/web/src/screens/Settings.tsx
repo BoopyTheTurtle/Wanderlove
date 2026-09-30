@@ -4,6 +4,8 @@ import type { Profile } from "@wannadoo/core";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { BottomNav } from "../components/BottomNav";
+import { formatRecoveryCode } from "../lib/crypto";
+import "../keys.css";
 import "../settings.css";
 
 export type SettingsProps = {
@@ -11,6 +13,8 @@ export type SettingsProps = {
   email: string;
   // null means walking solo.
   partner: Profile | null;
+  // This phone's copy of the photo recovery code; null when it does not hold one.
+  recoveryCode: string | null;
   // May reject: the screen then shows an error and keeps the partner.
   onUnlink: () => Promise<void>;
   // Solo only: opens the partner screen.
@@ -22,8 +26,18 @@ export type SettingsProps = {
 
 // The Profile tab: who I am, who I explore with, unlinking, and signing out.
 // Shows nothing about the partner's activity (accounts roadmap, register C6).
-export function Settings({ me, email, partner, onUnlink, onLinkPartner, onSignOut, onExplore }: SettingsProps) {
+export function Settings({
+  me,
+  email,
+  partner,
+  recoveryCode,
+  onUnlink,
+  onLinkPartner,
+  onSignOut,
+  onExplore,
+}: SettingsProps) {
   const [confirming, setConfirming] = useState(false);
+  const [showingCode, setShowingCode] = useState(false);
 
   return (
     <div className="screen settings-screen">
@@ -74,6 +88,15 @@ export function Settings({ me, email, partner, onUnlink, onLinkPartner, onSignOu
         <a className="settings-notice-link" href="/tester-notice" target="_blank" rel="noopener">
           Tester notice
         </a>
+        {recoveryCode && (
+          <button
+            type="button"
+            className="settings-notice-link settings-link-button"
+            onClick={() => setShowingCode(true)}
+          >
+            Recovery code
+          </button>
+        )}
         <button type="button" className="text-button" onClick={onSignOut}>
           Sign out
         </button>
@@ -82,6 +105,8 @@ export function Settings({ me, email, partner, onUnlink, onLinkPartner, onSignOu
       {partner && confirming && (
         <UnlinkDialog name={partner.name} onUnlink={onUnlink} onClose={() => setConfirming(false)} />
       )}
+
+      {recoveryCode && showingCode && <RecoveryCodeDialog code={recoveryCode} onClose={() => setShowingCode(false)} />}
 
       <BottomNav active="profile" onExplore={onExplore} />
     </div>
@@ -170,6 +195,66 @@ function UnlinkDialog({
           </button>
           <button ref={cancelRef} type="button" className="settings-cancel" onClick={onClose} disabled={busy}>
             Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// The photo recovery code, on request only: it unlocks the photos on a new phone.
+function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const formatted = formatRecoveryCode(code);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    function onEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("keydown", onEscape);
+      opener?.focus();
+    };
+  }, [onClose]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(formatted);
+      setCopied(true);
+    } catch {
+      // Clipboard blocked: the code stays selectable.
+    }
+  }
+
+  return (
+    <div className="settings-backdrop">
+      <div
+        className="settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recovery-title"
+        aria-describedby="recovery-body"
+      >
+        <h2 id="recovery-title">Recovery code</h2>
+        <p id="recovery-body">
+          Your photos are encrypted on your phone. On a new phone, this code unlocks them. Without it, your partner can
+          share your trails with you again.
+        </p>
+        <p className="recovery-code" aria-label={formatted}>
+          {/* Two lines of three groups, so the code never breaks inside a group */}
+          <span>{formatted.slice(0, 14)}</span>
+          <span>{formatted.slice(15)}</span>
+        </p>
+        <div className="settings-dialog-actions">
+          <button type="button" className="settings-cancel" onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy code"}
+          </button>
+          <button ref={closeRef} type="button" className="settings-cancel" onClick={onClose}>
+            Close
           </button>
         </div>
       </div>

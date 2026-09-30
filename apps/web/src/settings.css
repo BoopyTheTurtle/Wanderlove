@@ -78,6 +78,12 @@
   outline-offset: 2px;
 }
 
+.settings-link-button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
 /* Unlink confirmation: fixed to the phone, above the bottom nav */
 .settings-backdrop {
   position: fixed;
@@ -141,4 +147,14 @@
 .settings-cancel:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Recovery code dialog: beats the dialog's muted paragraph style */
+.settings-dialog p.recovery-code {
+  margin-top: 16px;
+  color: var(--ink);
+  font-size: 17px;
+}
+.settings-dialog p.recovery-code span {
+  display: block;
 }
