@@ -5,7 +5,7 @@
   z-index: 50;
   display: flex;
   flex-direction: column;
-  background: #0b1f1d;
+  background: #1f0a10;
   color: #fff;
   overflow: hidden;
 }
@@ -33,7 +33,7 @@
 .qr-scanner-top h2 {
   font-size: 19px;
   font-weight: 800;
-  text-shadow: 0 2px 12px #0a2f2b99;
+  text-shadow: 0 2px 12px #2e0d1699;
 }
 
 /* Below the title, so the viewfinder's dimming shadow doesn't cover it. */
@@ -53,13 +53,13 @@
   width: 240px;
   height: 240px;
   border-radius: 22px;
-  box-shadow: 0 0 0 999px #0b1f1d99;
+  box-shadow: 0 0 0 999px #1f0a1099;
 }
 .qr-scanner-frame i {
   position: absolute;
   width: 38px;
   height: 38px;
-  border: 4px solid var(--teal-mid);
+  border: 4px solid var(--brand-mid);
   transition: border-color 0.2s;
 }
 .qr-scanner-frame.live i {
@@ -95,7 +95,7 @@
   max-width: 280px;
   padding: 8px 14px;
   border-radius: 12px;
-  background: #0b1f1dcc;
+  background: #1f0a10cc;
   font-size: 13.5px;
   font-weight: 600;
   text-align: center;
@@ -112,7 +112,7 @@
 .qr-scanner-failure p {
   font-size: 15px;
   line-height: 1.5;
-  color: #e3fbf6;
+  color: #fff0ea;
 }
 
 .qr-scanner-bottom {

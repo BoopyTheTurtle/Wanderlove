@@ -8,7 +8,7 @@
 .recovery-code {
   padding: 14px 10px;
   border-radius: 14px;
-  background: var(--teal-wash);
+  background: var(--brand-wash);
   border: 1.5px solid var(--line);
   color: var(--ink);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -20,7 +20,7 @@
   user-select: all;
 }
 .keys-screen .btn-soft {
-  color: var(--teal-dark);
+  color: var(--brand-dark);
   cursor: pointer;
 }
 .keys-screen .btn-soft:disabled {

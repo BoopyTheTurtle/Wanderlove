@@ -1,4 +1,4 @@
-/* Settings behind the Profile tab: heading on the green, content on white cards */
+/* Settings behind the Profile tab: heading on the gradient, content on white cards */
 .settings-screen {
   --danger: #c63a50;
   --danger-dark: #a82e42;
@@ -92,7 +92,7 @@
   display: grid;
   place-items: center;
   padding: 0 24px;
-  background: #0e2624b3;
+  background: #2a0e15b3;
   backdrop-filter: blur(3px);
 }
 .settings-dialog {
@@ -101,7 +101,7 @@
   border-radius: 22px;
   background: var(--card);
   color: var(--ink);
-  box-shadow: 0 20px 50px #0a2f2b55;
+  box-shadow: 0 20px 50px #2e0d1655;
 }
 .settings-dialog h2 {
   font-size: 20px;

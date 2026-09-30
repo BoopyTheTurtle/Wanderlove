@@ -28,7 +28,7 @@
   cursor: default;
 }
 
-/* On the green gradient: white glass, solid white once ready for the second tap. */
+/* On the wine gradient: white glass, solid white once ready for the second tap. */
 .album-actions--default .album-action {
   border: 1.5px solid #ffffffaa;
   background: #ffffff26;
@@ -39,7 +39,7 @@
 }
 .album-actions--default .album-action--ready {
   background: #fff;
-  color: var(--teal-dark);
+  color: var(--brand-dark);
 }
 
 /* In the field book: card paper with a wine border, wine once ready. */
@@ -86,7 +86,7 @@
   aspect-ratio: 9 / 16;
   border-radius: 10px;
   object-fit: cover;
-  box-shadow: 0 8px 20px #0f4d4540;
+  box-shadow: 0 8px 20px #4a162440;
 }
 
 .photo-tile-actions {
@@ -100,7 +100,7 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 8px;
-  background: var(--teal-wash);
+  background: var(--brand-wash);
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -124,8 +124,8 @@
 .photo-tile-save {
   border: 0;
   border-radius: 8px;
-  background: var(--teal-wash);
-  color: var(--teal-dark);
+  background: var(--brand-wash);
+  color: var(--brand-dark);
   font-size: 11.5px;
   font-weight: 700;
   padding: 4px 9px;
@@ -136,6 +136,6 @@
   cursor: default;
 }
 .photo-tile-save--ready {
-  background: var(--teal);
+  background: var(--brand);
   color: #fff;
 }

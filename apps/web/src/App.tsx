@@ -483,7 +483,7 @@ function SignedInApp({
   const runPartnerName = run?.coupleId ? (partner?.name ?? null) : null;
 
   const shownTrail = runTrail ?? (runSync === "ready" && draft.status === "ready" ? draft.trail : null);
-  // The Sherlock trail swaps the teal look for the red field-book theme from the map onwards.
+  // The Sherlock trail swaps the plain wine look for the field-book theme from the map onwards.
   const themeTrail =
     route?.name === "map" ? shownTrail : route?.name === "challenge" || route?.name === "complete" ? runTrail : null;
   const theme = themeTrail?.id === SHERLOCK_ID ? "sherlock" : undefined;

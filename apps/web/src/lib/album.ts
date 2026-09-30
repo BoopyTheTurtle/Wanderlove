@@ -179,16 +179,16 @@ const THEMES: Record<
   AlbumTheme,
   { eyebrow: string; ink: string; muted: string; paint: (ctx: CanvasRenderingContext2D) => void }
 > = {
-  // The app's teal gradient, dark enough at the bottom for white text.
+  // The app's wine gradient, dark enough at the bottom for white text.
   default: {
     eyebrow: "TRAIL COMPLETE",
     ink: "#ffffff",
-    muted: "#d4efea",
+    muted: "#f6dcd3",
     paint(ctx) {
       const g = ctx.createLinearGradient(0, 0, ALBUM_WIDTH * 0.4, ALBUM_HEIGHT);
-      g.addColorStop(0, "#4fb8aa");
-      g.addColorStop(0.55, "#2a9d8f");
-      g.addColorStop(1, "#17665d");
+      g.addColorStop(0, "#b4485f");
+      g.addColorStop(0.55, "#8b2e45");
+      g.addColorStop(1, "#5a1b2c");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, ALBUM_WIDTH, ALBUM_HEIGHT);
       const glow = ctx.createRadialGradient(880, 180, 0, 880, 180, 700);

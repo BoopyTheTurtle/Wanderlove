@@ -8,7 +8,7 @@ export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 // The tester notice version the onboarding tick box accepts.
 export const TERMS_VERSION = "tester-v1";
 
-const COLORS = ["#2a9d8f", "#ff7a8a", "#e9a23b", "#5b8def", "#9b6bd6", "#3fae6b"];
+const COLORS = ["#8b2e45", "#ff7a8a", "#e9a23b", "#5b8def", "#9b6bd6", "#3fae6b"];
 
 export async function loadOwnProfile(userId: string): Promise<ProfileRow> {
   const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
