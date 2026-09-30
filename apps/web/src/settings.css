@@ -93,6 +93,13 @@
   gap: 6px;
   padding-top: 8px;
 }
+/* When the current recovery code was first shown; a date the owner doesn't recognise gives a stolen code away. */
+.settings-viewed {
+  margin-top: -6px;
+  color: var(--on-bg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
 .settings-notice-link {
   padding: 6px;
   color: var(--on-bg-muted);

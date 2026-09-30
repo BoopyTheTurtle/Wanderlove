@@ -4,7 +4,7 @@ import { loadOpenInvite, saveOpenInvite } from "./session";
 import { supabase } from "./supabase";
 
 export type PeekStatus = "valid" | "invalid" | "expired" | "self" | "already_linked" | "rate_limited";
-export type RedeemStatus = "linked" | Exclude<PeekStatus, "valid">;
+export type RedeemStatus = "pending" | Exclude<PeekStatus, "valid">;
 export type InvitePeek = { status: PeekStatus; inviterName: string | null };
 
 const CODE_LENGTH = 10;
@@ -66,10 +66,58 @@ export async function peekInvite(code: string): Promise<InvitePeek> {
   return { status: result.status ?? "invalid", inviterName: result.inviter_name ?? null };
 }
 
-export async function redeemInvite(code: string): Promise<RedeemStatus> {
-  const { data, error } = await supabase.rpc("redeem_invite", { p_code: code });
+// Uses up the invite and asks the inviter to confirm (docs/private-trails.md, section 6). Nobody is linked until the
+// inviter's phone confirms; the request lapses after 24 hours.
+export async function redeemInvitePending(code: string): Promise<RedeemStatus> {
+  const { data, error } = await supabase.rpc("redeem_invite_pending", { p_code: code });
   if (error) throw error;
   return data as RedeemStatus;
+}
+
+// An open link request, seen from either side: `other` is the inviter for the invitee and the invitee for the inviter.
+export type LinkRequest = { id: string; otherId: string; otherName: string; expiresAt: string };
+export type LinkRequests = { incoming: LinkRequest | null; outgoing: LinkRequest | null };
+
+export const NO_LINK_REQUESTS: LinkRequests = { incoming: null, outgoing: null };
+
+// The caller's open requests: one someone made with the caller's invite (incoming), and the one the caller made with
+// someone's invite (outgoing). While a request is open each side reads the other's profile card.
+export async function loadLinkRequests(myId: string): Promise<LinkRequests> {
+  const { data, error } = await supabase
+    .from("link_requests")
+    .select("id, inviter_id, invitee_id, expires_at")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const incoming = data.find((r) => r.inviter_id === myId);
+  const outgoing = data.find((r) => r.invitee_id === myId);
+  async function side(row: typeof incoming, otherId: string | undefined): Promise<LinkRequest | null> {
+    if (!row || !otherId) return null;
+    const { data: card, error: cardError } = await supabase
+      .from("profile_cards")
+      .select("display_name")
+      .eq("id", otherId)
+      .maybeSingle();
+    if (cardError) throw cardError;
+    return { id: row.id, otherId, otherName: card?.display_name ?? "Someone", expiresAt: row.expires_at };
+  }
+  const [inc, out] = await Promise.all([side(incoming, incoming?.invitee_id), side(outgoing, outgoing?.inviter_id)]);
+  return { incoming: inc, outgoing: out };
+}
+
+export type ConfirmStatus = "linked" | "invalid" | "expired" | "already_linked";
+
+// The inviter's yes: makes the couple.
+export async function confirmLink(requestId: string): Promise<ConfirmStatus> {
+  const { data, error } = await supabase.rpc("confirm_link", { p_request: requestId });
+  if (error) throw error;
+  return data as ConfirmStatus;
+}
+
+// Either side's no, or the invitee withdrawing. Safe to call twice.
+export async function declineLink(requestId: string): Promise<void> {
+  const { error } = await supabase.rpc("decline_link", { p_request: requestId });
+  if (error) throw error;
 }
 
 // Ends the caller's couple at once; the partner gets no message.

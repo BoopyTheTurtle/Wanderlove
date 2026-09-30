@@ -103,3 +103,88 @@ export function fromRunSnapshot(json: unknown, trailId: string): Trail {
   if (typeof json.distanceEstimated === "boolean") trail.distanceEstimated = json.distanceEstimated;
   return trail;
 }
+
+// ---- Private trails (docs/private-trails.md, section 1) ----------------------------------------------------------
+
+// A private trail's stop IDs: "s1".."sN" in trail order. Completions and photos key on them, so the server learns only
+// that a couple reached their third stop, never which place it was.
+export function sealedStopId(index: number): string {
+  return `s${index + 1}`;
+}
+
+// The trail as a private run keeps it: every stop renamed to its position. The trail's own ID stays, inside the
+// sealed details, so the phone still tells the Sherlock quest from a surprise route.
+export function withSealedStopIds(trail: Trail): Trail {
+  return { ...trail, stops: trail.stops.map((stop, i) => ({ ...stop, id: sealedStopId(i) })) };
+}
+
+// What a private run seals as its details: the snapshot, with the trail's ID and anonymous stop IDs. Like the
+// snapshot, it never holds `start` or `path`.
+export type RunDetails = RunSnapshot & { v: 1; id: string };
+
+export function toRunDetails(trail: Trail): RunDetails {
+  return { v: 1, id: trail.id, ...toRunSnapshot(withSealedStopIds(trail)) };
+}
+
+export function fromRunDetails(json: unknown): Trail {
+  if (!isObject(json) || typeof json.id !== "string") throw new Error("Run details have no trail ID");
+  return fromRunSnapshot(json, json.id);
+}
+
+// What a private run keeps once the monthly trim drops its details: the trail name and stop names, never a place.
+export type RunSummary = {
+  v: 1;
+  trailId: string;
+  kind?: Trail["kind"];
+  name: string;
+  durationMinutes: number;
+  stops: string[];
+  // The local day the walk started, YYYY-MM-DD.
+  startedOn: string;
+};
+
+export function toRunSummary(trail: Trail, startedAt = new Date()): RunSummary {
+  const day = [startedAt.getFullYear(), startedAt.getMonth() + 1, startedAt.getDate()]
+    .map((n) => String(n).padStart(2, "0"))
+    .join("-");
+  const summary: RunSummary = {
+    v: 1,
+    trailId: trail.id,
+    name: trail.name,
+    durationMinutes: trail.durationMinutes,
+    stops: trail.stops.map((s) => s.name),
+    startedOn: day,
+  };
+  if (trail.kind !== undefined) summary.kind = trail.kind;
+  return summary;
+}
+
+// A Trail from a summary alone: the names, and stops without a place (lat 0, lng 0), so it shows in Activity and the
+// album but has no map.
+export function fromRunSummary(json: unknown): Trail {
+  if (!isObject(json) || !Array.isArray(json.stops) || json.stops.length === 0) {
+    throw new Error("Run summary has no stops");
+  }
+  const stops: Stop[] = json.stops.map((name: unknown, i: number) => ({
+    id: sealedStopId(i),
+    name: str(name),
+    lat: 0,
+    lng: 0,
+    radiusMeters: 1,
+    eyebrow: "",
+    prompt: "",
+    image: "",
+  }));
+  const trail: Trail = {
+    id: str(json.trailId, "private"),
+    name: str(json.name),
+    location: "",
+    description: "",
+    durationMinutes: isNumber(json.durationMinutes) ? json.durationMinutes : 0,
+    stopCount: stops.length,
+    coverImage: "",
+    stops,
+  };
+  if (json.kind === "curated" || json.kind === "surprise") trail.kind = json.kind;
+  return trail;
+}

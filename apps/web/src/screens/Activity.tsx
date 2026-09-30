@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { BottomNav } from "../components/BottomNav";
 import { CameraIcon, ChevronIcon, FlagIcon } from "../components/Icons";
+import { useRunKeyLoader } from "../lib/photoKeys";
 import { journeyDay, listPastRuns, photosRemoved, type PastRun } from "../lib/runs";
 import "../activity.css";
 
@@ -15,10 +16,11 @@ function plural(n: number, word: string): string {
 export function Activity({ refreshKey, onOpen }: { refreshKey: number; onOpen: (run: PastRun) => void }) {
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const openKey = useRunKeyLoader();
 
   useEffect(() => {
     let current = true;
-    listPastRuns().then(
+    listPastRuns(openKey).then(
       (runs) => current && setLoaded({ status: "ready", runs }),
       (e: unknown) => {
         console.error("Couldn't load past journeys", e);
@@ -28,7 +30,7 @@ export function Activity({ refreshKey, onOpen }: { refreshKey: number; onOpen: (
     return () => {
       current = false;
     };
-  }, [refreshKey, attempt]);
+  }, [refreshKey, attempt, openKey]);
 
   return (
     <div className="screen activity-screen with-nav">

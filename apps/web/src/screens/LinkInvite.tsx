@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { HeartIcon } from "../components/Icons";
-import { isCompleteCode, peekInvite, redeemInvite } from "../lib/couples";
-import type { InvitePeek, PeekStatus } from "../lib/couples";
-import { expectPartnerKey, unlinkMismatchedPartner, verifyPartnerKey } from "../lib/keys";
+import { declineLink, isCompleteCode, loadLinkRequests, peekInvite, redeemInvitePending } from "../lib/couples";
+import type { InvitePeek, LinkRequest, PeekStatus } from "../lib/couples";
+import { checkInviterKey, expectPartnerKey } from "../lib/keys";
+import { PairEmoji } from "./PartnerKeyConfirm";
+import "../keys.css";
 
 type Problem = Exclude<PeekStatus, "valid">;
 
@@ -36,27 +38,27 @@ type State =
   | { status: "offline" }
   | { status: "ready"; peek: InvitePeek }
   | { status: "linking"; peek: InvitePeek }
-  // Linked, but the check of the inviter's key against the invite's key ID has not finished.
+  // Requested, but the check of the inviter's key against the invite's key ID has not finished.
   | { status: "verifyOffline"; peek: InvitePeek }
   | { status: "problem"; problem: Problem }
   | { status: "mismatch"; name: string };
 
-// The accept screen for an invite, from a /link/<code> URL, a scanned QR, or a typed code. A link or QR carries the
-// inviter's key ID; after linking, the phone checks the inviter's published key against it and unlinks on a
-// mismatch (lib/keys.ts). The server shows the invitee the inviter's key only once they are linked.
+// The accept screen for an invite, from a /link/<code> URL, a scanned QR, or a typed code. "Link" asks the inviter to
+// confirm (docs/private-trails.md, section 6). A link or QR carries the inviter's key ID; while the request is open the
+// phone checks the inviter's published key against it and withdraws the request on a mismatch (lib/keys.ts).
 export function LinkInvite({
   code,
   keyId,
   myId,
-  onLinked,
+  onPending,
   onDone,
 }: {
   code: string;
   // The inviter's key ID from the link's fragment; null for a typed code.
   keyId: string | null;
   myId: string;
-  // Loads the new partner and moves on; handles its own errors.
-  onLinked: () => Promise<void>;
+  // The request is sent and checked: on to waiting for the inviter.
+  onPending: () => void;
   // "Not now", or leaving after a problem.
   onDone: () => void;
 }) {
@@ -88,17 +90,17 @@ export function LinkInvite({
   async function link(peek: InvitePeek) {
     setState({ status: "linking", peek });
     setError(null);
-    // Recorded first, so a check the app could not finish here still runs later (KeyGate).
+    // Recorded first, so a check the app could not finish here still runs once linked (KeyGate).
     expectPartnerKey(myId, keyId);
     let result;
     try {
-      result = await redeemInvite(code);
+      result = await redeemInvitePending(code);
     } catch {
-      setError("Couldn’t link. Check your connection and try again.");
+      setError("Couldn’t send your request. Check your connection and try again.");
       setState({ status: "ready", peek });
       return;
     }
-    if (result !== "linked") {
+    if (result !== "pending") {
       expectPartnerKey(myId, null);
       setState({ status: "problem", problem: result });
       return;
@@ -106,25 +108,30 @@ export function LinkInvite({
     await verify(peek);
   }
 
+  // The inviter's key against the invite's key ID, before the inviter confirms: a mismatch withdraws the request, so
+  // nobody is ever linked to the wrong keys.
   async function verify(peek: InvitePeek) {
     setState({ status: "linking", peek });
     setError(null);
     try {
-      const check = await verifyPartnerKey(myId);
-      if (check.status === "mismatch") {
-        setState({ status: "mismatch", name: peek.inviterName ?? check.partnerName });
-        // On failure the invite's key ID stays recorded, so KeyGate asks again and unlinks.
-        await unlinkMismatchedPartner(myId).catch((e: unknown) => console.error("Couldn't unlink", e));
+      const request = (await loadLinkRequests(myId)).outgoing;
+      if (!request) {
+        setState({ status: "problem", problem: "invalid" });
+        return;
+      }
+      if ((await checkInviterKey(myId, request.otherId)) === "mismatch") {
+        setState({ status: "mismatch", name: peek.inviterName ?? request.otherName });
+        await declineLink(request.id).catch((e: unknown) => console.error("Couldn't withdraw the request", e));
         return;
       }
     } catch (e) {
-      console.error("Couldn't check the partner's keys", e);
+      console.error("Couldn't check the inviter's keys", e);
       if (keyId) {
         setState({ status: "verifyOffline", peek });
         return;
       }
     }
-    await onLinked();
+    onPending();
   }
 
   if (state.status === "mismatch") {
@@ -147,13 +154,13 @@ export function LinkInvite({
     return (
       <InviteLayout
         title={`Couldn’t check ${name}’s keys`}
-        body="You’re linked. Check your connection and try again; the app checks again when it can."
+        body="Your request is sent. Check your connection and try again; the app checks again once you’re linked."
       >
         <div className="card auth-card invite-card">
           <button type="button" className="btn-primary" onClick={() => void verify(state.peek)}>
             Try again
           </button>
-          <button type="button" className="btn-soft" onClick={() => void onLinked()}>
+          <button type="button" className="btn-soft" onClick={onPending}>
             Continue
           </button>
         </div>
@@ -167,7 +174,7 @@ export function LinkInvite({
     return (
       <InviteLayout
         title={`Link with ${name}?`}
-        body="Once linked, you both see the trails you walk together and their photos. If you unlink, you each keep the photos from trails you walked together."
+        body={`${name} confirms on their phone. Once linked, you both see the trails you walk together and their photos. If you unlink, you each keep the photos from trails you walked together.`}
         heart
       >
         <div className="card auth-card invite-card">
@@ -177,7 +184,7 @@ export function LinkInvite({
             </p>
           )}
           <button type="button" className="btn-primary" onClick={() => void link(state.peek)} disabled={busy}>
-            {busy ? "Linking…" : "Link"}
+            {busy ? "Asking…" : "Ask to link"}
           </button>
           <button type="button" className="btn-soft" onClick={onDone} disabled={busy}>
             Not now
@@ -216,6 +223,148 @@ export function LinkInvite({
   }
 
   return <InviteLayout title="Checking the invite…" body="One moment." />;
+}
+
+function hoursLeft(expiresAt: string): string {
+  const hours = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 3_600_000));
+  return hours === 1 ? "about an hour" : `${hours} hours`;
+}
+
+// The invitee's phone after "Ask to link", until the inviter confirms. `request` is undefined while loading and null
+// once the request has closed: declined, withdrawn, or lapsed. The reason stays unsaid.
+export function LinkWaiting({
+  request,
+  myKeyId,
+  inviterKeyId,
+  onCancel,
+  onDone,
+}: {
+  request: LinkRequest | null | undefined;
+  myKeyId: string;
+  inviterKeyId: string | null;
+  onCancel: (request: LinkRequest) => Promise<void>;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (request === undefined) return <InviteLayout title="Checking your request…" body="One moment." />;
+
+  if (request === null) {
+    return (
+      <InviteLayout
+        title="Your request has closed"
+        body="Nobody was linked. If you still want to link, ask for a new invite."
+      >
+        <div className="card auth-card invite-card">
+          <button type="button" className="btn-primary" onClick={onDone}>
+            Continue
+          </button>
+        </div>
+      </InviteLayout>
+    );
+  }
+
+  async function cancel(r: LinkRequest) {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onCancel(r);
+    } catch (e) {
+      console.error("Couldn't withdraw the request", e);
+      setFailed(true);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <InviteLayout
+      title={`Waiting for ${request.otherName}`}
+      body={`${request.otherName} confirms on their phone. The request lapses in ${hoursLeft(request.expiresAt)}.`}
+      heart
+    >
+      <div className="card auth-card invite-card">
+        {inviterKeyId && (
+          <>
+            <p className="key-check-lead">Check that {request.otherName}&rsquo;s phone shows the same four:</p>
+            <PairEmoji a={myKeyId} b={inviterKeyId} />
+          </>
+        )}
+        {failed && (
+          <p className="field-error" role="alert">
+            Couldn&rsquo;t withdraw the request. Check your connection and try again.
+          </p>
+        )}
+        <button type="button" className="btn-soft" disabled={busy} onClick={() => void cancel(request)}>
+          {busy ? "Withdrawing…" : "Withdraw request"}
+        </button>
+      </div>
+    </InviteLayout>
+  );
+}
+
+// The inviter's phone: someone used the invite. Nobody is linked until Confirm; the emoji let both compare keys.
+export function LinkRequestDialog({
+  request,
+  myKeyId,
+  inviteeKeyId,
+  onConfirm,
+  onDecline,
+}: {
+  request: LinkRequest;
+  myKeyId: string;
+  inviteeKeyId: string | null;
+  onConfirm: () => Promise<void>;
+  onDecline: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function act(action: () => Promise<void>) {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await action();
+    } catch (e) {
+      console.error("Couldn't answer the link request", e);
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="notice-backdrop">
+      <div
+        className="notice-dialog link-request"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="link-request-title"
+      >
+        <h2 id="link-request-title">{request.otherName} used your invite</h2>
+        <p className="link-request-body">
+          Link with {request.otherName}? You&rsquo;ll both see the trails you walk together and their photos.
+        </p>
+        {inviteeKeyId && (
+          <div className="link-request-keys">
+            <p className="key-check-lead">{request.otherName}&rsquo;s phone shows these four:</p>
+            <PairEmoji a={myKeyId} b={inviteeKeyId} />
+          </div>
+        )}
+        {failed && (
+          <p className="field-error" role="alert">
+            Couldn&rsquo;t reach Wannadoo. Check your connection and try again.
+          </p>
+        )}
+        <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(onConfirm)}>
+          Confirm
+        </button>
+        <button type="button" className="btn-soft" disabled={busy} onClick={() => void act(onDecline)}>
+          Decline
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function InviteLayout({

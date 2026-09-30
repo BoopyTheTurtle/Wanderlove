@@ -109,3 +109,38 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Together or Just me, under the quest point while linked. */
+.quest-choice {
+  width: 290px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.quest-choice-option {
+  border: 0;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  padding: 12px 10px;
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.quest-choice-option:active {
+  transform: scale(0.97);
+}
+.quest-choice-option strong {
+  color: var(--brand);
+  font-size: 15px;
+  font-weight: 800;
+}
+.quest-choice-option small {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}

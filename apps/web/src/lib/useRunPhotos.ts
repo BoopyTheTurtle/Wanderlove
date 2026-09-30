@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DecryptionError } from "./crypto";
 import { RunKeyPendingError } from "./keys";
-import { deletePhoto, listRunPhotos, openStoredPhoto, type RunPhoto } from "./photos";
+import { deletePhoto, hidePhoto, listRunPhotos, openStoredPhoto, type RunPhoto } from "./photos";
 import { useRunKeyLoader } from "./photoKeys";
 
 // Signed URLs last an hour; one fetched longer ago than this gets replaced on the next refresh.
@@ -24,6 +24,8 @@ export type RunPhotos = {
   // A photo this phone just uploaded; `jpeg` is its prepared JPEG, so an encrypted photo shows without a download.
   add: (photo: RunPhoto, jpeg?: Blob) => void;
   remove: (photo: RunPhoto) => Promise<void>;
+  // Hides someone else's photo from this user's album only (lib/photos.ts, hidePhoto).
+  hide: (photo: RunPhoto) => Promise<void>;
 };
 
 // A run's photos from both partners, or one stop's with `stopId`, reloaded whenever `refreshKey` changes (the app
@@ -166,8 +168,7 @@ export function useRunPhotos(runId: string, refreshKey: number, stopId?: string)
     [keep, openMissing],
   );
 
-  const remove = useCallback(async (photo: RunPhoto) => {
-    await deletePhoto(photo);
+  const drop = useCallback((photo: RunPhoto) => {
     removed.current.add(photo.id);
     known.current.delete(photo.id);
     const url = blobUrls.current.get(photo.id);
@@ -177,6 +178,22 @@ export function useRunPhotos(runId: string, refreshKey: number, stopId?: string)
     }
     setPhotos((all) => all.filter((p) => p.id !== photo.id));
   }, []);
+
+  const remove = useCallback(
+    async (photo: RunPhoto) => {
+      await deletePhoto(photo);
+      drop(photo);
+    },
+    [drop],
+  );
+
+  const hide = useCallback(
+    async (photo: RunPhoto) => {
+      await hidePhoto(photo.id);
+      drop(photo);
+    },
+    [drop],
+  );
 
   const shown = useMemo(
     () =>
@@ -189,5 +206,5 @@ export function useRunPhotos(runId: string, refreshKey: number, stopId?: string)
     [photos, opened, broken, locked],
   );
 
-  return { status, photos: shown, locked, retry, add, remove };
+  return { status, photos: shown, locked, retry, add, remove, hide };
 }

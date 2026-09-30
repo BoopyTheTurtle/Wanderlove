@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { trail } from "@wannadoo/core";
-import { toRunSnapshot } from "./runSnapshot";
+import { fromRunSnapshot, toRunSnapshot } from "./runSnapshot";
 import {
   allStopsDone,
   canAddPhotos,
@@ -29,8 +29,10 @@ function row(completions: { stop_id: string; completed_by?: string; completed_at
     id: "run-1",
     trail_id: trail.id,
     trail_snapshot: JSON.parse(JSON.stringify(toRunSnapshot(trail))),
+    summary_ciphertext: null,
+    summary_nonce: null,
     couple_id: "couple-1",
-    started_by: "user-a",
+    started_by: "user-a" as string | null,
     started_at: "2026-09-29T10:00:00Z",
     completed_at: null,
     abandoned_at: null,
@@ -42,9 +44,18 @@ function row(completions: { stop_id: string; completed_by?: string; completed_at
   };
 }
 
+// A legacy run's trail comes straight from its snapshot; trailFromRow covers private runs.
+function runOf(r: ReturnType<typeof row>): Run {
+  return runFromRow(r, fromRunSnapshot(r.trail_snapshot, r.trail_id));
+}
+
+function pastOf(r: Parameters<typeof pastRunFromRow>[0]) {
+  return pastRunFromRow(r, fromRunSnapshot(r.trail_snapshot, r.trail_id));
+}
+
 describe("runFromRow", () => {
   it("rebuilds the trail and keys completions by stop", () => {
-    const run = runFromRow(row([{ stop_id: second.id, completed_by: "user-b", completed_at: "t1" }]));
+    const run = runOf(row([{ stop_id: second.id, completed_by: "user-b", completed_at: "t1" }]));
     expect(run.trail.id).toBe(trail.id);
     expect(run.trail.stops).toEqual(trail.stops);
     expect(run.coupleId).toBe("couple-1");
@@ -54,7 +65,7 @@ describe("runFromRow", () => {
 
 describe("run state", () => {
   it("starts with nothing done and the first stop next", () => {
-    const run = runFromRow(row());
+    const run = runOf(row());
     expect(completedCount(run)).toBe(0);
     expect(nextStop(run)?.id).toBe(first.id);
     expect(allStopsDone(run)).toBe(false);
@@ -62,26 +73,26 @@ describe("run state", () => {
   });
 
   it("picks the first open stop in trail order, whoever completed the others", () => {
-    const run = runFromRow(row([{ stop_id: first.id }, { stop_id: third.id, completed_by: "user-b" }]));
+    const run = runOf(row([{ stop_id: first.id }, { stop_id: third.id, completed_by: "user-b" }]));
     expect(completedCount(run)).toBe(2);
     expect(isStopDone(run, third.id)).toBe(true);
     expect(nextStop(run)?.id).toBe(second.id);
   });
 
   it("ignores completions for stops not on the trail", () => {
-    const run = runFromRow(row([{ stop_id: "osm-node-1" }]));
+    const run = runOf(row([{ stop_id: "osm-node-1" }]));
     expect(completedCount(run)).toBe(0);
   });
 
   it("reports all done once every stop has a completion", () => {
-    const run = runFromRow(row(trail.stops.map((s) => ({ stop_id: s.id }))));
+    const run = runOf(row(trail.stops.map((s) => ({ stop_id: s.id }))));
     expect(completedCount(run)).toBe(trail.stops.length);
     expect(nextStop(run)).toBeNull();
     expect(allStopsDone(run)).toBe(true);
   });
 
   it("treats a finished or abandoned run as inactive", () => {
-    const run: Run = runFromRow(row());
+    const run: Run = runOf(row());
     expect(isRunActive({ ...run, completedAt: "t" })).toBe(false);
     expect(isRunActive({ ...run, abandonedAt: "t" })).toBe(false);
   });
@@ -117,8 +128,8 @@ describe("canAddPhotos", () => {
 
 describe("startedBy", () => {
   it("carries who started the run, or null for older runs", () => {
-    expect(runFromRow(row()).startedBy).toBe("user-a");
-    expect(runFromRow({ ...row(), started_by: null }).startedBy).toBeNull();
+    expect(runOf(row()).startedBy).toBe("user-a");
+    expect(runOf({ ...row(), started_by: null }).startedBy).toBeNull();
   });
 });
 
@@ -183,6 +194,9 @@ describe("pastRunFromRow", () => {
       id: "run-1",
       trail_id: trail.id,
       trail_snapshot: JSON.parse(JSON.stringify(toRunSnapshot(trail))),
+      summary_ciphertext: null,
+      summary_nonce: null,
+      stop_count: null,
       started_at: "2026-09-29T10:00:00Z",
       completed_at: over.completed_at ?? null,
       abandoned_at: over.abandoned_at ?? null,
@@ -192,11 +206,11 @@ describe("pastRunFromRow", () => {
   }
 
   it("skips a run that is still open", () => {
-    expect(pastRunFromRow(pastRow({}))).toBeNull();
+    expect(pastOf(pastRow({}))).toBeNull();
   });
 
   it("summarises a finished run", () => {
-    const run = pastRunFromRow(
+    const run = pastOf(
       pastRow({ completed_at: "2026-09-29T11:00:00Z", done: trail.stops.map((s) => s.id), photos: 3 }),
     );
     expect(run).toMatchObject({
@@ -211,15 +225,15 @@ describe("pastRunFromRow", () => {
   });
 
   it("counts only the trail's own stops", () => {
-    const run = pastRunFromRow(pastRow({ completed_at: "t", done: [first.id, "osm-node-1"] }));
+    const run = pastOf(pastRow({ completed_at: "t", done: [first.id, "osm-node-1"] }));
     expect(run?.stopsDone).toBe(1);
   });
 
   it("keeps a run left part of the way and hides one left before any stop", () => {
-    const partWay = pastRunFromRow(pastRow({ abandoned_at: "2026-09-29T10:30:00Z", done: [first.id] }));
+    const partWay = pastOf(pastRow({ abandoned_at: "2026-09-29T10:30:00Z", done: [first.id] }));
     expect(partWay?.outcome).toBe("left");
     expect(partWay && isJourney(partWay)).toBe(true);
-    const unstarted = pastRunFromRow(pastRow({ abandoned_at: "2026-09-29T10:01:00Z" }));
+    const unstarted = pastOf(pastRow({ abandoned_at: "2026-09-29T10:01:00Z" }));
     expect(unstarted && isJourney(unstarted)).toBe(false);
   });
 });

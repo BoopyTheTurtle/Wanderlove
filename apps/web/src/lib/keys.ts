@@ -19,9 +19,11 @@
 //
 // Partner trust (section 4; security review, finding 4):
 // - An invite QR or link carries the inviter's key ID in its fragment (/link/<code>#k=<key_id>; the server never sees
-//   it). Before redeeming, expectPartnerKey(myId, keyId) records it; after, verifyPartnerKey(myId) compares it with
-//   the new partner's published key and pins the key on a match. On a mismatch the caller unlinks
-//   (unlinkMismatchedPartner). The invitee cannot read the inviter's key before redeeming, so the check follows it.
+//   it). Before redeeming, expectPartnerKey(myId, keyId) records it. Redeeming leaves a link request for the inviter
+//   to confirm, and while it is open the invitee reads the inviter's profile card, so checkInviterKey(myId, inviterId)
+//   compares the key before anyone is linked and pins it on a match; on a mismatch the caller declines the request.
+//   verifyPartnerKey(myId) repeats the check once linked, for a check that could not run before (offline), and the
+//   caller then unlinks on a mismatch (unlinkMismatchedPartner).
 // - checkPartnerKey(myId) → "none" (no partner, the partner has no key yet, or their key differs from the one their
 //   invite carried; verifyPartnerKey tells that last case apart), "trusted", or "confirm" when the key differs from
 //   the one this phone pinned ("changed") or is new to this phone while trails are shared ("new").
@@ -201,6 +203,24 @@ export async function unlockWithRecoveryCode(userId: string, code: string): Prom
   return device;
 }
 
+// "Recovery code viewed on" (abuse threat model, K2): the server records when the current code was first shown, so a
+// code someone else read first shows a date its owner doesn't recognise. Only the owner reads it.
+export async function markRecoveryViewed(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("mark_recovery_viewed");
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function loadRecoveryViewedAt(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("user_keys")
+    .select("recovery_viewed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.recovery_viewed_at ?? null;
+}
+
 // A new pair and a new recovery code for a user whose code is gone from this device (security review, finding 3).
 // The order keeps a failure safe: this device stores the new pair beside the current one first; then the new public
 // key goes out; then this user's run keys are rewrapped for it; only then does the new pair replace the current one
@@ -231,7 +251,16 @@ async function finishRotation(userId: string, device: DeviceKeys & { next: Devic
     .eq("user_id", userId);
   if (error) throw error;
   const self: PartnerKey = { partnerId: userId, publicKey: device.next.publicKey, keyId: device.next.keyId };
-  const { wraps } = await rewrapForPartner(rows, device, self);
+  // A copy for an invitation not yet accepted stays as it is: share_run_keys writes only for members.
+  const joined = await joinedRunIds(
+    userId,
+    rows.map((r) => r.run_id),
+  );
+  const { wraps } = await rewrapForPartner(
+    rows.filter((r) => joined.has(r.run_id)),
+    device,
+    self,
+  );
   if (wraps.length > 0) {
     // share_run_keys writes every row or none, and lets a member write their own.
     const { error: shareError } = await supabase.rpc("share_run_keys", { p_keys: wraps });
@@ -295,25 +324,29 @@ function pinPartnerKey(myId: string, partnerId: string, keyId: string) {
 
 type RunKeyRow = { run_id: string; wrapped_key: string; ephemeral_public_key: string; for_key_id: string };
 
-// This user's wrapped keys for runs the partner also walked.
+// Which of these runs the user has joined. Holding a copy of a run's key isn't enough: the partner's invitation hands
+// one over before the user accepts (docs/private-trails.md, section 2).
+async function joinedRunIds(userId: string, runIds: string[]): Promise<Set<string>> {
+  if (runIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("trail_run_members")
+    .select("run_id")
+    .eq("user_id", userId)
+    .in("run_id", runIds);
+  if (error) throw error;
+  return new Set(data.map((m) => m.run_id));
+}
+
+// This user's wrapped keys for runs both this user and the partner joined. share_run_keys refuses any other.
 async function sharedRunKeys(myId: string, partnerId: string): Promise<RunKeyRow[]> {
   const { data: mine, error } = await supabase
     .from("run_keys")
     .select("run_id, wrapped_key, ephemeral_public_key, for_key_id")
     .eq("user_id", myId);
   if (error) throw error;
-  if (mine.length === 0) return [];
-  const { data: members, error: membersError } = await supabase
-    .from("trail_run_members")
-    .select("run_id")
-    .eq("user_id", partnerId)
-    .in(
-      "run_id",
-      mine.map((r) => r.run_id),
-    );
-  if (membersError) throw membersError;
-  const shared = new Set(members.map((m) => m.run_id));
-  return mine.filter((r) => shared.has(r.run_id));
+  const ids = mine.map((r) => r.run_id);
+  const [myRuns, partnerRuns] = await Promise.all([joinedRunIds(myId, ids), joinedRunIds(partnerId, ids)]);
+  return mine.filter((r) => myRuns.has(r.run_id) && partnerRuns.has(r.run_id));
 }
 
 // The key ID an invite carried, per user: { [myId]: keyId }. Set just before redeeming, cleared once checked.
@@ -379,6 +412,18 @@ export async function verifyPartnerKey(myId: string): Promise<InviteKeyCheck> {
   pinPartnerKey(myId, partner.id, key.keyId);
   expectPartnerKey(myId, null);
   return { status: "verified" };
+}
+
+// Before the inviter confirms: compares the inviter's published key with the key ID their invite carried, pins it on a
+// match, and forgets the key ID either way once compared. "unchecked" when the invite carried none (a typed code).
+export async function checkInviterKey(myId: string, inviterId: string): Promise<"unchecked" | "verified" | "mismatch"> {
+  const expected = readExpected()[myId];
+  if (!expected) return "unchecked";
+  const { key, computedKeyId } = await loadPartnerCardKey(inviterId);
+  expectPartnerKey(myId, null);
+  if (!key || !decideInviteKey(expected, computedKeyId, key.keyId)) return "mismatch";
+  pinPartnerKey(myId, inviterId, key.keyId);
+  return "verified";
 }
 
 // Ends a link whose partner key did not match their invite, and forgets the invite's key ID.
