@@ -129,14 +129,10 @@ describe("generateRoute", () => {
     expect(trail.stops.at(-1)!.prompt).toMatch(/meaningful life/);
   });
 
-  it("falls back to an estimated distance when the router is unreachable", async () => {
+  it("fails rather than offer an unchecked loop when the router is unreachable", async () => {
     stubFetch({ routerUp: false });
-    const { generateRoute, MAX_ROUTE_METERS } = await loadRouteGen();
-    const { trail } = await settle(generateRoute(START, false));
-
-    expect(trail.stops).toHaveLength(5);
-    expect(trail.distanceEstimated).toBe(true);
-    expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS);
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/walking router/);
   });
 
   it("stays within the limit when real paths are much longer than straight lines", async () => {

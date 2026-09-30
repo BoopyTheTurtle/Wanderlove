@@ -35,6 +35,7 @@ const WALK_METERS_PER_MIN = 75;
 const MINUTES_PER_STOP = 6;
 
 const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move somewhere with more to see.";
+const ROUTER_ERROR = "Couldn't reach the walking router to check this loop. Check your connection and try again.";
 const TOO_FEW_ERROR = "Not enough interesting places nearby for a route. Try somewhere a bit more central.";
 
 const OVERPASS_ENDPOINTS = [
@@ -274,8 +275,7 @@ function routeOnFoot(points: LatLng[], headers?: Record<string, string>): Promis
 // Builds a loop of exactly five stops, routes it, and checks the route. A failed check drops the offending stop,
 // tops the loop up with another candidate, and reroutes; a loop over the limit loses its costliest stop and the
 // search tightens. After eight router calls it gives up.
-// When the router is unreachable, the loop comes back with an estimated distance (`distanceEstimated`), and only
-// the stop filters, not the path checks, have run.
+// When the router is unreachable it fails rather than hand out a loop whose crossings and paths nobody checked.
 export async function generateRoute(
   start: LatLng,
   approximateStart: boolean,
@@ -319,13 +319,7 @@ export async function generateRoute(
     routerCalls++;
     const routed = await routeOnFoot([start, ...loop, start], options.headers);
 
-    if (!routed) {
-      // Router unreachable: fall back to a straight-line estimate, which buildLoop already keeps within the limit.
-      const distance = loopLength(start, loop) * WALK_FACTOR;
-      const path = [start, ...loop, start].map((p) => [p.lat, p.lng] as [number, number]);
-      const trail = toTrail(start, loop, distance, path, true);
-      return { trail, approximateStart, rural: false, routerCalls, rejections };
-    }
+    if (!routed) throw new Error(ROUTER_ERROR);
 
     const verdict = checkRoute(routed, data.network, start, loop);
     let drop: number;
