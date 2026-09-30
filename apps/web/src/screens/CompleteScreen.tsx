@@ -3,6 +3,8 @@ import { CoupleAvatar } from "../components/CoupleAvatar";
 import { PhotoGrid } from "../components/PhotoGrid";
 import { CompassIcon, ShareIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
+import { AlbumActions } from "../components/AlbumActions";
+import { stopFilePrefix } from "../lib/album";
 import { canAddPhotos } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
@@ -115,6 +117,17 @@ export function CompleteScreen({
         <ShareIcon size={16} /> Share the trail
       </button>
 
+      {loaded.status === "ready" && (
+        <AlbumActions
+          runId={runId}
+          trailName={trail.name}
+          stops={trail.stops}
+          date={loaded.run.completedAt ?? loaded.run.startedAt}
+          photoCount={album.status === "ready" ? photos.length : 0}
+          theme="default"
+        />
+      )}
+
       <section className="album-by-stop" aria-label="Photos by stop">
         {album.status === "loading" && <p className="album-note">Loading photos…</p>}
         {album.status === "error" && (
@@ -129,14 +142,20 @@ export function CompleteScreen({
           <p className="album-note">You can add photos for a day after finishing.</p>
         )}
         {album.status === "ready" &&
-          trail.stops.map((stop) => {
+          trail.stops.map((stop, i) => {
             const here = photos.filter((p) => p.stopId === stop.id);
             if (here.length === 0 && !photosOpen) return null;
             return (
               <div key={stop.id} className="album-stop">
                 <h3>{stop.name}</h3>
                 {here.length > 0 && (
-                  <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={album.remove} />
+                  <PhotoGrid
+                    photos={here}
+                    meId={meId}
+                    partnerName={partnerName}
+                    onDelete={album.remove}
+                    fileNamePrefix={stopFilePrefix(i + 1, stop.name)}
+                  />
                 )}
                 {photosOpen && <AddStopPhoto runId={runId} stopId={stop.id} onAdded={album.add} />}
               </div>
