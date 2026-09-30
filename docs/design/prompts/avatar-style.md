@@ -4,6 +4,8 @@ Explores the look of the avatar creator (roadmap stage 5). The chosen style then
 so the image model only sets the direction. Style reference: `docs/design/mockups/Avatar Man.png` and
 `Avatar Woman.png`.
 
+Edgar approved the first sheet's style on September 30 ("spot on"); it is the reference for the SVG parts.
+
 ## Prompt
 
 A character style sheet on a plain warm cream background (#fbf0e2): eight friendly head-and-shoulders avatars in a
