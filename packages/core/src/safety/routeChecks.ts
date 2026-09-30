@@ -2,6 +2,8 @@ import type { LatLng } from "../geo";
 import { haversineDistanceMeters } from "../geo";
 import type { Tags } from "./filters";
 import { crossesRoadsAt } from "./geometry";
+import type { Zone } from "./hazards";
+import { inZone } from "./hazards";
 import type { OsmElement } from "./overpass";
 import { MAJOR_HIGHWAY, toLatLng } from "./overpass";
 
@@ -117,7 +119,30 @@ export type RoadNetwork = {
   fordNodes: PointGrid<number>;
   fordWays: RoadWay[];
   fordVertices: PointGrid<VertexRef>;
+  rails: RoadWay[];
+  railVertices: PointGrid<VertexRef>;
+  railCrossings: PointGrid<number>;
+  railCrossingById: Map<number, LatLng>;
+  serviceWays: RoadWay[];
+  serviceVertices: PointGrid<VertexRef>;
+  closedLand: Zone[];
 };
+
+// The inputs of the railway (H7) and closed-land (H5) path checks. `rails` are railway ways, `railCrossings` the
+// crossing nodes on them (`out skel`), `service` the service roads and tracks on closed land, and `closedLand` the
+// industrial, military, quarry, and railway areas from the hazard index.
+export type NetworkExtras = {
+  rails?: OsmElement[];
+  railCrossings?: OsmElement[];
+  service?: OsmElement[];
+  closedLand?: Zone[];
+};
+
+// Tracks a walker must cross only at a marked crossing (H7). Trams run in the street, so they cross freely in stage 2.
+const MAIN_RAIL = /^(rail|light_rail)$/;
+const onBridgeOrTunnel = (tags: Tags) =>
+  (tags.bridge !== undefined && tags.bridge !== "no") || (tags.tunnel !== undefined && tags.tunnel !== "no");
+const CLOSED_LAND_ROAD = /^(service|track)$/;
 
 function toWays(elements: OsmElement[]): RoadWay[] {
   return elements
@@ -136,18 +161,34 @@ function indexWays(ways: RoadWay[]): PointGrid<VertexRef> {
   return grid;
 }
 
-// `roads` are the major roads plus the fast lower roads; `crossings` the marked crossing nodes (`out skel`);
-// `fords` the nodes and ways tagged ford=yes.
-export function buildRoadNetwork(roads: OsmElement[], crossings: OsmElement[], fords: OsmElement[]): RoadNetwork {
-  const roadWays = toWays(roads);
-  const crossingGrid: PointGrid<number> = new Map();
-  const crossingById = new Map<number, LatLng>();
-  for (const el of crossings) {
+function indexNodes(elements: OsmElement[]): { grid: PointGrid<number>; byId: Map<number, LatLng> } {
+  const grid: PointGrid<number> = new Map();
+  const byId = new Map<number, LatLng>();
+  for (const el of elements) {
     if (el.type !== "node" || el.lat === undefined || el.lon === undefined) continue;
     const at = { lat: el.lat, lng: el.lon };
-    gridAdd(crossingGrid, at, el.id);
-    crossingById.set(el.id, at);
+    gridAdd(grid, at, el.id);
+    byId.set(el.id, at);
   }
+  return { grid, byId };
+}
+
+// `roads` are the major roads plus the fast lower roads; `crossings` the marked crossing nodes (`out skel`);
+// `fords` the nodes and ways tagged ford=yes.
+export function buildRoadNetwork(
+  roads: OsmElement[],
+  crossings: OsmElement[],
+  fords: OsmElement[],
+  extras: NetworkExtras = {},
+): RoadNetwork {
+  const roadWays = toWays(roads);
+  const { grid: crossingGrid, byId: crossingById } = indexNodes(crossings);
+  // A track on a bridge or in a tunnel shares no node with the path, but drop it anyway in case the data joins them.
+  const rails = toWays(extras.rails ?? []).filter(
+    (w) => MAIN_RAIL.test(w.tags.railway ?? "") && !onBridgeOrTunnel(w.tags),
+  );
+  const railCrossings = indexNodes(extras.railCrossings ?? []);
+  const serviceWays = toWays(extras.service ?? []).filter((w) => CLOSED_LAND_ROAD.test(w.tags.highway ?? ""));
   const fordNodes: PointGrid<number> = new Map();
   for (const el of fords) {
     if (el.type === "node" && el.lat !== undefined && el.lon !== undefined) {
@@ -163,6 +204,13 @@ export function buildRoadNetwork(roads: OsmElement[], crossings: OsmElement[], f
     fordNodes,
     fordWays,
     fordVertices: indexWays(fordWays),
+    rails,
+    railVertices: indexWays(rails),
+    railCrossings: railCrossings.grid,
+    railCrossingById: railCrossings.byId,
+    serviceWays,
+    serviceVertices: indexWays(serviceWays),
+    closedLand: extras.closedLand ?? [],
   };
 }
 
@@ -279,17 +327,20 @@ export function checkRoute(loop: RoutedLoop, net: RoadNetwork, start: LatLng, st
   // H1: a path vertex on a major road, with neither neighbouring segment along a major road, crosses it there when it
   // arrives and leaves on different sides. The crossing must be marked. Router node IDs help only below 10^10; above,
   // the coordinates decide.
-  const passedCrossings: LatLng[] = [];
-  for (const leg of loop.legs) {
-    for (const id of leg.nodeIds) {
-      const at = Number.isInteger(id) && id < TRUSTED_ID_LIMIT ? net.crossingById.get(id) : undefined;
-      if (at) passedCrossings.push(at);
+  const markedBy = (grid: PointGrid<number>, byId: Map<number, LatLng>) => {
+    const passed: LatLng[] = [];
+    for (const leg of loop.legs) {
+      for (const id of leg.nodeIds) {
+        const at = Number.isInteger(id) && id < TRUSTED_ID_LIMIT ? byId.get(id) : undefined;
+        if (at) passed.push(at);
+      }
     }
-  }
+    return (p: LatLng) =>
+      gridNear(grid, p, MATCH_METERS).length > 0 ||
+      passed.some((c) => haversineDistanceMeters(c, p) <= ID_MATCH_METERS);
+  };
   const isMajor = (way: number) => MAJOR_HIGHWAY.test(net.roads[way].tags.highway ?? "");
-  const marked = (p: LatLng) =>
-    gridNear(net.crossings, p, MATCH_METERS).length > 0 ||
-    passedCrossings.some((c) => haversineDistanceMeters(c, p) <= ID_MATCH_METERS);
+  const marked = markedBy(net.crossings, net.crossingById);
   for (let i = 1; i < pts.length - 1; i++) {
     const refs = onRoad[i].filter((r) => isMajor(r.way));
     if (!refs.length) continue;
@@ -300,6 +351,39 @@ export function checkRoute(loop: RoutedLoop, net: RoadNetwork, start: LatLng, st
     });
     if (!crossesRoadsAt(pts[i], pts[i - 1], pts[i + 1], neighbours)) continue;
     if (!marked(pts[i])) add("H1-crossing", legEnds(legOf[i]), pts[i]);
+  }
+
+  // H7: the same test against railway tracks. A path meets a track at grade only at a shared node, which must be tagged
+  // railway=crossing or level_crossing; a bridge or tunnel shares none. Matched by coordinates, as for H1.
+  if (net.rails.length) {
+    const onRail = pts.map((p) => gridNear(net.railVertices, p, MATCH_METERS));
+    const alongRail = pts.slice(0, -1).map((_, i) => alongWays(onRail, i));
+    const railMarked = markedBy(net.railCrossings, net.railCrossingById);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const refs = onRail[i];
+      if (!refs.length || alongRail[i - 1].length || alongRail[i].length) continue;
+      const neighbours = refs.flatMap((r) => {
+        const coords = net.rails[r.way].coords;
+        return [coords[r.index - 1], coords[r.index + 1]].filter((p): p is LatLng => p !== undefined);
+      });
+      if (!crossesRoadsAt(pts[i], pts[i - 1], pts[i + 1], neighbours)) continue;
+      if (!railMarked(pts[i])) add("H7-rail-crossing", legEnds(legOf[i]), pts[i]);
+    }
+  }
+
+  // H5: service roads and tracks on industrial, military, quarry, or railway land are yards and works access, not
+  // walks. A stretch counts when it runs along such a way and its midpoint lies inside such land.
+  if (net.serviceWays.length && net.closedLand.length) {
+    const onService = pts.map((p) => gridNear(net.serviceVertices, p, MATCH_METERS));
+    const flagged = new Set<number>(); // once per leg, so a long yard road doesn't outweigh other problems
+    for (let i = 0; i < pts.length - 1; i++) {
+      const leg = legOf[i + 1];
+      if (flagged.has(leg) || !alongWays(onService, i).length) continue;
+      const mid = { lat: (pts[i].lat + pts[i + 1].lat) / 2, lng: (pts[i].lng + pts[i + 1].lng) / 2 };
+      if (!net.closedLand.some((z) => inZone(mid, z))) continue;
+      flagged.add(leg);
+      add("H5-industrial-service", legEnds(leg), mid);
+    }
   }
 
   // The stop named by the most problems is the likeliest cause: a stop across a river fails both legs that reach it.

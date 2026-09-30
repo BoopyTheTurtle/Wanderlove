@@ -1,6 +1,7 @@
 import type { LatLng } from "../geo";
 import { haversineDistanceMeters } from "../geo";
 import type { OsmElement } from "./overpass";
+import { OVERPASS_SECTIONS } from "./overpass";
 import type { OsrmResponse } from "./routeChecks";
 
 // Synthetic OpenStreetMap and router data for the tests, shaped like real Overpass `out tags center` /
@@ -69,8 +70,7 @@ const COUNT: OsmElement = { type: "count", id: 0, tags: { total: "0" } };
 
 // A whole Overpass response: each section followed by its count marker.
 export function overpassResponse(sections: Partial<Record<string, OsmElement[]>>): { elements: OsmElement[] } {
-  const order = ["candidates", "generic", "hazards", "roads", "crossings", "fords"];
-  return { elements: order.flatMap((name) => [...(sections[name] ?? []), COUNT]) };
+  return { elements: OVERPASS_SECTIONS.flatMap((name) => [...(sections[name] ?? []), COUNT]) };
 }
 
 export type LegSpec = { path: LatLng[]; mode?: string; nodes?: number[] };
