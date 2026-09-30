@@ -25,6 +25,13 @@ begin
   return n;
 end $$;
 
+-- Starts a sealed one-stop run ("s1") as the current user, inviting the partner if there is one. Plain snapshots are
+-- gone since the wave 2 cleanup.
+create function pg_temp.sealed(p_keys jsonb default null, p_run_id uuid default null) returns uuid language sql as $$
+  select public.start_run('private', null, p_keys, p_run_id, p_partner => 'invite', p_details => 'd',
+    p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1)
+$$;
+
 create temp table ids (name text primary key, id uuid);
 grant all on ids to authenticated;
 
@@ -124,20 +131,20 @@ select is(
 
 select pg_temp.login('88888888-0000-0000-0000-00000000000a');
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}') $$,
+  $$ select pg_temp.sealed() $$,
   'P0001', 'keys_required',
   'start_run without keys is refused (09_require_encryption covers the details)'
 );
 
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"}
      ]', '88888888-0000-0000-0000-0000000000e9') $$,
   'P0001', 'keys_mismatch',
   'keys missing the partner are refused'
 );
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
        {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b1"},
        {"user_id": "88888888-0000-0000-0000-000000000005", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "s1"}
@@ -146,7 +153,7 @@ select throws_ok(
   'keys for someone outside the couple are refused'
 );
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
        {"user_id": "88888888-0000-0000-0000-000000000005", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "s1"}
      ]', '88888888-0000-0000-0000-0000000000e9') $$,
@@ -154,14 +161,14 @@ select throws_ok(
   'a stranger in the partner''s place is refused'
 );
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
        {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "stale"}
      ]', '88888888-0000-0000-0000-0000000000e9') $$,
   'P0001', 'keys_mismatch',
   'a wrap for the partner''s old key is refused'
 );
-insert into ids values ('enc', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+insert into ids values ('enc', pg_temp.sealed('[
   {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "wA", "ephemeral_public_key": "eA", "for_key_id": "a"},
   {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "wB", "ephemeral_public_key": "eB", "for_key_id": "b1"}
 ]', '88888888-0000-0000-0000-0000000000e1'));
@@ -171,7 +178,7 @@ select is(
   'an encrypted run takes the ID the phone chose'
 );
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
        {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b1"}
      ]', '88888888-0000-0000-0000-0000000000e1') $$,
@@ -179,7 +186,7 @@ select throws_ok(
   'a reused run ID is refused'
 );
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
        {"user_id": "88888888-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b1"}
      ]') $$,
@@ -202,6 +209,7 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select pg_temp.login('88888888-0000-0000-0000-00000000000b');
+select is(public.accept_run((select id from ids where name = 'enc')), 'joined', 'the partner joins the run');
 select is(
   (select wrapped_key || '/' || for_key_id || '/' || wrapped_by::text from public.run_keys
    where run_id = (select id from ids where name = 'enc')),
@@ -280,7 +288,7 @@ select throws_ok(
   'a stranger cannot re-share into someone else''s run'
 );
 select lives_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
+  $$ select pg_temp.sealed('[
        {"user_id": "88888888-0000-0000-0000-000000000005", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "s1"}
      ]', '88888888-0000-0000-0000-0000000000e9') $$,
   'a solo run takes a single wrap for the caller'
@@ -305,14 +313,14 @@ select is(
 select pg_temp.login('88888888-0000-0000-0000-00000000000a');
 select lives_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('88888888-0000-0000-0000-0000000000f1', '%1$s', 'osm-node-1',
+            values ('88888888-0000-0000-0000-0000000000f1', '%1$s', 's1',
                     '%1$s/88888888-0000-0000-0000-0000000000f1.bin', 800, 600, 'nonce') $$,
          (select id from ids where name = 'enc')),
   'a member adds an encrypted photo row with its nonce'
 );
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('88888888-0000-0000-0000-0000000000f2', '%1$s', 'osm-node-1',
+            values ('88888888-0000-0000-0000-0000000000f2', '%1$s', 's1',
                     '%1$s/88888888-0000-0000-0000-0000000000f2.jpg', 800, 600, 'nonce') $$,
          (select id from ids where name = 'enc')),
   '23514', null,
@@ -320,7 +328,7 @@ select throws_ok(
 );
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height)
-            values ('88888888-0000-0000-0000-0000000000f3', '%1$s', 'osm-node-1',
+            values ('88888888-0000-0000-0000-0000000000f3', '%1$s', 's1',
                     '%1$s/88888888-0000-0000-0000-0000000000f3.bin', 800, 600) $$,
          (select id from ids where name = 'enc')),
   '42501', null,
@@ -367,7 +375,7 @@ select throws_ok(
 );
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('88888888-0000-0000-0000-0000000000f4', '%1$s', 'osm-node-1',
+            values ('88888888-0000-0000-0000-0000000000f4', '%1$s', 's1',
                     '%1$s/88888888-0000-0000-0000-0000000000f4.bin', 800, 600, 'nonce') $$,
          (select id from ids where name = 'enc')),
   '42501', null,

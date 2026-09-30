@@ -32,35 +32,42 @@ end $$;
 create temp table ids (name text primary key, id uuid);
 grant all on ids to authenticated;
 
+-- Starts a sealed run of two stops ("s1", "s2") as the current user.
+create function pg_temp.start(p_partner text, p_keys jsonb) returns uuid language sql as $$
+  select public.start_run('private', null, p_keys, gen_random_uuid(), p_partner => p_partner, p_details => 'd',
+    p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 2)
+$$;
+
 -- Starting a run
-select pg_temp.login('33333333-0000-0000-0000-00000000000a');
+reset role;
 select throws_ok(
-  $$ select public.start_run('t', '{"stops": [], "start": {"lat": 56.9, "lng": 24.1}}', '[
-       {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
-       {"user_id": "33333333-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
-     ]', gen_random_uuid()) $$,
+  $$ insert into public.trail_runs (trail_id, trail_snapshot)
+     values ('t', '{"stops": [], "start": {"lat": 56.9, "lng": 24.1}}') $$,
   '23514', null,
-  'a snapshot carrying the start point is refused'
+  'a legacy snapshot carrying the start point is refused'
 );
+select pg_temp.login('33333333-0000-0000-0000-00000000000a');
 select throws_ok(
   $$ insert into public.trail_runs (trail_id, trail_snapshot) values ('t', '{"stops": []}') $$,
   '42501', null,
   'runs cannot be created directly'
 );
-insert into ids values ('run', public.start_run('t', '{"stops": [{"id": "osm-node-1"}, {"id": "osm-node-2"}]}', '[
+insert into ids values ('run', pg_temp.start('invite', '[
   {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"},
   {"user_id": "33333333-0000-0000-0000-00000000000b", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "b"}
-]', gen_random_uuid()));
-select is((select count(*)::int from public.trail_run_members), 2, 'start_run adds the caller and the partner');
+]'));
+select is((select count(*)::int from public.trail_run_members), 1, 'start_run adds only the caller');
 
 select pg_temp.login('33333333-0000-0000-0000-00000000000b');
+select is((select count(*)::int from public.trail_runs), 0, 'the partner cannot read the run before joining');
+select is(public.accept_run((select id from ids where name = 'run')), 'joined', 'the partner joins');
 select is((select count(*)::int from public.trail_runs), 1, 'the partner reads the run');
 
 select pg_temp.login('33333333-0000-0000-0000-000000000005');
 select is((select count(*)::int from public.trail_runs), 0, 'a stranger cannot read the run');
 select is((select count(*)::int from public.trail_run_members), 0, 'a stranger cannot read the members');
 select throws_ok(
-  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 'osm-node-1') $$,
+  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 's1') $$,
   '42501', null,
   'a stranger cannot complete a stop'
 );
@@ -68,13 +75,13 @@ select throws_ok(
 -- Completing stops
 select pg_temp.login('33333333-0000-0000-0000-00000000000b');
 select lives_ok(
-  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 'osm-node-1') $$,
+  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 's1') $$,
   'a member completes a stop on the run'
 );
 select throws_ok(
-  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 'osm-node-99') $$,
+  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 's3') $$,
   '42501', null,
-  'a stop outside the snapshot is refused'
+  'a stop past the run''s stop count is refused'
 );
 select pg_temp.login('33333333-0000-0000-0000-00000000000a');
 select is((select completed_by from public.stop_completions), '33333333-0000-0000-0000-00000000000b'::uuid, 'the partner sees who completed it');
@@ -84,13 +91,13 @@ select pg_temp.login('33333333-0000-0000-0000-00000000000b');
 insert into ids values ('photo', gen_random_uuid());
 select lives_ok(
   $$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-     select p.id, r.id, 'osm-node-1', r.id || '/' || p.id || '.bin', 1600, 1200, 'nonce'
+     select p.id, r.id, 's1', r.id || '/' || p.id || '.bin', 1600, 1200, 'nonce'
      from ids p, ids r where p.name = 'photo' and r.name = 'run' $$,
   'a member uploads a photo to the run'
 );
 select throws_ok(
   $$ insert into public.photos (run_id, stop_id, storage_path, width, height, nonce)
-     select id, 'osm-node-1', 'elsewhere/x.bin', 10, 10, 'nonce' from ids where name = 'run' $$,
+     select id, 's1', 'elsewhere/x.bin', 10, 10, 'nonce' from ids where name = 'run' $$,
   '23514', null,
   'a storage path outside the run folder is refused'
 );
@@ -120,7 +127,7 @@ select is((select count(*)::int from public.photos), 1, 'hiding leaves the photo
 select lives_ok($$ select public.unlink() $$, 'B unlinks');
 select is((select count(*)::int from public.trail_runs where abandoned_at is not null), 1, 'unlinking abandons the open run');
 select throws_ok(
-  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 'osm-node-2') $$,
+  $$ insert into public.stop_completions (run_id, stop_id) values ((select id from ids where name = 'run'), 's2') $$,
   '42501', null,
   'an abandoned run takes no more stops'
 );
@@ -129,9 +136,9 @@ select is((select count(*)::int from public.photos), 1, 'the uploader keeps the 
 select pg_temp.login('33333333-0000-0000-0000-00000000000a');
 select is((select count(*)::int from public.trail_runs), 1, 'the ex keeps the shared run');
 select is((select count(*)::int from public.profile_cards), 2, 'exes still see each other''s card through the shared run');
-insert into ids values ('solo', public.start_run('t', '{"stops": [{"id": "osm-node-3"}]}', '[
+insert into ids values ('solo', pg_temp.start('invite', '[
   {"user_id": "33333333-0000-0000-0000-00000000000a", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "a"}
-]', gen_random_uuid()));
+]'));
 select is(
   (select count(*)::int from public.trail_run_members where run_id = (select id from ids where name = 'solo')),
   1,
