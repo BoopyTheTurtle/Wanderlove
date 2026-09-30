@@ -54,13 +54,20 @@ export function runFromRow(row: RunRow): Run {
 
 // How a new run's photos are kept (photo-encryption.md, sections 2 and 4). An encrypted run wraps its photo key for
 // every member: the caller alone on a solo run, or the caller and the active partner. When the partner can't receive
-// a key yet, the walk still starts, as a plain run whose photos upload unencrypted like before encryption:
+// a key yet, the start waits (RunKeysNotReadyError) rather than let photos upload unencrypted:
 // - "partner-without-keys": the partner's account has no keys (their phone hasn't opened the app since E.3).
 // - "partner-unconfirmed": the partner's key is new or changed and waits for this user's trust (the app is asking).
 // - "keys-mismatch": the server refused the wraps twice, because a key changed between the check and the start.
-export type RunKeyPlan =
-  | { kind: "encrypted"; recipients: Recipient[] }
-  | { kind: "plain"; reason: "partner-without-keys" | "partner-unconfirmed" | "keys-mismatch" };
+export type RunKeyPlan = { kind: "encrypted"; recipients: Recipient[] } | { kind: "wait"; reason: NotReadyReason };
+
+export type NotReadyReason = "partner-without-keys" | "partner-unconfirmed" | "keys-mismatch";
+
+export class RunKeysNotReadyError extends Error {
+  constructor(readonly reason: NotReadyReason) {
+    super(`The run's photo keys aren't ready: ${reason}`);
+    this.name = "RunKeysNotReadyError";
+  }
+}
 
 // Pure decision. `partnerId` is the active partner, or null on a solo run; `check` is lib/keys.ts's checkPartnerKey.
 export function planRunKeys(me: Recipient, partnerId: string | null, check: PartnerKeyCheck): RunKeyPlan {
@@ -69,8 +76,8 @@ export function planRunKeys(me: Recipient, partnerId: string | null, check: Part
     const { publicKey, keyId } = check.key;
     return { kind: "encrypted", recipients: [me, { userId: partnerId, publicKey, keyId }] };
   }
-  if (check.status === "confirm") return { kind: "plain", reason: "partner-unconfirmed" };
-  return { kind: "plain", reason: "partner-without-keys" };
+  if (check.status === "confirm") return { kind: "wait", reason: "partner-unconfirmed" };
+  return { kind: "wait", reason: "partner-without-keys" };
 }
 
 // start_run's refusal when a wrap is missing or not for a member's current key (migration 20260929220000).
@@ -90,17 +97,13 @@ export type StartedRun = { run: Run; plan: RunKeyPlan };
 // Starts a run for the caller and their active partner, and abandons any run either still has open. Only a
 // stop-only snapshot reaches the server. The phone picks the run ID, makes the run's photo key, and wraps it for each
 // member in the same call; this phone then caches the key. When a key changed meanwhile (keys_mismatch) it checks the
-// keys again and retries once, then falls back to a plain run rather than block the walk.
+// keys again and retries once. Throws RunKeysNotReadyError when the partner can't receive a key yet.
 export async function startRun(trail: Trail, me: { id: string; keys: DeviceKeys }): Promise<StartedRun> {
   const self: Recipient = { userId: me.id, publicKey: me.keys.publicKey, keyId: me.keys.keyId };
   const base = { p_trail_id: trail.id, p_snapshot: toRunSnapshot(trail) };
-  let plain: Extract<RunKeyPlan, { kind: "plain" }> = { kind: "plain", reason: "keys-mismatch" };
   for (let attempt = 0; attempt < 2; attempt++) {
     const plan = await currentPlan(self);
-    if (plan.kind === "plain") {
-      plain = plan;
-      break;
-    }
+    if (plan.kind === "wait") throw new RunKeysNotReadyError(plan.reason);
     const runId = crypto.randomUUID();
     const runKey = await generateRunKey();
     const p_keys = await buildRunKeyWraps(runId, runKey, plan.recipients);
@@ -111,10 +114,7 @@ export async function startRun(trail: Trail, me: { id: string; keys: DeviceKeys 
     }
     if (!isKeysMismatch(error)) throw error;
   }
-  console.warn("Starting a plain run:", plain.reason);
-  const { data: runId, error } = await supabase.rpc("start_run", base);
-  if (error) throw error;
-  return { run: await readBack(runId), plan: plain };
+  throw new RunKeysNotReadyError("keys-mismatch");
 }
 
 async function readBack(runId: string): Promise<Run> {

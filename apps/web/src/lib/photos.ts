@@ -3,8 +3,9 @@ import { DecryptionError, decryptPhoto, encryptPhoto, photoAad } from "./crypto"
 import { supabase } from "./supabase";
 
 const BUCKET = "photos";
-// The bucket refuses anything larger (supabase/migrations, `file_size_limit`).
-const MAX_BYTES = 5 * 1024 * 1024;
+// The bucket refuses anything over 5 MB (supabase/migrations, `file_size_limit`). Encryption adds a few bytes (the
+// AES-GCM tag), so a prepared photo stays 64 KB under the limit.
+const MAX_BYTES = 5 * 1024 * 1024 - 64 * 1024;
 // First try 0.8 (main spec 6.4); step down only when a busy photo still tops 5 MB.
 const JPEG_QUALITIES = [0.8, 0.7, 0.6, 0.5, 0.4];
 const SIGNED_URL_SECONDS = 60 * 60;
@@ -150,8 +151,7 @@ export async function preparePhoto(file: Blob): Promise<PreparedPhoto> {
 }
 
 // Stores a prepared photo for a stop of an active run the caller belongs to. With the run's key (lib/photoKeys.ts)
-// the phone encrypts the photo first; a run without one (started before encryption, or plain by the fallback in
-// lib/runs.ts, startRun) stores the JPEG. The returned photo's `src` is null when encrypted: the caller holds the JPEG.
+// the phone encrypts the photo first; a run without one (started before encryption) stores the JPEG. The returned photo's `src` is null when encrypted: the caller holds the JPEG.
 export async function uploadPhoto(
   runId: string,
   stopId: string,

@@ -109,7 +109,7 @@ export function MapScreen({
   approximateStart,
   onStartRoute,
   starting = false,
-  startFailed = false,
+  startError = null,
   onNewRoute,
   onRetrySync,
   completions,
@@ -131,7 +131,8 @@ export function MapScreen({
   approximateStart?: boolean;
   onStartRoute: () => void;
   starting?: boolean;
-  startFailed?: boolean;
+  // Why the last start failed; null when it didn't.
+  startError?: string | null;
   onNewRoute: () => void;
   onRetrySync: () => void;
   completions: Completions;
@@ -340,9 +341,9 @@ export function MapScreen({
             {approximateStart && trail.kind === "surprise" && (
               <p className="route-note">Location unavailable, so this starts in Riga Old Town.</p>
             )}
-            {startFailed && (
+            {startError && (
               <p className="route-note" role="alert">
-                Couldn&rsquo;t start the route. Check your connection and try again.
+                {startError}
               </p>
             )}
             <div className="route-actions">

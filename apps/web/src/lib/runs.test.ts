@@ -134,17 +134,17 @@ describe("planRunKeys", () => {
   });
 
   it("starts plain when the partner has no keys yet", () => {
-    expect(planRunKeys(me, "partner", { status: "none" })).toEqual({ kind: "plain", reason: "partner-without-keys" });
+    expect(planRunKeys(me, "partner", { status: "none" })).toEqual({ kind: "wait", reason: "partner-without-keys" });
   });
 
   it("starts plain while the partner's key waits for trust", () => {
     const check = { status: "confirm", key, reason: "changed", partnerName: "Emma" } as const;
-    expect(planRunKeys(me, "partner", check)).toEqual({ kind: "plain", reason: "partner-unconfirmed" });
+    expect(planRunKeys(me, "partner", check)).toEqual({ kind: "wait", reason: "partner-unconfirmed" });
   });
 
   it("never wraps for a trusted key of someone other than the active partner", () => {
     expect(planRunKeys(me, "someone-else", { status: "trusted", key })).toEqual({
-      kind: "plain",
+      kind: "wait",
       reason: "partner-without-keys",
     });
   });
