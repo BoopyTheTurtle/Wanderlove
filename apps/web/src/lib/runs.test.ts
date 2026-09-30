@@ -7,6 +7,7 @@ import {
   completedCount,
   isRunActive,
   isKeysMismatch,
+  isKeysRequired,
   isStopDone,
   nextStop,
   planRunKeys,
@@ -156,5 +157,14 @@ describe("isKeysMismatch", () => {
     expect(isKeysMismatch({ code: "P0001", message: "run_id_required" })).toBe(false);
     expect(isKeysMismatch({ code: "42501", message: "not signed in" })).toBe(false);
     expect(isKeysMismatch(null)).toBe(false);
+  });
+});
+
+describe("isKeysRequired", () => {
+  it("recognises start_run's keys_required and nothing else", () => {
+    expect(isKeysRequired({ code: "P0001", message: "keys_required" })).toBe(true);
+    expect(isKeysRequired({ code: "P0001", message: "keys_mismatch" })).toBe(false);
+    expect(isKeysRequired({ code: "42501", message: "keys_required" })).toBe(false);
+    expect(isKeysRequired(null)).toBe(false);
   });
 });

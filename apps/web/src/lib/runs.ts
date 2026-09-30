@@ -85,6 +85,12 @@ export function isKeysMismatch(error: { code?: string; message?: string } | null
   return error?.code === "P0001" && error.message === "keys_mismatch";
 }
 
+// start_run's refusal of a run without keys (migration 20260930100000). This app always sends keys, so it only
+// surfaces if the call itself loses them; startRun reports it as a plain error, never as a reason to start unencrypted.
+export function isKeysRequired(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === "P0001" && error.message === "keys_required";
+}
+
 async function currentPlan(me: Recipient): Promise<RunKeyPlan> {
   const check = await checkPartnerKey(me.userId);
   // "none" covers both a solo caller and a partner without keys; only the partner lookup tells them apart.
@@ -112,6 +118,7 @@ export async function startRun(trail: Trail, me: { id: string; keys: DeviceKeys 
       setRunKey(data, runKey);
       return { run: await readBack(data), plan };
     }
+    if (isKeysRequired(error)) throw new Error("The server refused a trail without photo keys", { cause: error });
     if (!isKeysMismatch(error)) throw error;
   }
   throw new RunKeysNotReadyError("keys-mismatch");

@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./index.css";
 import App from "./App.tsx";
 import { TesterNotice } from "./screens/TesterNotice.tsx";
+import { UpdatePrompt } from "./components/UpdatePrompt.tsx";
 import { normalizeCode } from "./lib/couples.ts";
 import { savePendingInvite } from "./lib/session.ts";
 
@@ -26,5 +27,8 @@ if (invite) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>{path === "/tester-notice" ? <TesterNotice /> : <App />}</StrictMode>,
+  <StrictMode>
+    {path === "/tester-notice" ? <TesterNotice /> : <App />}
+    <UpdatePrompt />
+  </StrictMode>,
 );

@@ -1,0 +1,45 @@
+/* UpdatePrompt: a banner along the top of the phone frame once a newer build is live. It sits above the map's
+   Leaflet panes and controls (z-index up to 1000) and leaves the rest of the screen usable. */
+.update-prompt {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(358px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 10px 8px 10px 16px;
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.update-prompt-text {
+  flex: 1;
+}
+
+.update-prompt-reload {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.update-prompt-close {
+  border: 0;
+  padding: 4px 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}

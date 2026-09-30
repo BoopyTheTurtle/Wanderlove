@@ -20,6 +20,7 @@ export function AddStopPhoto({
   return (
     <PhotoCapture
       key={key}
+      runId={runId}
       label="Add a photo"
       onUpload={async (prepared) => {
         onAdded(await uploadPhoto(runId, stopId, prepared, await loadKey(runId)), prepared.blob);

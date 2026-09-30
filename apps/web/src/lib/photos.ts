@@ -67,15 +67,24 @@ export function photoPath(runId: string, photoId: string, encrypted: boolean): s
   return `${runId}/${photoId}.${encrypted ? "bin" : "jpg"}`;
 }
 
-// What goes into the bucket for a prepared photo: the JPEG as it is on a plain run, or sealed with the run key and
-// bound to its run and photo ID on an encrypted one.
+// A run without a photo key started before encryption. The server takes no new photos for it (migration
+// 20260930100000), so the phone refuses before uploading anything.
+export class RunWithoutKeysError extends Error {
+  constructor() {
+    super("This trail started before encryption. Start a new one to add photos.");
+    this.name = "RunWithoutKeysError";
+  }
+}
+
+// What goes into the bucket for a prepared photo: the JPEG sealed with the run key and bound to its run and photo ID.
+// Throws RunWithoutKeysError without a key: a photo never leaves the phone unencrypted.
 export async function sealPhoto(
   runId: string,
   photoId: string,
   jpeg: Blob,
   runKey: CryptoKey | null,
-): Promise<{ path: string; body: Blob; contentType: string; nonce: string | null }> {
-  if (!runKey) return { path: photoPath(runId, photoId, false), body: jpeg, contentType: "image/jpeg", nonce: null };
+): Promise<{ path: string; body: Blob; contentType: string; nonce: string }> {
+  if (!runKey) throw new RunWithoutKeysError();
   const { ciphertext, nonce } = await encryptPhoto(jpeg, runKey, photoAad(runId, photoId));
   return { path: photoPath(runId, photoId, true), body: ciphertext, contentType: "application/octet-stream", nonce };
 }
@@ -150,8 +159,9 @@ export async function preparePhoto(file: Blob): Promise<PreparedPhoto> {
   }
 }
 
-// Stores a prepared photo for a stop of an active run the caller belongs to. With the run's key (lib/photoKeys.ts)
-// the phone encrypts the photo first; a run without one (started before encryption) stores the JPEG. The returned photo's `src` is null when encrypted: the caller holds the JPEG.
+// Stores a prepared photo for a stop of an active run the caller belongs to, encrypted with the run's key
+// (lib/photoKeys.ts). Throws RunWithoutKeysError for a run without one (started before encryption). The returned
+// photo's `src` is null: the caller holds the JPEG.
 export async function uploadPhoto(
   runId: string,
   stopId: string,

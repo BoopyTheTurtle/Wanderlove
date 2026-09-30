@@ -22,21 +22,21 @@ select is(
 );
 select is(
   (select allowed_mime_types from storage.buckets where id = 'photos'),
-  array['image/jpeg', 'application/octet-stream'],
-  'the bucket takes JPEG and encrypted bytes (08_photo_encryption)'
+  array['application/octet-stream'],
+  'the bucket takes only encrypted bytes (20260930100000)'
 );
 
 select pg_temp.login('44444444-0000-0000-0000-00000000000a');
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id)
-     values ('photos', '44444444-0000-0000-0000-0000000000aa/44444444-0000-0000-0000-0000000000f1.jpg', auth.uid()::text) $$,
+     values ('photos', '44444444-0000-0000-0000-0000000000aa/44444444-0000-0000-0000-0000000000f1.bin', auth.uid()::text) $$,
   'a member uploads into their run folder'
 );
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id)
      values ('photos', '44444444-0000-0000-0000-0000000000aa/notes.txt', auth.uid()::text) $$,
   '42501', null,
-  'a name outside the <run>/<photo>.jpg pattern is refused'
+  'a name outside the <run>/<photo>.bin pattern is refused'
 );
 
 select pg_temp.login('44444444-0000-0000-0000-00000000000b');
@@ -50,7 +50,7 @@ select is(
 );
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id)
-     values ('photos', '44444444-0000-0000-0000-0000000000aa/44444444-0000-0000-0000-0000000000f2.jpg', auth.uid()::text) $$,
+     values ('photos', '44444444-0000-0000-0000-0000000000aa/44444444-0000-0000-0000-0000000000f2.bin', auth.uid()::text) $$,
   '42501', null,
   'a stranger cannot upload into someone else''s run'
 );
