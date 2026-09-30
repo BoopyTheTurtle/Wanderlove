@@ -3,7 +3,7 @@ import type { Completions } from "../lib/runs";
 import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
 import { StopPhotos } from "../components/StopPhotos";
-import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
+import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon } from "../components/Icons";
 import { QUIET_STOP_LINE } from "../lib/routeSafety";
 import "../route-safety.css";
 
@@ -98,28 +98,6 @@ export function ChallengeScreen({
             </button>
           )}
           {!done && <p className="hint">This unlocks the next stop on the map.</p>}
-        </section>
-
-        <section className="card quiz-card" aria-disabled="true">
-          <div>
-            <span className="tag-pill quiz">
-              <QuestionIcon size={12} /> Quiz
-            </span>
-            <h3>Couple Quiz</h3>
-            <p>Test how well you know each other.</p>
-          </div>
-          <div className="quiz-art" aria-hidden="true">
-            <span>
-              <HeartIcon size={16} filled />
-            </span>
-            <span>?</span>
-            <span>
-              <HeartIcon size={12} filled />
-            </span>
-          </div>
-          <button type="button" className="btn-soft" disabled>
-            Coming soon
-          </button>
         </section>
 
         <section className="level-strip">
