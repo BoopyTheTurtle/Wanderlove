@@ -109,17 +109,17 @@ export async function saveAccountKeys(
   pending: PendingKeys,
   { replace }: { replace: boolean },
 ): Promise<DeviceKeys> {
-  const row = {
-    user_id: userId,
+  const fields = {
     public_key: pending.keys.publicKey,
     key_id: pending.keys.keyId,
     recovery_blob: pending.sealed.blob,
     recovery_salt: pending.sealed.salt,
     recovery_iv: pending.sealed.iv,
   };
+  // A plain update, not an upsert: the owner may update only these columns, and an upsert also sets user_id.
   const { error } = replace
-    ? await supabase.from("user_keys").upsert(row, { onConflict: "user_id" })
-    : await supabase.from("user_keys").insert(row);
+    ? await supabase.from("user_keys").update(fields).eq("user_id", userId)
+    : await supabase.from("user_keys").insert({ user_id: userId, ...fields });
   if (error) {
     if (error.code === "23505") throw new KeysAlreadyExistError();
     throw error;
