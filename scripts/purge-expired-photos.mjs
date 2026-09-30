@@ -21,7 +21,10 @@ if (unknown.length > 0) {
 }
 const dryRun = args.includes("--dry-run");
 
-const url = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+// Tolerates a URL pasted with a trailing slash or with the REST path, e.g. ".../rest/v1/".
+const url = process.env.SUPABASE_URL?.trim()
+  .replace(/\/+$/, "")
+  .replace(/\/rest\/v1$/, "");
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 const missing = [!url && "SUPABASE_URL", !key && "SUPABASE_SERVICE_ROLE_KEY"].filter(Boolean);
 if (missing.length > 0) {
