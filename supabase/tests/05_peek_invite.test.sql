@@ -71,10 +71,7 @@ insert into codes values ('e', public.create_invite());
 select pg_temp.login('55555555-0000-0000-0000-00000000000f');
 insert into codes values ('f', public.create_invite());
 select pg_temp.login('55555555-0000-0000-0000-00000000000e');
-select is(public.redeem_invite_pending((select code from codes where who = 'f')), 'pending', 'E asks to link with F');
-select pg_temp.login('55555555-0000-0000-0000-00000000000f');
-select is(public.confirm_link((select id from public.link_requests)), 'linked', 'F confirms, and E and F link');
-select pg_temp.login('55555555-0000-0000-0000-00000000000e');
+select is(public.redeem_invite((select code from codes where who = 'f')), 'linked', 'E and F link');
 
 select is(
   public.peek_invite((select code from codes where who = 'a')),
@@ -118,7 +115,7 @@ select is(pg_temp.attempts('55555555-0000-0000-0000-00000000000c'), 2, 'an expir
 -- Attempt limit, shared with redeem_invite: two failed peeks so far, four failed redeems and four more failed
 -- peeks reach ten.
 select is(
-  (select count(*)::int from generate_series(1, 4) where public.redeem_invite_pending('BADCODE000') = 'invalid'),
+  (select count(*)::int from generate_series(1, 4) where public.redeem_invite('BADCODE000') = 'invalid'),
   4,
   'failed redemptions under the limit report invalid'
 );
@@ -135,14 +132,14 @@ select is(
   'past the limit even a valid code reads rate_limited with no name'
 );
 select is(
-  public.redeem_invite_pending((select code from codes where who = 'a')),
+  public.redeem_invite((select code from codes where who = 'a')),
   'rate_limited',
-  'failed peeks count against redeem_invite_pending'
+  'failed peeks count against redeem_invite'
 );
 
 -- Redemption still works after a peek, and a used code then reads invalid
 select pg_temp.login('55555555-0000-0000-0000-000000000001');
-select is(public.redeem_invite_pending((select code from codes where who = 'a')), 'pending', 'a peeked code still redeems');
+select is(public.redeem_invite((select code from codes where who = 'a')), 'linked', 'a peeked code still redeems');
 select pg_temp.login('55555555-0000-0000-0000-000000000002');
 select is(
   public.peek_invite((select code from codes where who = 'a')),

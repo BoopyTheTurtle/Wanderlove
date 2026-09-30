@@ -64,19 +64,37 @@ export type Database = {
         Row: {
           created_at: string;
           ended_at: string | null;
+          ended_by: string | null;
           id: string;
         };
         Insert: {
           created_at?: string;
           ended_at?: string | null;
+          ended_by?: string | null;
           id?: string;
         };
         Update: {
           created_at?: string;
           ended_at?: string | null;
+          ended_by?: string | null;
           id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "couples_ended_by_fkey";
+            columns: ["ended_by"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "couples_ended_by_fkey";
+            columns: ["ended_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       invite_attempts: {
         Row: {
@@ -693,6 +711,7 @@ export type Database = {
           runs_purged: number;
         }[];
       };
+      redeem_invite: { Args: { p_code: string }; Returns: string };
       redeem_invite_pending: { Args: { p_code: string }; Returns: string };
       share_run_keys: { Args: { p_keys: Json }; Returns: undefined };
       start_run: {

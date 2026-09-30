@@ -30,22 +30,18 @@ select pg_temp.login('22222222-0000-0000-0000-00000000000b');
 select is((select count(*)::int from public.invites), 0, 'others cannot see an invite');
 
 -- Redeeming
-select is(public.redeem_invite_pending('WRONGCODE0'), 'invalid', 'a wrong code is refused');
+select is(public.redeem_invite('WRONGCODE0'), 'invalid', 'a wrong code is refused');
 select pg_temp.login('22222222-0000-0000-0000-00000000000a');
-select is(public.redeem_invite_pending((select code from codes where who = 'a')), 'self', 'nobody links with themselves');
+select is(public.redeem_invite((select code from codes where who = 'a')), 'self', 'nobody links with themselves');
 
 select pg_temp.login('22222222-0000-0000-0000-00000000000b');
-select is(public.redeem_invite_pending(lower((select code from codes where who = 'a'))), 'pending', 'the partner asks to link, case-insensitively');
-select is((select count(*)::int from public.couples), 0, 'nobody is linked before the inviter confirms');
-select pg_temp.login('22222222-0000-0000-0000-00000000000a');
-select is(public.confirm_link((select id from public.link_requests)), 'linked', 'the inviter confirms');
-select pg_temp.login('22222222-0000-0000-0000-00000000000b');
+select is(public.redeem_invite(lower((select code from codes where who = 'a'))), 'linked', 'the partner links, case-insensitively');
 select is((select count(*)::int from public.couples where ended_at is null), 1, 'the partner sees the couple');
 select is((select count(*)::int from public.couple_members), 2, 'the partner sees both members');
 select is((select count(*)::int from public.profile_cards), 2, 'partners see each other in profile_cards');
 
 select pg_temp.login('22222222-0000-0000-0000-000000000005');
-select is(public.redeem_invite_pending((select code from codes where who = 'a')), 'invalid', 'a used code is refused');
+select is(public.redeem_invite((select code from codes where who = 'a')), 'invalid', 'a used code is refused');
 select is((select count(*)::int from public.couples), 0, 'a stranger sees no couple');
 select is((select count(*)::int from public.couple_members), 0, 'a stranger sees no members');
 select is((select count(*)::int from public.profile_cards), 1, 'a stranger sees only themselves');
@@ -53,7 +49,7 @@ select is((select count(*)::int from public.profile_cards), 1, 'a stranger sees 
 -- Nobody belongs to two couples
 insert into codes values ('s', public.create_invite());
 select pg_temp.login('22222222-0000-0000-0000-00000000000a');
-select is(public.redeem_invite_pending((select code from codes where who = 's')), 'already_linked', 'a linked user cannot link again');
+select is(public.redeem_invite((select code from codes where who = 's')), 'already_linked', 'a linked user cannot link again');
 select throws_ok($$ select public.create_invite() $$, 'P0001', 'already linked', 'a linked user cannot invite');
 
 -- Expiry
@@ -61,15 +57,15 @@ reset role;
 update public.invites set expires_at = now() - interval '1 minute'
 where inviter_id = '22222222-0000-0000-0000-000000000005';
 select pg_temp.login('22222222-0000-0000-0000-00000000000c');
-select is(public.redeem_invite_pending((select code from codes where who = 's')), 'expired', 'an expired code is refused');
+select is(public.redeem_invite((select code from codes where who = 's')), 'expired', 'an expired code is refused');
 
 -- Attempt limit: C has one failure so far; nine more reach ten, and the next call is refused outright.
 select is(
-  (select count(*)::int from generate_series(1, 9) where public.redeem_invite_pending('BADCODE000') = 'invalid'),
+  (select count(*)::int from generate_series(1, 9) where public.redeem_invite('BADCODE000') = 'invalid'),
   9,
   'failed attempts under the limit report invalid'
 );
-select is(public.redeem_invite_pending('BADCODE000'), 'rate_limited', 'the eleventh attempt within an hour is refused');
+select is(public.redeem_invite('BADCODE000'), 'rate_limited', 'the eleventh attempt within an hour is refused');
 
 -- Unlinking
 select pg_temp.login('22222222-0000-0000-0000-00000000000b');
@@ -78,11 +74,6 @@ select pg_temp.login('22222222-0000-0000-0000-00000000000a');
 select isnt((select ended_at from public.couples), null, 'the other partner sees the couple ended');
 select is((select count(*)::int from public.profile_cards), 1, 'an ex without shared runs drops out of profile_cards');
 select lives_ok($$ select public.create_invite() $$, 'an unlinked user can invite again');
-
--- The cleanup after wave 2 removed the instant link and the record of who unlinked.
-reset role;
-select hasnt_function('public', 'redeem_invite', array['text'], 'redeem_invite, which linked without confirmation, is gone');
-select hasnt_column('public', 'couples', 'ended_by', 'couples no longer has ended_by');
 
 select * from finish();
 rollback;

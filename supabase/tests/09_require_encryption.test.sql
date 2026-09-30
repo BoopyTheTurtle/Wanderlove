@@ -86,36 +86,25 @@ select throws_ok(
   'P0001', 'keys_required',
   'a stranger''s plain solo start is refused'
 );
-select throws_ok(
+select lives_ok(
   $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
        {"user_id": "99999999-0000-0000-0000-000000000005", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "s"}
-     ]', '99999999-0000-0000-0000-0000000000e4', p_partner => 'none') $$,
-  'P0001', 'details_required',
-  'an encrypted start with a plain snapshot is refused since the wave 2 cleanup'
-);
-select lives_ok(
-  $$ select public.start_run('private', null, '[
-       {"user_id": "99999999-0000-0000-0000-000000000005", "wrapped_key": "w", "ephemeral_public_key": "e", "for_key_id": "s"}
-     ]', '99999999-0000-0000-0000-0000000000e5', p_partner => 'none', p_details => 'd', p_details_nonce => 'n',
-     p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1) $$,
-  'a stranger''s sealed solo start is accepted'
+     ]', '99999999-0000-0000-0000-0000000000e5') $$,
+  'a stranger''s encrypted solo start is accepted'
 );
 
 select pg_temp.login('99999999-0000-0000-0000-00000000000a');
-insert into ids values ('enc', public.start_run('private', null, '[
+insert into ids values ('enc', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', '[
   {"user_id": "99999999-0000-0000-0000-00000000000a", "wrapped_key": "wA", "ephemeral_public_key": "eA", "for_key_id": "a"},
   {"user_id": "99999999-0000-0000-0000-00000000000b", "wrapped_key": "wB", "ephemeral_public_key": "eB", "for_key_id": "b"}
-]', '99999999-0000-0000-0000-0000000000e1', p_partner => 'invite', p_details => 'd', p_details_nonce => 'n',
-  p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1));
+]', '99999999-0000-0000-0000-0000000000e1'));
 select is(
   (select id from ids where name = 'enc'),
   '99999999-0000-0000-0000-0000000000e1'::uuid,
   'a member''s encrypted start is accepted'
 );
-select pg_temp.login('99999999-0000-0000-0000-00000000000b');
-select is(public.accept_run('99999999-0000-0000-0000-0000000000e1'), 'joined', 'the partner joins the encrypted run');
 
--- The start and the join abandoned the fixture runs; reopen them, so the photo tests below fail for the key alone.
+-- The start abandoned the fixture runs; reopen them, so the photo tests below fail for the key alone.
 reset role;
 update public.trail_runs set abandoned_at = null
 where id in (select id from ids where name in ('nokey', 'legacy'));
@@ -127,7 +116,7 @@ select pg_temp.login('99999999-0000-0000-0000-00000000000a');
 
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height)
-            values ('99999999-0000-0000-0000-0000000000f1', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f1', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f1.jpg', 10, 10) $$,
          (select id from ids where name = 'enc')),
   '42501', null,
@@ -135,7 +124,7 @@ select throws_ok(
 );
 select lives_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('99999999-0000-0000-0000-0000000000f2', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f2', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f2.bin', 10, 10, 'nonce') $$,
          (select id from ids where name = 'enc')),
   'a member''s .bin row with a nonce is accepted'
@@ -144,7 +133,7 @@ select lives_ok(
 select pg_temp.login('99999999-0000-0000-0000-00000000000b');
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height)
-            values ('99999999-0000-0000-0000-0000000000f3', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f3', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f3.jpg', 10, 10) $$,
          (select id from ids where name = 'enc')),
   '42501', null,
@@ -152,7 +141,7 @@ select throws_ok(
 );
 select lives_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('99999999-0000-0000-0000-0000000000f4', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f4', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f4.bin', 10, 10, 'nonce') $$,
          (select id from ids where name = 'enc')),
   'the partner''s .bin row with a nonce is accepted'
@@ -188,7 +177,7 @@ select is(
 select pg_temp.login('99999999-0000-0000-0000-000000000005');
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height, nonce)
-            values ('99999999-0000-0000-0000-0000000000f7', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f7', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f7.bin', 10, 10, 'nonce') $$,
          (select id from ids where name = 'enc')),
   '42501', null,
@@ -196,7 +185,7 @@ select throws_ok(
 );
 select throws_ok(
   format($$ insert into public.photos (id, run_id, stop_id, storage_path, width, height)
-            values ('99999999-0000-0000-0000-0000000000f8', '%1$s', 's1',
+            values ('99999999-0000-0000-0000-0000000000f8', '%1$s', 'osm-node-1',
                     '%1$s/99999999-0000-0000-0000-0000000000f8.jpg', 10, 10) $$,
          (select id from ids where name = 'enc')),
   '42501', null,

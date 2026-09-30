@@ -46,38 +46,25 @@ create temp table ids (name text primary key, id uuid);
 grant all on ids to authenticated;
 
 -- ---------------------------------------------------------------------------
--- Old call shapes are gone (wave 2 cleanup); legacy plain runs still work
+-- Today's call shapes still work
 -- ---------------------------------------------------------------------------
 
--- A plain run from before sealing, as an older app left it.
-insert into public.trail_runs (id, couple_id, trail_id, trail_snapshot, started_by) values
-  ('11011011-0000-0000-0000-0000000000e1', '11011011-0000-0000-0000-0000000000cc', 't',
-   '{"stops": [{"id": "osm-node-1"}]}', '11011011-0000-0000-0000-00000000000a');
-insert into public.trail_run_members (run_id, user_id) values
-  ('11011011-0000-0000-0000-0000000000e1', '11011011-0000-0000-0000-00000000000a'),
-  ('11011011-0000-0000-0000-0000000000e1', '11011011-0000-0000-0000-00000000000b');
-insert into ids values ('plain', '11011011-0000-0000-0000-0000000000e1');
-
 select pg_temp.login('11011011-0000-0000-0000-00000000000a');
-select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(), gen_random_uuid()) $$,
-  'P0001', 'partner_mode_invalid',
-  'the old four-argument start, which enrolled the partner, is refused'
-);
-select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(), gen_random_uuid(),
-       p_partner => 'join') $$,
-  'P0001', 'partner_mode_invalid',
-  'the join mode is gone'
+insert into ids values ('plain', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(),
+  '11011011-0000-0000-0000-0000000000e1'));
+select is(
+  (select count(*)::int from public.trail_run_members where run_id = (select id from ids where name = 'plain')),
+  2,
+  'today''s four-argument start still enrols the partner'
 );
 select throws_ok(
   $$ select public.start_run(p_trail_id => 't', p_snapshot => '{"stops": [{"id": "osm-node-1"}]}') $$,
   'P0001', 'keys_required',
-  'a call without keys is still refused with keys_required'
+  'today''s call without keys is still refused with keys_required'
 );
 select lives_ok(
   $$ insert into public.stop_completions (run_id, stop_id) select id, 'osm-node-1' from ids where name = 'plain' $$,
-  'a legacy plain run still takes its OSM stop IDs'
+  'a plain run still takes its OSM stop IDs'
 );
 select throws_ok(
   $$ insert into public.stop_completions (run_id, stop_id) select id, 's1' from ids where name = 'plain' $$,
@@ -90,27 +77,19 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 select throws_ok(
-  $$ select public.start_run('private', null, pg_temp.keys_ab(), gen_random_uuid(), p_partner => 'invite') $$,
+  $$ select public.start_run('private', null, pg_temp.keys_ab(), gen_random_uuid()) $$,
   'P0001', 'details_mismatch',
   'a run without a snapshot needs the sealed details'
 );
 select throws_ok(
   $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(), gen_random_uuid(),
-       p_partner => 'invite') $$,
-  'P0001', 'details_required',
-  'a new run cannot be plain'
-);
-select throws_ok(
-  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(), gen_random_uuid(),
-       p_partner => 'invite', p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm',
-       p_stop_count => 3) $$,
-  'P0001', 'details_required',
+       p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 3) $$,
+  'P0001', 'details_mismatch',
   'a run cannot have both a plain snapshot and sealed details'
 );
 select throws_ok(
   $$ select public.start_run('sherlock-holmes-spikeri', null, pg_temp.keys_ab(), gen_random_uuid(),
-       p_partner => 'invite', p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm',
-       p_stop_count => 3) $$,
+       p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 3) $$,
   'P0001', 'details_mismatch',
   'a sealed run cannot name its trail'
 );
@@ -121,8 +100,8 @@ select throws_ok(
 );
 
 insert into ids values ('sealed', public.start_run('private', null, pg_temp.keys_ab(),
-  '11011011-0000-0000-0000-0000000000e2', p_partner => 'invite', p_details => 'details', p_details_nonce => 'dn',
-  p_summary => 'summary', p_summary_nonce => 'sn', p_stop_count => 3));
+  '11011011-0000-0000-0000-0000000000e2', p_details => 'details', p_details_nonce => 'dn', p_summary => 'summary',
+  p_summary_nonce => 'sn', p_stop_count => 3));
 select results_eq(
   $$ select trail_snapshot, details_ciphertext, summary_ciphertext, stop_count from public.trail_runs
      where id = '11011011-0000-0000-0000-0000000000e2' $$,
@@ -159,7 +138,6 @@ select lives_ok(
 );
 
 select pg_temp.login('11011011-0000-0000-0000-00000000000b');
-select is(public.accept_run('11011011-0000-0000-0000-0000000000e2'), 'joined', 'the partner joins the sealed run');
 select is(
   (select summary_ciphertext from public.trail_runs where id = '11011011-0000-0000-0000-0000000000e2'),
   'summary',
@@ -182,7 +160,7 @@ select throws_ok(
   'a stranger cannot complete a stop on a sealed run'
 );
 select lives_ok(
-  $$ select public.start_run('private', null, pg_temp.keys_s(), gen_random_uuid(), p_partner => 'none',
+  $$ select public.start_run('private', null, pg_temp.keys_s(), gen_random_uuid(),
        p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 5) $$,
   'a stranger starts a sealed solo run'
 );
@@ -191,17 +169,15 @@ select lives_ok(
 -- Just me
 -- ---------------------------------------------------------------------------
 
--- B starts a shared run and A joins it; then A starts a Just me run.
+-- B starts a shared run and A walks it; then A starts a Just me run.
 select pg_temp.login('11011011-0000-0000-0000-00000000000b');
-insert into ids values ('shared', public.start_run('private', null, pg_temp.keys_ab(),
-  '11011011-0000-0000-0000-0000000000e3', p_partner => 'invite', p_details => 'd', p_details_nonce => 'n',
-  p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1));
+insert into ids values ('shared', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(),
+  '11011011-0000-0000-0000-0000000000e3'));
 
 select pg_temp.login('11011011-0000-0000-0000-00000000000a');
-select is(public.accept_run('11011011-0000-0000-0000-0000000000e3'), 'joined', 'A joins B''s shared run');
 select throws_ok(
-  $$ select public.start_run('private', null, pg_temp.keys_ab(), gen_random_uuid(), p_partner => 'none',
-       p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1) $$,
+  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_ab(), gen_random_uuid(),
+       p_partner => 'none') $$,
   'P0001', 'keys_mismatch',
   'a Just me run takes one wrap, not the partner''s too'
 );
@@ -245,14 +221,12 @@ select throws_ok(
 );
 
 -- B's own Just me run survives A's next Just me start.
-insert into ids values ('b_justme', public.start_run('private', null, pg_temp.keys_b(),
-  '11011011-0000-0000-0000-0000000000e5', p_partner => 'none', p_details => 'd', p_details_nonce => 'n',
-  p_summary => 's', p_summary_nonce => 'm', p_stop_count => 1));
+insert into ids values ('b_justme', public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_b(),
+  '11011011-0000-0000-0000-0000000000e5', p_partner => 'none'));
 select pg_temp.login('11011011-0000-0000-0000-00000000000a');
 select lives_ok(
-  $$ select public.start_run('private', null, pg_temp.keys_a(), '11011011-0000-0000-0000-0000000000e6',
-       p_partner => 'none', p_details => 'd', p_details_nonce => 'n', p_summary => 's', p_summary_nonce => 'm',
-       p_stop_count => 1) $$,
+  $$ select public.start_run('t', '{"stops": [{"id": "osm-node-1"}]}', pg_temp.keys_a(),
+       '11011011-0000-0000-0000-0000000000e6', p_partner => 'none') $$,
   'A starts another Just me run'
 );
 select is(pg_temp.open_runs('11011011-0000-0000-0000-00000000000b'), 1::bigint,

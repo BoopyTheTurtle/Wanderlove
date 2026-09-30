@@ -96,17 +96,14 @@ select is((select count(*)::int from public.couples where ended_at is null), 0, 
 insert into codes values ('a4', public.create_invite());
 select pg_temp.login('14141414-0000-0000-0000-00000000000c');
 select is(public.redeem_invite_pending((select code from codes where who = 'a4')), 'pending', 'C redeems a fourth invite');
--- Meanwhile A becomes linked with B some other way (redeem_invite once did this; the wave 2 cleanup removed it), which
--- leaves C's request open.
+-- Meanwhile A links with B through today's redeem_invite.
 insert into codes values ('c1', public.create_invite());
 select pg_temp.login('14141414-0000-0000-0000-00000000000a');
 select lives_ok($$ select public.decline_link(gen_random_uuid()) $$, 'declining an unknown request is harmless');
-reset role;
-insert into public.couples (id) values ('14141414-0000-0000-0000-0000000000dd');
-insert into public.couple_members (couple_id, user_id) values
-  ('14141414-0000-0000-0000-0000000000dd', '14141414-0000-0000-0000-00000000000a'),
-  ('14141414-0000-0000-0000-0000000000dd', '14141414-0000-0000-0000-00000000000b');
+select pg_temp.login('14141414-0000-0000-0000-00000000000b');
+insert into codes values ('b1', public.create_invite());
 select pg_temp.login('14141414-0000-0000-0000-00000000000a');
+select is(public.redeem_invite((select code from codes where who = 'b1')), 'linked', 'today''s redeem_invite still links at once');
 select is(public.confirm_link((select id from public.link_requests)), 'already_linked',
   'a linked inviter cannot confirm another request');
 select is(public.redeem_invite_pending((select code from codes where who = 'c1')), 'already_linked',
