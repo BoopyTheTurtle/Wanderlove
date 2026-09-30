@@ -465,6 +465,7 @@ export type Database = {
           completed_at: string | null;
           couple_id: string | null;
           id: string;
+          photos_purged_at: string | null;
           started_at: string;
           started_by: string | null;
           trail_id: string;
@@ -475,6 +476,7 @@ export type Database = {
           completed_at?: string | null;
           couple_id?: string | null;
           id?: string;
+          photos_purged_at?: string | null;
           started_at?: string;
           started_by?: string | null;
           trail_id: string;
@@ -485,6 +487,7 @@ export type Database = {
           completed_at?: string | null;
           couple_id?: string | null;
           id?: string;
+          photos_purged_at?: string | null;
           started_at?: string;
           started_by?: string | null;
           trail_id?: string;
@@ -576,7 +579,22 @@ export type Database = {
     Functions: {
       accept_terms: { Args: { p_version: string }; Returns: undefined };
       create_invite: { Args: Record<PropertyKey, never>; Returns: string };
+      expired_photos: {
+        Args: { p_limit?: number };
+        Returns: {
+          photo_id: string;
+          run_id: string;
+          storage_path: string;
+        }[];
+      };
       peek_invite: { Args: { p_code: string }; Returns: Json };
+      purge_photos: {
+        Args: { p_photo_ids: string[] };
+        Returns: {
+          photos_deleted: number;
+          runs_purged: number;
+        }[];
+      };
       redeem_invite: { Args: { p_code: string }; Returns: string };
       share_run_keys: { Args: { p_keys: Json }; Returns: undefined };
       start_run: { Args: { p_keys?: Json; p_run_id?: string; p_snapshot: Json; p_trail_id: string }; Returns: string };

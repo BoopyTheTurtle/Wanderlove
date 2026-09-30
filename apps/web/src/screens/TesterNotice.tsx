@@ -81,6 +81,10 @@ export function TesterNotice() {
 
           <h2>How long I keep it</h2>
           <p>I keep your data until the test ends and delete all test data before public launch.</p>
+          <p>
+            Photos go sooner: the server deletes a trail&rsquo;s photos one month after the trail ends, and a trail left
+            open counts as ended one month after it started. Save the photos you want to keep to your phone before then.
+          </p>
 
           <h2>Your rights</h2>
           <p>
