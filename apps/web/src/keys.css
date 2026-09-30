@@ -1,0 +1,54 @@
+/* Photo keys: the recovery code, unlocking a new phone, and trusting the partner's new keys */
+.keys-screen {
+  padding-bottom: 24px;
+}
+.keys-screen .onboarding-head h1 {
+  font-size: 26px;
+}
+.recovery-code {
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: var(--teal-wash);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.keys-copy,
+.keys-screen .btn-soft {
+  color: var(--teal-dark);
+  cursor: pointer;
+}
+.keys-screen .btn-soft:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.keys-note {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.keys-screen .field-input input {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.keys-screen .field-input input::placeholder {
+  text-transform: none;
+}
+.keys-fresh {
+  margin-top: 14px;
+}
+
+/* The app stays mounted behind the partner-key question */
+.key-gate-app {
+  display: contents;
+}
+.key-gate-app[hidden] {
+  display: none;
+}
