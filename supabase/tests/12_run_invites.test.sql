@@ -144,6 +144,13 @@ select lives_ok(
 );
 select is(public.accept_run('12121212-0000-0000-0000-0000000000e1'), 'gone', 'accepting twice changes nothing');
 
+select pg_temp.login('12121212-0000-0000-0000-00000000000a');
+select ok(
+  exists (select 1 from public.trail_run_members where run_id = '12121212-0000-0000-0000-0000000000e1'
+          and user_id = '12121212-0000-0000-0000-00000000000b'),
+  'the starter sees the partner join, which ends their waiting screen'
+);
+
 -- ---------------------------------------------------------------------------
 -- Declining, and invitations that lapse
 -- ---------------------------------------------------------------------------

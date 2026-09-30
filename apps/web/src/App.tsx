@@ -39,12 +39,14 @@ import {
   isRunActive,
   loadActiveRun,
   loadRun,
+  hasPartnerJoined,
   loadRunInvite,
   RunKeysNotReadyError,
   startRun,
 } from "./lib/runs";
 import type { QuestMode, Run } from "./lib/runs";
 import { QuestInvite } from "./components/QuestInvite";
+import { PartnerWaiting } from "./components/PartnerWaiting";
 import { countHiddenPhotos, showHiddenPhotos, uploadPhoto } from "./lib/photos";
 import type { PreparedPhoto, RunPhoto } from "./lib/photos";
 import {
@@ -519,6 +521,9 @@ function SignedInApp({
   // Who the next quest is for, chosen on Home while linked.
   const [questMode, setQuestMode] = useState<QuestMode>("together");
   const [starting, setStarting] = useState(false);
+  // The Together run this phone started and still waits on the partner to join; null once they join or the user
+  // starts without them.
+  const [waitingRunId, setWaitingRunId] = useState<string | null>(null);
   // Why the last start failed, shown on the map; null when it didn't.
   const [startError, setStartError] = useState<string | null>(null);
   // Walking paths drawn on this phone, per run; the server keeps stops only.
@@ -777,6 +782,36 @@ function SignedInApp({
     return () => window.clearInterval(timer);
   }, [onInviteScreen, refreshPartner]);
 
+  // After a Together start, check now and then whether the partner joined, and move on once they have. The wait ends
+  // too when the run does, or when the couple unlinks.
+  const waitingPartnerId = waitingRunId && run?.id === waitingRunId && isRunActive(run) ? (partner?.id ?? null) : null;
+  useEffect(() => {
+    if (waitingRunId && !waitingPartnerId) setWaitingRunId(null);
+  }, [waitingRunId, waitingPartnerId]);
+  useEffect(() => {
+    if (!waitingRunId || !waitingPartnerId) return;
+    let active = true;
+    async function check(runId: string, partnerId: string) {
+      try {
+        if ((await hasPartnerJoined(runId, partnerId)) && active) {
+          setWaitingRunId((id) => (id === runId ? null : id));
+        }
+      } catch (e) {
+        console.error("Couldn't check whether the partner joined", e);
+      }
+    }
+    const runId = waitingRunId;
+    const partnerId = waitingPartnerId;
+    void check(runId, partnerId);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void check(runId, partnerId);
+    }, INVITE_POLL_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [waitingRunId, waitingPartnerId]);
+
   // The emoji check needs the partner's key ID on the linked screen and in Profile.
   const showsKeyCheck = route?.name === "linked" || route?.name === "settings";
   const partnerId = partner?.id ?? null;
@@ -967,7 +1002,9 @@ function SignedInApp({
     setStartError(null);
     runRequest.current++;
     try {
-      const { run: started } = await startRun(trail, { id: me.id, keys }, partner ? questMode : "alone");
+      const { run: started, plan } = await startRun(trail, { id: me.id, keys }, partner ? questMode : "alone");
+      // Only a start that invited the partner waits for them.
+      setWaitingRunId(plan.kind === "encrypted" && plan.recipients.length > 1 ? started.id : null);
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(me.id, started.id, trail.path, trail.distanceMeters);
@@ -1272,6 +1309,10 @@ function SignedInApp({
           onBack={() => setRoute({ name: "trailList" })}
           onHome={() => setRoute({ name: "home" })}
         />
+      )}
+
+      {route.name === "map" && waitingPartnerId && partner && (
+        <PartnerWaiting partnerName={partner.name} onStartAlone={() => setWaitingRunId(null)} />
       )}
 
       {route.name === "challenge" &&
