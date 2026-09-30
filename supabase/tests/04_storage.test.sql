@@ -21,7 +21,9 @@ select is(
   (select public from storage.buckets where id = 'photos'), false, 'the photos bucket is private'
 );
 select is(
-  (select allowed_mime_types from storage.buckets where id = 'photos'), array['image/jpeg'], 'the bucket takes JPEG only'
+  (select allowed_mime_types from storage.buckets where id = 'photos'),
+  array['image/jpeg', 'application/octet-stream'],
+  'the bucket takes JPEG and encrypted bytes (08_photo_encryption)'
 );
 
 select pg_temp.login('44444444-0000-0000-0000-00000000000a');
