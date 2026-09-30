@@ -500,7 +500,6 @@ function SignedInApp({
   const [requestKeyId, setRequestKeyId] = useState<string | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
   const [route, setRoute] = useState<Route | null>(null);
-  const [unlinkedNotice, setUnlinkedNotice] = useState(false);
   const partnerRequest = useRef(0);
   // The started run from the server: open, or finished and waiting for the album. Null when there is none.
   const [run, setRun] = useState<Run | null>(null);
@@ -685,8 +684,9 @@ function SignedInApp({
     );
   }, [run, walkingPath, me.id]);
 
-  // Takes in the partner the server returned. A partner this device knew about who is gone means the other
-  // person unlinked: say so once, with no reason (main spec 6.3), and carry on solo.
+  // Takes in the partner the server returned. A partner this device knew about who is gone means the other person
+  // unlinked: the app quietly carries on solo, with no dialog (abuse threat model, section 6, decision 3). The unlinked
+  // state shows the next time the link matters, on Home and in Profile.
   const applyPartner = useCallback(
     (next: Profile | null) => {
       const known = loadLinkState(me.id).knownPartnerId;
@@ -695,10 +695,7 @@ function SignedInApp({
         // Linking used up or outdated the open invite; the next visit to the invite screen needs a fresh one.
         forgetOpenInvite();
       }
-      if (!next && known) {
-        setLinkState(saveLinkState(me.id, { knownPartnerId: null, solo: true }));
-        setUnlinkedNotice(true);
-      }
+      if (!next && known) setLinkState(saveLinkState(me.id, { knownPartnerId: null, solo: true }));
       setPartner(next);
       setRoute((r) => {
         if (r === null) return firstRoute(next, loadLinkState(me.id));
@@ -1329,11 +1326,7 @@ function SignedInApp({
         />
       )}
 
-      {unlinkedNotice ? (
-        <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />
-      ) : (
-        endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />
-      )}
+      {endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />}
     </NavFrame>
   );
 }
@@ -1373,23 +1366,7 @@ function RecoveryHint({ onOpen, onDismiss }: { onOpen: () => void; onDismiss: ()
   );
 }
 
-// Main spec 6.3: the message and nothing else.
-function UnlinkedNotice({ onClose }: { onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
-  return (
-    <div className="notice-backdrop">
-      <div className="notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unlinked-title">
-        <h2 id="unlinked-title">You are no longer linked</h2>
-        <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
-          OK
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// The run this phone followed was abandoned on the other phone. One line, no reason, like the unlink notice.
+// The run this phone followed was abandoned on the other phone. One line, no reason.
 function TrailEndedNotice({ onClose }: { onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => closeRef.current?.focus(), []);

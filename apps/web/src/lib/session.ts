@@ -9,7 +9,7 @@ const LEGACY_KEY = "wannadoo_session";
 export type LinkState = {
   // The user chose "Walk solo for now", so the app opens on the map instead of the partner screen.
   solo: boolean;
-  // The partner last seen on this device; when the server no longer returns them, the app says so once.
+  // The partner last seen on this device; when the server no longer returns them, the app quietly goes solo.
   knownPartnerId: string | null;
 };
 
