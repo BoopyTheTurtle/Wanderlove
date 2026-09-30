@@ -22,10 +22,13 @@ type StubOptions = {
   routerUp?: boolean;
   // Legs touching any of these points come back as ferry legs.
   ferryAt?: LatLng[];
+  // Where the router puts each waypoint: a street name, metres moved north onto the path, and the snap distance.
+  // `call` counts router calls from 0.
+  snapTo?: (index: number, call: number) => { street?: string; north?: number; distance?: number };
 };
 
 // Fake Overpass and foot router. The router walks straight lines; its distance is straight-line distance × factor.
-function stubFetch({ overpass, routerFactor = 1.2, routerUp = true, ferryAt = [] }: StubOptions = {}) {
+function stubFetch({ overpass, routerFactor = 1.2, routerUp = true, ferryAt = [], snapTo }: StubOptions = {}) {
   const routerCallTimes: number[] = [];
   const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
     if (url.includes("interpreter")) {
@@ -48,6 +51,14 @@ function stubFetch({ overpass, routerFactor = 1.2, routerUp = true, ferryAt = []
       .map((p, i) => ({ path: [pts[i], p], mode: near(pts[i]) || near(p) ? "ferry" : undefined }));
     const json = osrmResponse(legs);
     json.routes![0].distance *= routerFactor;
+    if (snapTo) {
+      const call = routerCallTimes.length - 1;
+      json.waypoints = json.waypoints!.map((_, i) => {
+        const { street, north = 0, distance = 0 } = snapTo(i, call);
+        const moved = offset(north, 0, pts[i]);
+        return { distance, location: [moved.lng, moved.lat], name: street };
+      });
+    }
     return new Response(JSON.stringify(json), { status: 200 });
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -212,10 +223,63 @@ describe("generateRoute", () => {
     expect(labels.filter((l) => l === "Landmark").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("fails clearly when even generic points can't fill five stops", async () => {
-    stubFetch({ overpass: { candidates: places().slice(0, 3) } });
+  it("fills a quiet area with street corners named after their streets", async () => {
+    stubFetch({
+      overpass: { candidates: places().slice(0, 2) },
+      snapTo: (i) => ({ street: `Street ${i}`, north: 20, distance: 20 }),
+    });
     const { generateRoute } = await loadRouteGen();
-    await expect(settle(generateRoute(START, false))).rejects.toThrow(/Not enough interesting places/);
+    const { trail } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    const corners = trail.stops.filter((s) => s.eyebrow.endsWith("Street corner"));
+    expect(corners.length).toBe(3);
+    for (const s of corners) expect(s.name).toMatch(/^On Street \d$/);
+    expect(trail.stops.filter((s) => s.name.startsWith("Place")).length).toBe(2);
+  });
+
+  it("builds a loop even where the map has no places at all", async () => {
+    stubFetch({ overpass: {} });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    for (const s of trail.stops) expect(s.name).toBe("A quiet corner"); // the stub router names no streets
+  });
+
+  it("moves a street corner onto the path the router found", async () => {
+    stubFetch({ overpass: {}, snapTo: () => ({ street: "Long Road", north: 30, distance: 30 }) });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+    const onPath = (p: LatLng) => trail.path!.some(([lat, lng]) => haversineDistanceMeters({ lat, lng }, p) < 1);
+
+    expect(trail.stops.map((s) => s.name)).toEqual([
+      "On Long Road",
+      "Further along Long Road",
+      "Further along Long Road",
+      "Further along Long Road",
+      "Further along Long Road",
+    ]);
+    // Each stop sits 30 m north of the point the loop was routed through, as the router snapped it.
+    for (const s of trail.stops) expect(onPath(offset(-30, 0, s))).toBe(true);
+  });
+
+  it("drops a street corner the router can't put near a path, and tries another", async () => {
+    // On the first call every corner sits 400 m from any path; after that they snap close.
+    stubFetch({ overpass: {}, snapTo: (i, call) => ({ distance: call === 0 && i > 0 ? 400 : 10 }) });
+    const { generateRoute } = await loadRouteGen();
+    const { trail, rejections, routerCalls } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    expect(rejections[0].reason).toBe("spot-off-path");
+    expect(routerCalls).toBeGreaterThan(1);
+  });
+
+  it("fails clearly when all the land around is off limits", async () => {
+    const yard = way(square(START, 2000), { landuse: "industrial" });
+    stubFetch({ overpass: { hazards: [yard] } });
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/walkable streets/);
   });
 
   it("flags quiet stops, keeps at most two, and puts them on slots 1, 3, or 5", async () => {

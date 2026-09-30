@@ -76,10 +76,21 @@ export function classifyNamed(tags: Tags): Kind | null {
   return null;
 }
 
-// A safe generic point for areas with too few named places: a bench, a viewpoint, or a park.
+// An everyday point for areas with few named sights: a viewpoint, a park, a café or bakery, street art, a notable tree,
+// or somewhere to sit, drink, or read the local board.
 export function classifyGeneric(tags: Tags): Kind | null {
   if (tags.tourism === "viewpoint") return { label: "Viewpoint", weight: 3 };
   if (tags.leisure === "park") return { label: "Park", weight: 2 };
+  if (tags.amenity === "cafe") return { label: "Café", weight: 2 };
+  if (tags.amenity === "ice_cream") return { label: "Ice cream", weight: 2 };
+  if (tags.shop === "bakery") return { label: "Bakery", weight: 2 };
+  if (tags.amenity === "library") return { label: "Library", weight: 2 };
+  if (tags.tourism === "artwork") return { label: "Street art", weight: 2 };
+  if (tags.natural === "tree") return { label: "Tree", weight: 2 };
+  if (tags.leisure === "picnic_table") return { label: "Picnic spot", weight: 1 };
+  if (tags.amenity === "drinking_water") return { label: "Drinking fountain", weight: 1 };
+  if (tags.amenity === "shelter") return { label: "Shelter", weight: 1 };
+  if (tags.tourism === "information") return { label: "Notice board", weight: 1 };
   if (tags.amenity === "bench") return { label: "Bench", weight: 1 };
   return null;
 }

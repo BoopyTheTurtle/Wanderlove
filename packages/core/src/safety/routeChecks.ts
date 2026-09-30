@@ -27,11 +27,18 @@ type OsrmLeg = { distance?: number; steps?: OsrmStep[]; annotation?: { nodes?: n
 export type OsrmResponse = {
   code?: string;
   routes?: { distance: number; geometry: { coordinates: Coords }; legs?: OsrmLeg[] }[];
-  waypoints?: { distance?: number; location?: [number, number] }[];
+  waypoints?: { distance?: number; location?: [number, number]; name?: string }[];
 };
 
 export type RoutedLeg = { path: LatLng[]; nodeIds: number[]; ferry: boolean };
-export type RoutedLoop = { distance: number; path: LatLng[]; legs: RoutedLeg[]; snapMeters: number[] };
+// `snapped`: where the router put each waypoint on its network, and the name of the way there ("" when unnamed).
+export type RoutedLoop = {
+  distance: number;
+  path: LatLng[];
+  legs: RoutedLeg[];
+  snapMeters: number[];
+  snapped: { at: LatLng | null; street: string }[];
+};
 
 const toPoint = ([lng, lat]: [number, number]): LatLng => ({ lat, lng });
 const samePoint = (a: LatLng, b: LatLng) => a.lat === b.lat && a.lng === b.lng;
@@ -77,7 +84,13 @@ export function parseOsrmRoute(json: OsrmResponse): RoutedLoop | null {
     cuts.push(path.length - 1);
     legs = legs.map((l, k) => ({ ...l, path: path.slice(cuts[k], cuts[k + 1] + 1) }));
   }
-  return { distance: route.distance, path, legs, snapMeters: waypoints.map((w) => w.distance ?? 0) };
+  return {
+    distance: route.distance,
+    path,
+    legs,
+    snapMeters: waypoints.map((w) => w.distance ?? 0),
+    snapped: waypoints.map((w) => ({ at: w.location ? toPoint(w.location) : null, street: w.name ?? "" })),
+  };
 }
 
 // --- Road network from Overpass -------------------------------------------------

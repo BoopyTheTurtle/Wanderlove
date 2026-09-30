@@ -73,8 +73,16 @@ export function overpassQuery(center: LatLng, radiusMeters: number): string {
   node[amenity=bench];
   node[tourism=viewpoint][!name];
   wr[leisure=park][!name];
+  nwr[name][amenity~"^(cafe|ice_cream|library)$"];
+  nwr[name][shop=bakery];
+  node[tourism=artwork][!name];
+  node[natural=tree][name];
+  node[natural=tree][denotation~"^(natural_monument|landmark)$"];
+  node[leisure=picnic_table];
+  node[amenity~"^(drinking_water|shelter)$"];
+  node[tourism=information][information=board];
 )->.generic;
-.generic out tags center 200;
+.generic out tags center 400;
 .generic out count;
 (
   wr[landuse~"^(industrial|military|construction|railway|quarry|landfill|brownfield|cemetery)$"];
