@@ -43,6 +43,11 @@ export function TesterNotice() {
             Your GPS position stays on your phone, except as described under &ldquo;Who sees your data&rdquo;. The app
             removes location data (EXIF) from every photo before uploading it.
           </p>
+          <p>
+            Your phone encrypts the photos from new trails before uploading them, so only you and your partner can open
+            them, not me or Supabase. On a new phone, your recovery code (under Profile) or your partner&rsquo;s phone
+            unlocks them again; without either, they are lost.
+          </p>
 
           <h2>Why</h2>
           <p>

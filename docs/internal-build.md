@@ -63,7 +63,14 @@ Last updated September 29, 2026. Resume from **Next** below.
   jsQR on iPhones); **Save all photos** (share sheet on phones, a ZIP on desktop), **Save album** (1080 × 1920), and
   **Save** per photo; `lib/crypto.ts` (account keys, recovery code, run keys bound to their run, photo encryption);
   and the encryption schema (`user_keys`, `run_keys`, `start_run` with keys and a phone-chosen run ID,
-  `share_run_keys`, `.bin` photos). Deployed; the app does not encrypt yet.
+  `share_run_keys`, `.bin` photos). Deployed.
+- **End-to-end encrypted photos.** PRs 25–26, merged September 30. Each phone makes its keys on first open without a
+  screen; the recovery code sits under Profile → **Recovery code** (Edgar: showing it at sign-up would scare users). A
+  new phone unlocks with the code, or makes new keys and waits for the partner's phone to trust them and re-share past
+  trails. New trails wrap a trail key for each member, and the start waits until the partner's phone has keys. Photos
+  upload as `.bin` and decrypt on the phone for display, Save, the ZIP, and the album; old `.jpg` runs still work.
+  Verified on the local stack with two browser origins (`localhost` and `emma.localhost`). The tester notice gained the
+  encryption line.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -75,8 +82,8 @@ Last updated September 29, 2026. Resume from **Next** below.
    within about 10 seconds; progress and photos sync both ways.
 2. **[You]** On phones: the in-app scanner, and that **Save all photos** and **Save album** reach the photo library
    (task 5.4; on iPhone, note whether the second "Tap to save" is needed).
-3. **[Agent]** End-to-end photo encryption per [photo-encryption.md](photo-encryption.md) (recovery A and C, approved
-   September 29): wave 1 builds E.1 (schema) and E.2 (`lib/crypto.ts`); wave 2 wires setup, recovery, and photos.
+3. **[You]** Encryption check (E.5): in the Supabase dashboard, new photos are `.bin` files that don't open; on two
+   phones, both see each other's photos; **Make new keys** on a third browser, then trust it on the partner's phone.
 
 **Lessons from phase 2:**
 
