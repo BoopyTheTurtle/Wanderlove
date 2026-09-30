@@ -96,7 +96,7 @@ Last updated September 30, 2026. Resume from **Next** below.
 2. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
    whether the second "Tap to save" is needed).
 3. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
-4. **[Agent + You]** A roadmap for the next round of UI work.
+4. **[Agent + You]** The MVP roadmap: [mvp-roadmap.md](mvp-roadmap.md), in review; Stage A research starts once Edgar approves it.
 
 **Lessons from phase 2:**
 
