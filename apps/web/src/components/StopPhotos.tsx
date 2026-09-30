@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { useRunPhotos } from "../lib/useRunPhotos";
 import { PhotoCapture } from "./PhotoCapture";
-import { PhotoGrid } from "./PhotoGrid";
+import { LockedPhotosNote, PhotoGrid } from "./PhotoGrid";
 
 // The photo part of a stop. Until the stop is done, a photo (or Skip photo) completes it. Once it is done, by
 // either partner, the stop shows everyone's photos and still lets each of you add yours while the run is open.
@@ -31,8 +31,8 @@ export function StopPhotos({
   onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
   onSkip: () => Promise<void>;
 }) {
-  const photos = useRunPhotos(runId, syncTick);
-  const here = photos.photos.filter((p) => p.stopId === stopId);
+  const photos = useRunPhotos(runId, syncTick, stopId);
+  const here = photos.photos;
   const [skipping, setSkipping] = useState(false);
   const [skipFailed, setSkipFailed] = useState(false);
   // Remounts the camera after each saved photo, so it offers a fresh one instead of the preview the grid shows.
@@ -40,7 +40,7 @@ export function StopPhotos({
 
   async function upload(prepared: PreparedPhoto) {
     const photo = await onUpload(prepared);
-    photos.add(photo);
+    photos.add(photo, prepared.blob);
     setCaptureKey((k) => k + 1);
   }
 
@@ -84,6 +84,7 @@ export function StopPhotos({
         </p>
       )}
       {photos.status === "ready" && here.length === 0 && <p className="stop-photos-note">No photos here yet.</p>}
+      {photos.locked && <LockedPhotosNote partnerName={partnerName} className="stop-photos-note" />}
       {here.length > 0 && <PhotoGrid photos={here} meId={meId} partnerName={partnerName} onDelete={photos.remove} />}
       {canAdd && <PhotoCapture key={captureKey} onUpload={upload} label="Add a photo" />}
     </div>

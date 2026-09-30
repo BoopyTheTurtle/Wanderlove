@@ -69,6 +69,7 @@ import {
 } from "./lib/keys";
 import type { PartnerKeyCheck } from "./lib/keys";
 import type { DeviceKeys } from "./lib/keyStore";
+import { RunKeyContext, runKeyLoader, useRunKeyLoader } from "./lib/photoKeys";
 import type { ReactNode } from "react";
 
 type ProfileState = { status: "loading" } | { status: "error" } | { status: "ready"; row: ProfileRow };
@@ -163,14 +164,22 @@ export default function App() {
   return (
     <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
       {(keys) => (
-        <SignedInApp
-          me={toProfile(profile.row, auth.user.email ?? "")}
-          recoveryCode={keys.recoveryCode ?? null}
-          onSignOut={() => signOutAndClear(auth.user.id)}
-        />
+        <RunKeyProvider userId={auth.user.id} keys={keys}>
+          <SignedInApp
+            me={toProfile(profile.row, auth.user.email ?? "")}
+            keys={keys}
+            onSignOut={() => signOutAndClear(auth.user.id)}
+          />
+        </RunKeyProvider>
       )}
     </KeyGate>
   );
+}
+
+// Every screen below reaches run photo keys through this (lib/photoKeys.ts), so the device keys stay here.
+function RunKeyProvider({ userId, keys, children }: { userId: string; keys: DeviceKeys; children: ReactNode }) {
+  const load = useMemo(() => runKeyLoader(userId, keys), [userId, keys]);
+  return <RunKeyContext.Provider value={load}>{children}</RunKeyContext.Provider>;
 }
 
 type KeyGateState =
@@ -404,13 +413,16 @@ type Draft =
 
 function SignedInApp({
   me,
-  recoveryCode,
+  keys,
   onSignOut,
 }: {
   me: Profile;
-  recoveryCode: string | null;
+  // This device's photo keys: an encrypted start wraps the run key for them.
+  keys: DeviceKeys;
   onSignOut: () => void;
 }) {
+  const recoveryCode = keys.recoveryCode ?? null;
+  const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
@@ -758,7 +770,7 @@ function SignedInApp({
     setStartFailed(false);
     runRequest.current++;
     try {
-      const started = await startRun(trail);
+      const { run: started } = await startRun(trail, { id: me.id, keys });
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(started.id, trail.path, trail.distanceMeters);
@@ -832,7 +844,7 @@ function SignedInApp({
     if (!current) throw new Error("No trail is running");
     let photo = uploaded.current.get(prepared);
     if (!photo) {
-      photo = await uploadPhoto(current.id, stopId, prepared);
+      photo = await uploadPhoto(current.id, stopId, prepared, await loadRunKey(current.id));
       uploaded.current.set(prepared, photo);
     }
     // A photo at a stop that is already done just joins the others.

@@ -1,6 +1,6 @@
 import { StatusBar } from "../components/PhoneFrame";
 import { Confetti } from "../components/Confetti";
-import { PhotoGrid } from "../components/PhotoGrid";
+import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
 import { ShareIcon, CompassIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
@@ -117,6 +117,7 @@ export function SherlockCompleteScreen({
             <p className="sh-album-note">No photos on this trail.</p>
           ) : (
             <>
+              {album.locked && <LockedPhotosNote partnerName={partnerName} className="sh-album-note" />}
               {photosOpen && <p className="sh-album-note">You can add photos for a day after finishing.</p>}
               {run.trail.stops.map((stop, i) => {
                 const here = album.photos.filter((p) => p.stopId === stop.id);

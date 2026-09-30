@@ -9,7 +9,20 @@ vi.mock("./supabase", () => ({ supabase: {} }));
 const [first, second] = trail.stops;
 
 function photo(id: string, stopId: string, createdAt: string): RunPhoto {
-  return { id, runId: "run-1", stopId, uploaderId: "u", width: 10, height: 10, createdAt, url: `https://x/${id}` };
+  const url = `https://x/${id}`;
+  return {
+    id,
+    runId: "run-1",
+    stopId,
+    uploaderId: "u",
+    width: 10,
+    height: 10,
+    createdAt,
+    path: `run-1/${id}.jpg`,
+    nonce: null,
+    url,
+    src: url,
+  };
 }
 
 describe("orderAlbum", () => {
