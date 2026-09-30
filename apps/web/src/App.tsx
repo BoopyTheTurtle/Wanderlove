@@ -13,7 +13,6 @@ import { LinkInvite } from "./screens/LinkInvite";
 import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
-import { KeySetup } from "./screens/KeySetup";
 import { KeyUnlock } from "./screens/KeyUnlock";
 import { PartnerKeyConfirm } from "./screens/PartnerKeyConfirm";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
@@ -60,8 +59,15 @@ import { signOut, useAuth } from "./lib/auth";
 import { isOnboarded, loadOwnProfile, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
 import { isLocalStack } from "./lib/supabase";
-import { checkPartnerKey, loadKeyState, prepareAccountKeys, trustPartnerKey } from "./lib/keys";
-import type { PartnerKeyCheck, PendingKeys } from "./lib/keys";
+import {
+  KeysAlreadyExistError,
+  checkPartnerKey,
+  loadKeyState,
+  prepareAccountKeys,
+  saveAccountKeys,
+  trustPartnerKey,
+} from "./lib/keys";
+import type { PartnerKeyCheck } from "./lib/keys";
 import type { DeviceKeys } from "./lib/keyStore";
 import type { ReactNode } from "react";
 
@@ -156,9 +162,10 @@ export default function App() {
   // Keyed by user, so switching accounts starts the key check and the trail flow afresh.
   return (
     <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
-      {() => (
+      {(keys) => (
         <SignedInApp
           me={toProfile(profile.row, auth.user.email ?? "")}
+          recoveryCode={keys.recoveryCode ?? null}
           onSignOut={() => signOutAndClear(auth.user.id)}
         />
       )}
@@ -169,15 +176,38 @@ export default function App() {
 type KeyGateState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "setup"; pending: PendingKeys; replace: boolean }
   | { status: "unlock"; canUseCode: boolean; replaced: boolean }
   | { status: "ready"; keys: DeviceKeys };
 
 type PartnerKeyPrompt = Extract<PartnerKeyCheck, { status: "confirm" }>;
 
-// Photo keys come before the rest of the app (photo-encryption.md, sections 4 and 5): a new account saves its recovery
-// code, a phone without keys unlocks with the code or starts fresh for the partner to re-share, and a partner key that
-// changed waits for the user's trust. The app stays mounted, hidden, while that last question is open.
+// Loads this device's keys, making and publishing a pair when the account has none. Shared while in flight, so a
+// double mount doesn't make two pairs; a pair another phone stored first sends this one to unlock.
+const keyLoads = new Map<string, Promise<KeyGateState>>();
+
+function loadOrCreateKeys(userId: string): Promise<KeyGateState> {
+  const inFlight = keyLoads.get(userId);
+  if (inFlight) return inFlight;
+  const load = (async (): Promise<KeyGateState> => {
+    const state = await loadKeyState(userId);
+    if (state.status !== "setup") return state;
+    try {
+      return { status: "ready", keys: await saveAccountKeys(userId, await prepareAccountKeys(), { replace: false }) };
+    } catch (e) {
+      if (!(e instanceof KeysAlreadyExistError)) throw e;
+      const again = await loadKeyState(userId);
+      if (again.status === "setup") throw e;
+      return again;
+    }
+  })().finally(() => keyLoads.delete(userId));
+  keyLoads.set(userId, load);
+  return load;
+}
+
+// Photo keys come before the rest of the app (photo-encryption.md, sections 4 and 5): a new account gets its keys
+// quietly, with the recovery code in Settings; a phone without keys unlocks with the code or starts fresh for the
+// partner to re-share; and a partner key that changed waits for the user's trust. The app stays mounted, hidden,
+// while that last question is open.
 function KeyGate({
   userId,
   onSignOut,
@@ -196,18 +226,13 @@ function KeyGate({
 
   useEffect(() => {
     let active = true;
-    loadKeyState(userId)
-      .then(async (state): Promise<KeyGateState> => {
-        if (state.status !== "setup") return state;
-        return { status: "setup", pending: await prepareAccountKeys(), replace: false };
-      })
-      .then(
-        (state) => active && setGate(state),
-        (e: unknown) => {
-          console.error("Couldn't load the photo keys", e);
-          if (active) setGate({ status: "error" });
-        },
-      );
+    loadOrCreateKeys(userId).then(
+      (state) => active && setGate(state),
+      (e: unknown) => {
+        console.error("Couldn't load the photo keys", e);
+        if (active) setGate({ status: "error" });
+      },
+    );
     return () => {
       active = false;
     };
@@ -218,15 +243,18 @@ function KeyGate({
     setAttempt((n) => n + 1);
   }
 
+  // Option C: a fresh pair replaces the account's earlier one; its new code shows in Settings.
   function startFresh() {
     setGate({ status: "loading" });
-    prepareAccountKeys().then(
-      (pending) => setGate({ status: "setup", pending, replace: true }),
-      (e: unknown) => {
-        console.error("Couldn't make new keys", e);
-        setGate({ status: "error" });
-      },
-    );
+    prepareAccountKeys()
+      .then((pending) => saveAccountKeys(userId, pending, { replace: true }))
+      .then(
+        (keys) => setGate({ status: "ready", keys }),
+        (e: unknown) => {
+          console.error("Couldn't make new keys", e);
+          setGate({ status: "error" });
+        },
+      );
   }
 
   const keys = gate.status === "ready" ? gate.keys : null;
@@ -272,19 +300,6 @@ function KeyGate({
           error
           message="Couldn’t load your photo keys. Check your connection and try again."
           onRetry={reload}
-          onSignOut={onSignOut}
-        />
-      </PhoneFrame>
-    );
-  if (gate.status === "setup")
-    return (
-      <PhoneFrame>
-        <KeySetup
-          userId={userId}
-          pending={gate.pending}
-          replace={gate.replace}
-          onDone={(ready) => setGate({ status: "ready", keys: ready })}
-          onConflict={reload}
           onSignOut={onSignOut}
         />
       </PhoneFrame>
@@ -387,7 +402,15 @@ type Draft =
   | { status: "error"; error: string }
   | { status: "ready"; trail: Trail; approximateStart: boolean };
 
-function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) {
+function SignedInApp({
+  me,
+  recoveryCode,
+  onSignOut,
+}: {
+  me: Profile;
+  recoveryCode: string | null;
+  onSignOut: () => void;
+}) {
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
   // Null until the partner first loads, since that decides where the app opens.
@@ -849,6 +872,7 @@ function SignedInApp({ me, onSignOut }: { me: Profile; onSignOut: () => void }) 
           me={me}
           email={me.email}
           partner={partner}
+          recoveryCode={recoveryCode}
           onUnlink={handleUnlink}
           onLinkPartner={() => setRoute({ name: "partner" })}
           onSignOut={handleSignOut}

@@ -6,9 +6,10 @@
 // Gate (App.tsx uses these before the rest of the app):
 // - loadKeyState(userId) → "ready" with this device's keys, "setup" when the account has no keys yet, or "unlock"
 //   when the account has keys but this device has none (or an outdated pair).
-// - prepareAccountKeys() → a new key pair sealed with a new recovery code, in memory only. The setup screen shows the
-//   code; saveAccountKeys(userId, pending, { replace }) stores it once the user confirms they saved it. `replace` is
-//   option C: a new phone without the code publishes a fresh pair, and the partner's phone re-shares past trails.
+// - prepareAccountKeys() → a new key pair sealed with a new recovery code, in memory only.
+//   saveAccountKeys(userId, pending, { replace }) publishes it and keeps it on this device with its code, which
+//   Settings shows on request. `replace` is option C: a new phone without the code publishes a fresh pair, and the
+//   partner's phone re-shares past trails.
 // - unlockWithRecoveryCode(userId, code) (option A) → the device keys; throws WrongRecoveryCodeError on a wrong code.
 // - checkPartnerKey(myId) → "none" (no partner, or the partner has no key yet), "trusted", or "confirm" when the
 //   partner's key differs from the one this phone pinned ("changed") or is new to this phone while trails are shared
@@ -31,6 +32,7 @@ import {
   generateRecoveryCode,
   importPrivateKey,
   keyIdFor,
+  normalizeRecoveryCode,
   openPrivateKey,
   rewrapRunKey,
   sealPrivateKey,
@@ -124,7 +126,7 @@ export async function saveAccountKeys(
     if (error.code === "23505") throw new KeysAlreadyExistError();
     throw error;
   }
-  const device = toDeviceKeys(pending.keys);
+  const device: DeviceKeys = { ...toDeviceKeys(pending.keys), recoveryCode: pending.recoveryCode };
   clearRunKeys();
   await saveDeviceKeys(userId, device);
   return device;
@@ -165,6 +167,7 @@ export async function unlockWithRecoveryCode(userId: string, code: string): Prom
     privateKey: await importPrivateKey(pkcs8),
     publicKey: row.public_key,
     keyId: row.key_id,
+    recoveryCode: normalizeRecoveryCode(code),
   };
   clearRunKeys();
   await saveDeviceKeys(userId, device);

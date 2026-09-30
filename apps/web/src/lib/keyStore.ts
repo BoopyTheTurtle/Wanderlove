@@ -7,6 +7,9 @@ export type DeviceKeys = {
   // Raw public key, base64.
   publicKey: string;
   keyId: string;
+  // The recovery code that opens the sealed private key, normalized, for Settings to show. Whoever holds this device
+  // holds the private key already, so keeping the code here reveals nothing more.
+  recoveryCode?: string;
 };
 
 const DB_NAME = "wannadoo-keys";

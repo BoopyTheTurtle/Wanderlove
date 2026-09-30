@@ -19,7 +19,6 @@
   overflow-wrap: anywhere;
   user-select: all;
 }
-.keys-copy,
 .keys-screen .btn-soft {
   color: var(--teal-dark);
   cursor: pointer;
