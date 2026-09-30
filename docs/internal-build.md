@@ -10,7 +10,7 @@ Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
 
 ## Progress
 
-Last updated September 29, 2026. Resume from **Next** below.
+Last updated September 30, 2026. Resume from **Next** below.
 
 **Done:**
 
@@ -72,7 +72,11 @@ Last updated September 29, 2026. Resume from **Next** below.
   Verified on the local stack with two browser origins (`localhost` and `emma.localhost`). The tester notice gained the
   encryption line. Edgar confirmed on two phones that new photos upload as `.bin` and show on both.
 - **Two-phone fixes.** PR 27: a stop the partner completed now offers **On to the next stop** (or **See your album**),
-  and Android downloads each photo instead of opening the share sheet; iPhones keep the share sheet.
+  and Android downloads each photo instead of opening the share sheet; iPhones keep the share sheet. Edgar confirmed
+  both on phones.
+- **Wine theme.** PR 28: the whole app takes the Sherlock trail's palette (`--teal*` tokens became `--brand*`), with a
+  coral-to-wine animated background. The Sherlock trail keeps its paper, stamps, and fonts; other trails can bring their
+  own theme through `PhoneFrame`'s `theme`.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -80,12 +84,14 @@ Last updated September 29, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** Retest phase 4 on two phones after PR 20: A shows the QR, B scans and links, A starts the trail, B follows
-   within about 10 seconds; progress and photos sync both ways.
-2. **[You]** On phones: the in-app scanner, and that **Save all photos** and **Save album** reach the photo library
-   (task 5.4; on iPhone, note whether the second "Tap to save" is needed).
-3. **[You]** Encryption check (E.5): in the Supabase dashboard, new photos are `.bin` files that don't open; on two
-   phones, both see each other's photos; **Make new keys** on a third browser, then trust it on the partner's phone.
+1. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
+   whether the second "Tap to save" is needed).
+2. **[You]** Finish the encryption check (E.5): open a new photo's `.bin` in the Supabase dashboard and confirm it
+   doesn't open; on a phone with cleared site data, unlock with the recovery code from Profile; on another, choose
+   **Make new keys** and trust them on the partner's phone.
+3. **[Agent]** Security review before hand-out (task 6.1): RLS, storage policies, the key and photo RPCs, and the anon
+   key as the only key in the bundle.
+4. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
 
 **Lessons from phase 2:**
 
