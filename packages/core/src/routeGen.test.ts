@@ -261,6 +261,49 @@ describe("generateRoute", () => {
     }
   });
 
+  // Riga, where START lies: noon in January and July, and 23:00 local on an October night, hours after civil dusk.
+  const WINTER_NOON = new Date("2026-01-15T10:00:00Z");
+  const SUMMER_NOON = new Date("2026-07-15T09:00:00Z");
+  const OCTOBER_DAY = new Date("2026-10-15T10:00:00Z");
+  const OCTOBER_NIGHT = new Date("2026-10-15T20:00:00Z");
+
+  it("drops places beside a pond from November through March, but not beside a river (H4)", async () => {
+    // A pond 20 m from Place 1 (150 m east of the start) and a river 20 m from Place 6 (150 m north).
+    const pond = way(square(offset(0, 185), 15), { natural: "water", water: "pond" });
+    const river = way(square(offset(185, 0), 15), { natural: "water", water: "river" });
+    stubFetch({ overpass: { candidates: places(), hazards: [pond, river] } });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail, rejections } = await settle(generateRoute(START, false, { when: WINTER_NOON }));
+      expect(trail.stops.map((s) => s.id)).not.toContain("osm-node-1");
+      expect(rejections.filter((r) => r.reason === "H4-ice")).toEqual([{ stopId: "osm-node-1", reason: "H4-ice" }]);
+    }
+    const { rejections } = await settle(generateRoute(START, false, { when: SUMMER_NOON }));
+    expect(rejections.some((r) => r.reason === "H4-ice")).toBe(false);
+  });
+
+  it("drops places in unlit parks and woods after civil dusk, unless lit (H10)", async () => {
+    // Place 1 in an unlit park, Place 6 in a lit park, and Place 11, itself lit, in an unlit wood.
+    const areas = [
+      way(square(toLatLng(placeAt(1)), 40), { leisure: "park" }),
+      way(square(toLatLng(placeAt(6)), 40), { leisure: "park", lit: "yes" }),
+      way(square(toLatLng(placeAt(11)), 40), { natural: "wood" }),
+    ];
+    const candidates = places((i): Record<string, string> =>
+      i === 10 ? { tourism: "attraction", lit: "yes" } : { tourism: "attraction" },
+    );
+    stubFetch({ overpass: { candidates, hazards: areas } });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail, rejections } = await settle(generateRoute(START, false, { when: OCTOBER_NIGHT }));
+      expect(trail.stops.map((s) => s.id)).not.toContain("osm-node-1");
+      const dark = rejections.filter((r) => r.reason === "H10-dark-park");
+      expect(dark).toEqual([{ stopId: "osm-node-1", reason: "H10-dark-park" }]);
+    }
+    const { rejections } = await settle(generateRoute(START, false, { when: OCTOBER_DAY }));
+    expect(rejections.some((r) => r.reason === "H10-dark-park")).toBe(false);
+  });
+
   it("drops a stop whose route fails a check and reroutes", async () => {
     const bad = [placeAt(1), placeAt(2), placeAt(6)];
     stubFetch({ ferryAt: bad.map(toLatLng) });

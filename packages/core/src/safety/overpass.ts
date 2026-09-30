@@ -1,7 +1,8 @@
 import type { LatLng } from "../geo";
 
-// The one Overpass request behind a route: stop candidates, generic fallback points, hazard areas, the roads the
-// crossing and sidewalk checks need, marked crossings, and fords (route-safety.md §2.6).
+// The one Overpass request behind a route: stop candidates, generic fallback points, hazard areas (with parks, woods,
+// and ponds for the time-dependent rules), the roads the crossing and sidewalk checks need, marked crossings, fords,
+// railway tracks and their crossings, and the service roads on closed land (route-safety.md §2.6).
 
 export type OsmCoord = { lat: number; lon: number };
 
@@ -26,7 +27,17 @@ export type OsmElement = {
   tags?: Record<string, string>;
 };
 
-export const OVERPASS_SECTIONS = ["candidates", "generic", "hazards", "roads", "crossings", "fords"] as const;
+export const OVERPASS_SECTIONS = [
+  "candidates",
+  "generic",
+  "hazards",
+  "roads",
+  "crossings",
+  "fords",
+  "rails",
+  "railCrossings",
+  "closedService",
+] as const;
 export type OverpassSection = (typeof OVERPASS_SECTIONS)[number];
 export type OverpassSections = Record<OverpassSection, OsmElement[]>;
 
@@ -45,6 +56,8 @@ export function searchBox({ lat, lng }: LatLng, radiusMeters: number): string {
 // Each output block ends with `out count`, which prints one element of type "count"; those mark where each section
 // ends, since the JSON output is otherwise one flat list. Hazard areas are clipped to the box, or the Daugava's
 // relation alone returns kilometres of shoreline.
+// Railway tracks (H7) exclude trams, which run in the street. Service roads and tracks come only from within closed
+// land (H5), through Overpass's area index; a city has thousands elsewhere. The client checks containment again.
 export function overpassQuery(center: LatLng, radiusMeters: number): string {
   const bbox = searchBox(center, radiusMeters);
   return `[out:json][timeout:25][bbox:${bbox}];
@@ -74,6 +87,8 @@ export function overpassQuery(center: LatLng, radiusMeters: number): string {
   wr[natural=water];
   wr[waterway=riverbank];
   way[natural=cliff];
+  wr[leisure=park];
+  wr[natural=wood];
 )->.hazard;
 .hazard out tags geom(${bbox});
 .hazard out count;
@@ -99,7 +114,21 @@ node(w.crossingWays)->.crossingWayNodes;
   way[ford=yes];
 )->.ford;
 .ford out geom;
-.ford out count;`;
+.ford out count;
+way[railway~"^(rail|light_rail)$"]->.rails;
+.rails out tags geom;
+.rails out count;
+node(w.rails)[railway~"^(crossing|level_crossing)$"]->.railX;
+.railX out skel;
+.railX out count;
+(
+  wr[landuse~"^(industrial|military|quarry|railway)$"];
+  wr[military];
+)->.closedLand;
+.closedLand map_to_area->.closedAreas;
+way[highway~"^(service|track)$"](area.closedAreas)->.closedService;
+.closedService out tags geom;
+.closedService out count;`;
 }
 
 // Splits the flat element list at the count markers. Returns null when the response is incomplete (a server that

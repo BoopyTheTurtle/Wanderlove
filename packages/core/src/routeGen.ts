@@ -3,7 +3,8 @@ import type { LatLng } from "./geo";
 import { haversineDistanceMeters } from "./geo";
 import { classifyGeneric, classifyNamed, isQuietTags, tagRejection } from "./safety/filters";
 import type { Kind } from "./safety/filters";
-import { buildHazardIndex, checkContainment } from "./safety/hazards";
+import { buildHazardIndex, checkContainment, timedHazards } from "./safety/hazards";
+import { civilTwilight, seasonNote } from "./daylight";
 import { isExcluded } from "./safety/exclusions";
 import { MAX_QUIET_STOPS, orderStops } from "./safety/quiet";
 import { createRateLimiter } from "./safety/rateLimit";
@@ -61,7 +62,8 @@ const PROMPT_BANK = [
   "What's one thing you'd like to get braver about this year?",
 ];
 
-type Candidate = LatLng & Kind & { id: string; name: string; quiet: boolean };
+// `ice` and `darkPark` are the time-dependent rules (H4, H10), applied per call since the places are cached.
+type Candidate = LatLng & Kind & { id: string; name: string; quiet: boolean; ice: boolean; darkPark: boolean };
 
 export type RouteOptions = {
   // Target loop length in metres; "Shorter loop" passes less than the default.
@@ -69,6 +71,9 @@ export type RouteOptions = {
   // Extra request headers for Overpass and the router. Browsers send a User-Agent themselves; a Node script must set
   // one, or Overpass answers 406.
   headers?: Record<string, string>;
+  // When the walk starts: the month decides the thin-ice rule (H4), civil dusk at the start the dark-park rule (H10).
+  // Defaults to now.
+  when?: Date;
 };
 
 export type RouteRejection = { stopId: string; reason: string };
@@ -79,6 +84,7 @@ export type GeneratedRoute = {
   // Part of the loop follows roads faster than 50 km/h (route-safety.md H2); the app shows the rural-road note.
   rural: boolean;
   // For the simulation script: router calls used, and each stop dropped with its reason (an H-number or "length").
+  // Candidates dropped for the time of the walk (H4-ice, H10-dark-park) come first, before any router call.
   routerCalls: number;
   rejections: RouteRejection[];
 };
@@ -171,7 +177,7 @@ async function loadPlaces(center: LatLng, headers?: Record<string, string>): Pro
     if (ground.hazard) return null;
     const quiet = isQuietTags(tags) || ground.quiet;
     if (generic && quiet) return null; // a bench in a cemetery is no place for a game
-    return { id: `osm-${el.type}-${el.id}`, name, ...at, ...kind, quiet };
+    return { id: `osm-${el.type}-${el.id}`, name, ...at, ...kind, quiet, ...timedHazards(at, hazards, tags) };
   };
 
   const seen = new Set<string>();
@@ -188,7 +194,12 @@ async function loadPlaces(center: LatLng, headers?: Record<string, string>): Pro
     const c = toCandidate(el, true);
     if (c && !ids.has(c.id)) generic.push(c);
   }
-  const network = buildRoadNetwork(sections.roads, sections.crossings, sections.fords);
+  const network = buildRoadNetwork(sections.roads, sections.crossings, sections.fords, {
+    rails: sections.rails,
+    railCrossings: sections.railCrossings,
+    service: sections.closedService,
+    closedLand: hazards.closedLand,
+  });
   const data = { named, generic, network };
   placeCache = { center, data };
   return data;
@@ -287,6 +298,18 @@ export async function generateRoute(
 
   const dropped = new Set<string>();
   const rejections: RouteRejection[] = [];
+
+  // H4 and H10 depend on when the walk starts; the places are cached, so apply them here on every call.
+  const when = options.when ?? new Date();
+  const winter = seasonNote(when) === "winter";
+  const dark = isAfterDusk(when, start);
+  for (const c of [...data.named, ...data.generic]) {
+    const reason = winter && c.ice ? "H4-ice" : dark && c.darkPark ? "H10-dark-park" : null;
+    if (!reason || dropped.has(c.id)) continue;
+    dropped.add(c.id);
+    rejections.push({ stopId: c.id, reason });
+  }
+
   let budget = maxMeters / WALK_FACTOR;
   let routerCalls = 0;
 
@@ -349,6 +372,14 @@ export async function generateRoute(
     if (!next) throw new Error(SAFE_LOOP_ERROR);
     loop = next;
   }
+}
+
+// Whether civil twilight has ended at `at` (route-safety.md H10). A white night never gets that dark.
+function isAfterDusk(when: Date, at: LatLng): boolean {
+  const civil = civilTwilight(when, at.lat, at.lng);
+  if (civil === "always-up") return false;
+  if (civil === "always-down") return true;
+  return when.getTime() < civil.rise.getTime() || when.getTime() >= civil.set.getTime();
 }
 
 function toTrail(
