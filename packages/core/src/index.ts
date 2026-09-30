@@ -4,4 +4,5 @@ export * from "./geo";
 export * from "./trail";
 export * from "./profiles";
 export * from "./routeGen";
+export * from "./safety";
 export * from "./photoSize";

@@ -7,6 +7,8 @@ export type Stop = {
   eyebrow: string;
   prompt: string;
   image: string;
+  // A place of remembrance or worship (route-safety.md H14): calm tasks only, and a respect line on the stop card.
+  quiet?: boolean;
 };
 
 export type Trail = {

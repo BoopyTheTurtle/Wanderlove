@@ -1,18 +1,41 @@
 import type { Stop, Trail } from "./trail";
 import type { LatLng } from "./geo";
 import { haversineDistanceMeters } from "./geo";
+import { classifyGeneric, classifyNamed, isQuietTags, tagRejection } from "./safety/filters";
+import type { Kind } from "./safety/filters";
+import { buildHazardIndex, checkContainment } from "./safety/hazards";
+import { isExcluded } from "./safety/exclusions";
+import { MAX_QUIET_STOPS, orderStops } from "./safety/quiet";
+import { createRateLimiter } from "./safety/rateLimit";
+import { overpassQuery, positionOf, splitSections } from "./safety/overpass";
+import type { OsmElement, OverpassSections } from "./safety/overpass";
+import { buildRoadNetwork, checkRoute, parseOsrmRoute } from "./safety/routeChecks";
+import type { OsrmResponse, RoadNetwork, RoutedLoop } from "./safety/routeChecks";
 
-// Generates a random walking loop from the user's position:
-// candidate stops come from OpenStreetMap (Overpass), the loop length is checked
-// against real walking distance from the FOSSGIS foot router.
+// Generates a random five-stop walking loop from the user's position:
+// candidate stops come from OpenStreetMap (Overpass), pass the safety filters in docs/research/route-safety.md, and
+// the routed path from the FOSSGIS foot router is checked before the loop is offered.
 
-export const MAX_ROUTE_METERS = 2600;
-const MIN_STOPS = 4;
-const MAX_STOPS = 6;
+// The loop's target length, return included. A routed loop may run ROUTE_SLACK_METERS over it (2.1 km by default):
+// real paths rarely match the straight-line estimate exactly, and rejecting a 2,040 m loop would cost a router call.
+export const MAX_ROUTE_METERS = 2000;
+export const ROUTE_SLACK_METERS = 100;
+export const STOP_COUNT = 5;
+// The FOSSGIS router allows one request a second and forbids heavy use (route-safety.md §3).
+export const MAX_ROUTER_CALLS = 8;
+const ROUTER_INTERVAL_MS = 1000;
+
 const SEARCH_RADIUS = 900;
+const CACHE_RADIUS = 250;
+const MIN_STOP_DISTANCE = 120; // from the start, so the first stop isn't the doorstep
+const MIN_STOP_SPACING = 90;
+const FILL_ATTEMPTS = 30;
 const WALK_FACTOR = 1.3; // walking distance ≈ straight line × this, used for pre-filtering
 const WALK_METERS_PER_MIN = 75;
 const MINUTES_PER_STOP = 6;
+
+const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move somewhere with more to see.";
+const TOO_FEW_ERROR = "Not enough interesting places nearby for a route. Try somewhere a bit more central.";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -37,50 +60,31 @@ const PROMPT_BANK = [
   "What's one thing you'd like to get braver about this year?",
 ];
 
-type Candidate = LatLng & { id: string; name: string; label: string; weight: number };
+type Candidate = LatLng & Kind & { id: string; name: string; quiet: boolean };
 
-export type GeneratedRoute = { trail: Trail; approximateStart: boolean };
+export type RouteOptions = {
+  // Target loop length in metres; "Shorter loop" passes less than the default.
+  maxMeters?: number;
+  // Extra request headers for Overpass and the router. Browsers send a User-Agent themselves; a Node script must set
+  // one, or Overpass answers 406.
+  headers?: Record<string, string>;
+};
+
+export type RouteRejection = { stopId: string; reason: string };
+
+export type GeneratedRoute = {
+  trail: Trail;
+  approximateStart: boolean;
+  // Part of the loop follows roads faster than 50 km/h (route-safety.md H2); the app shows the rural-road note.
+  rural: boolean;
+  // For the simulation script: router calls used, and each stop dropped with its reason (an H-number or "length").
+  routerCalls: number;
+  rejections: RouteRejection[];
+};
 
 // --- Places -----------------------------------------------------------------
 
-type OsmElement = {
-  type: string;
-  id: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat: number; lon: number };
-  tags?: Record<string, string>;
-};
-
-function classify(tags: Record<string, string>): { label: string; weight: number } | null {
-  if (tags.memorial === "plaque" || tags.memorial === "stolperstein" || tags.artwork_type === "plaque") return null;
-  if (tags.tourism === "viewpoint") return { label: "Viewpoint", weight: 4 };
-  if (tags.tourism === "attraction") return { label: "Landmark", weight: 4 };
-  if (tags.historic === "castle") return { label: "Castle", weight: 4 };
-  if (tags.historic === "monument") return { label: "Monument", weight: 3 };
-  if (tags.amenity === "place_of_worship" || tags.historic === "church") return { label: "Church", weight: 3 };
-  if (tags.leisure === "park" || tags.leisure === "garden") return { label: "Park", weight: 3 };
-  if (tags.amenity === "fountain") return { label: "Fountain", weight: 2 };
-  if (tags.tourism === "artwork") return { label: "Artwork", weight: 2 };
-  if (tags.tourism === "museum" || tags.tourism === "gallery") return { label: "Museum", weight: 2 };
-  if (tags.amenity === "marketplace") return { label: "Market", weight: 2 };
-  if (tags.historic === "ruins" || tags.historic === "building") return { label: "Historic spot", weight: 2 };
-  if (tags.historic === "memorial") return { label: "Memorial", weight: 1 };
-  return null;
-}
-
-// A bounding box is far cheaper for Overpass than an "around" filter; exact distance is checked afterwards.
-function overpassQuery({ lat, lng }: LatLng): string {
-  const dLat = SEARCH_RADIUS / 111320;
-  const dLng = SEARCH_RADIUS / (111320 * Math.cos((lat * Math.PI) / 180));
-  const bbox = [lat - dLat, lng - dLng, lat + dLat, lng + dLng].map((n) => n.toFixed(5)).join(",");
-  return `[out:json][timeout:20][bbox:${bbox}];(
-    nwr[name][tourism~"^(attraction|viewpoint|artwork|museum|gallery)$"];
-    nwr[name][historic~"^(monument|memorial|castle|church|ruins|building)$"];
-    nwr[name][amenity~"^(place_of_worship|fountain|marketplace)$"];
-    nwr[name][leisure~"^(park|garden)$"];
-  );out tags center 400;`;
-}
+type PlaceData = { named: Candidate[]; generic: Candidate[]; network: RoadNetwork };
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
   const ctl = new AbortController();
@@ -92,36 +96,53 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
   }
 }
 
-let placeCache: { center: LatLng; places: Candidate[] } | null = null;
-let inflight: { center: LatLng; promise: Promise<Candidate[]> } | null = null;
+let placeCache: { center: LatLng; data: PlaceData } | null = null;
+let inflight: { center: LatLng; promise: Promise<PlaceData> } | null = null;
 
-// Nearby places change rarely, so reuse them while the user stays within 250 m,
+// Drops the cached places, hazards, and roads, which reveal roughly where the user started. Call it on sign-out.
+export function clearPlaceCache(): void {
+  placeCache = null;
+  inflight = null;
+}
+
+// Nearby places change rarely, so reuse them (with the hazards and roads) while the user stays within 250 m,
 // and share one request between concurrent callers (Overpass rate-limits per IP).
-function fetchPlaces(center: LatLng): Promise<Candidate[]> {
-  if (placeCache && haversineDistanceMeters(placeCache.center, center) < 250) return Promise.resolve(placeCache.places);
-  if (inflight && haversineDistanceMeters(inflight.center, center) < 250) return inflight.promise;
-  const promise = loadPlaces(center).finally(() => {
-    inflight = null;
-  });
-  inflight = { center, promise };
-  return promise;
+function fetchPlaces(center: LatLng, headers?: Record<string, string>): Promise<PlaceData> {
+  if (placeCache && haversineDistanceMeters(placeCache.center, center) < CACHE_RADIUS) {
+    return Promise.resolve(placeCache.data);
+  }
+  if (inflight && haversineDistanceMeters(inflight.center, center) < CACHE_RADIUS) return inflight.promise;
+  const entry = {
+    center,
+    promise: loadPlaces(center, headers).finally(() => {
+      if (inflight === entry) inflight = null;
+    }),
+  };
+  inflight = entry;
+  return entry.promise;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function queryOverpass(center: LatLng): Promise<OsmElement[] | null> {
-  const body = () => new URLSearchParams({ data: overpassQuery(center) });
+async function queryOverpass(center: LatLng, headers?: Record<string, string>): Promise<OverpassSections | null> {
+  const body = () => new URLSearchParams({ data: overpassQuery(center, SEARCH_RADIUS) });
   for (const [i, endpoint] of OVERPASS_ENDPOINTS.entries()) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await fetchWithTimeout(endpoint, { method: "POST", body: body() }, i === 0 ? 20000 : 12000);
+        const res = await fetchWithTimeout(
+          endpoint,
+          { method: "POST", body: body(), headers },
+          i === 0 ? 25000 : 15000,
+        );
         if (res.status === 429 || res.status === 504) {
           await sleep(1500);
           continue; // busy: one retry on the same server
         }
         if (!res.ok) break;
-        // A busy server can answer 200 with an XML error page, so parse defensively.
-        return (JSON.parse(await res.text()) as { elements: OsmElement[] }).elements;
+        // A busy server can answer 200 with an XML error page or a partial list, so parse defensively.
+        const sections = splitSections((JSON.parse(await res.text()) as { elements: OsmElement[] }).elements);
+        if (sections) return sections;
+        break;
       } catch {
         break; // timeout or network error: try the next server
       }
@@ -130,27 +151,46 @@ async function queryOverpass(center: LatLng): Promise<OsmElement[] | null> {
   return null;
 }
 
-async function loadPlaces(center: LatLng): Promise<Candidate[]> {
-  const elements = await queryOverpass(center);
-  if (!elements) throw new Error("Couldn't reach the map service. Check your connection and try again.");
+// Candidate filter, exclusion list, and containment filter, in that order (route-safety.md §2.2).
+async function loadPlaces(center: LatLng, headers?: Record<string, string>): Promise<PlaceData> {
+  const sections = await queryOverpass(center, headers);
+  if (!sections) throw new Error("Couldn't reach the map service. Check your connection and try again.");
+  const hazards = buildHazardIndex(sections.hazards);
+
+  const toCandidate = (el: OsmElement, generic: boolean): Candidate | null => {
+    const tags = el.tags ?? {};
+    const at = positionOf(el);
+    const kind = generic ? classifyGeneric(tags) : classifyNamed(tags);
+    const name = tags["name:en"] || tags.name || (generic ? kind?.label : undefined);
+    if (!at || !kind || !name) return null;
+    if (haversineDistanceMeters(center, at) > SEARCH_RADIUS) return null;
+    if (tagRejection(tags)) return null;
+    if (isExcluded(`${el.type}/${el.id}`, at)) return null;
+    const ground = checkContainment(at, hazards, tags);
+    if (ground.hazard) return null;
+    const quiet = isQuietTags(tags) || ground.quiet;
+    if (generic && quiet) return null; // a bench in a cemetery is no place for a game
+    return { id: `osm-${el.type}-${el.id}`, name, ...at, ...kind, quiet };
+  };
 
   const seen = new Set<string>();
-  const places: Candidate[] = [];
-  for (const el of elements) {
-    const tags = el.tags ?? {};
-    const lat = el.lat ?? el.center?.lat;
-    const lng = el.lon ?? el.center?.lon;
-    const name = tags["name:en"] || tags.name;
-    const kind = classify(tags);
-    if (lat === undefined || lng === undefined || !name || !kind) continue;
-    if (haversineDistanceMeters(center, { lat, lng }) > SEARCH_RADIUS) continue;
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    places.push({ id: `osm-${el.type}-${el.id}`, name, lat, lng, ...kind });
+  const named: Candidate[] = [];
+  for (const el of sections.candidates) {
+    const c = toCandidate(el, false);
+    if (!c || seen.has(c.name.toLowerCase())) continue;
+    seen.add(c.name.toLowerCase());
+    named.push(c);
   }
-  placeCache = { center, places };
-  return places;
+  const ids = new Set(named.map((c) => c.id));
+  const generic: Candidate[] = [];
+  for (const el of sections.generic) {
+    const c = toCandidate(el, true);
+    if (c && !ids.has(c.id)) generic.push(c);
+  }
+  const network = buildRoadNetwork(sections.roads, sections.crossings, sections.fords);
+  const data = { named, generic, network };
+  placeCache = { center, data };
+  return data;
 }
 
 // --- Loop building ----------------------------------------------------------
@@ -165,30 +205,27 @@ function loopLength(start: LatLng, stops: LatLng[]): number {
 // Random key biased by weight (Efraimidis–Spirakis), so landmarks come up more often than artworks.
 function weightedShuffle<T extends { weight: number }>(items: T[]): T[] {
   return items
-    .map((item) => ({ item, key: Math.pow(Math.random(), 1 / item.weight) }))
-    .sort((a, b) => b.key - a.key)
+    .map((item, i) => ({ item, i, key: Math.pow(Math.random(), 1 / item.weight) }))
+    .sort((a, b) => b.key - a.key || a.i - b.i)
     .map((x) => x.item);
 }
 
-const MINOR_KINDS = new Set(["Artwork", "Museum", "Memorial", "Historic spot"]);
+// Variety: at most this many of a kind, so a route isn't five street sculptures or five benches.
+const KIND_LIMITS: Record<string, number> = { Artwork: 1, Museum: 1, Memorial: 1, "Historic spot": 1, Bench: 3 };
 
-function buildLoop(start: LatLng, places: Candidate[], budgetStraight: number): Candidate[] {
-  const pool = weightedShuffle(
-    places.filter(
-      (p) => haversineDistanceMeters(start, p) > 120 && haversineDistanceMeters(start, p) < budgetStraight / 2,
-    ),
-  );
-  const loop: Candidate[] = [];
-  for (const cand of pool) {
-    if (loop.length >= MAX_STOPS) break;
-    if (loop.some((s) => haversineDistanceMeters(s, cand) < 90)) continue;
-    // Variety: at most one of each minor kind, so a route isn't five street sculptures.
-    if (MINOR_KINDS.has(cand.label) && loop.some((s) => s.label === cand.label)) continue;
-    // cheapest insertion keeps the loop compact while the order of discovery stays random
+// Adds candidates to `loop` by cheapest insertion until it holds five stops, keeping its straight-line length within
+// `budgetStraight`. The order of discovery stays random, so every route differs.
+function buildLoop(start: LatLng, pool: Candidate[], budgetStraight: number, loop: Candidate[] = []): Candidate[] {
+  loop = [...loop];
+  for (const cand of weightedShuffle(pool)) {
+    if (loop.length >= STOP_COUNT) break;
+    if (loop.some((s) => s.id === cand.id || haversineDistanceMeters(s, cand) < MIN_STOP_SPACING)) continue;
+    const limit = KIND_LIMITS[cand.label];
+    if (limit !== undefined && loop.filter((s) => s.label === cand.label).length >= limit) continue;
+    if (cand.quiet && loop.filter((s) => s.quiet).length >= MAX_QUIET_STOPS) continue;
     let best: { at: number; len: number } | null = null;
     for (let at = 0; at <= loop.length; at++) {
-      const trial = [...loop.slice(0, at), cand, ...loop.slice(at)];
-      const len = loopLength(start, trial);
+      const len = loopLength(start, [...loop.slice(0, at), cand, ...loop.slice(at)]);
       if (!best || len < best.len) best = { at, len };
     }
     if (best && best.len <= budgetStraight) loop.splice(best.at, 0, cand);
@@ -196,63 +233,8 @@ function buildLoop(start: LatLng, places: Candidate[], budgetStraight: number): 
   return loop;
 }
 
-type RoutedPath = { distance: number; path: [number, number][] };
-
-async function routeOnFoot(points: LatLng[]): Promise<RoutedPath | null> {
-  const coords = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
-  try {
-    const res = await fetchWithTimeout(`${FOOT_ROUTER}/${coords}?overview=full&geometries=geojson`, {}, 12000);
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      routes?: { distance: number; geometry: { coordinates: [number, number][] } }[];
-    };
-    const r = json.routes?.[0];
-    if (!r) return null;
-    return { distance: r.distance, path: r.geometry.coordinates.map(([lng, lat]) => [lat, lng]) };
-  } catch {
-    return null;
-  }
-}
-
-// --- Public API -------------------------------------------------------------
-
-export async function generateRoute(start: LatLng, approximateStart: boolean): Promise<GeneratedRoute> {
-  const places = await fetchPlaces(start);
-  if (places.length < MIN_STOPS)
-    throw new Error("Not enough interesting places nearby for a route. Try somewhere a bit more central.");
-
-  let budget = MAX_ROUTE_METERS / WALK_FACTOR;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    let loop = buildLoop(start, places, budget);
-    if (loop.length < MIN_STOPS) {
-      budget *= 1.05;
-      continue;
-    }
-
-    let routed = await routeOnFoot([start, ...loop, start]);
-    // Too long on real paths: drop the stop that costs the most, then re-route.
-    while (routed && routed.distance > MAX_ROUTE_METERS && loop.length > MIN_STOPS) {
-      loop = dropCostliest(start, loop);
-      routed = await routeOnFoot([start, ...loop, start]);
-    }
-    if (routed && routed.distance > MAX_ROUTE_METERS) {
-      budget *= 0.85;
-      continue;
-    }
-
-    const estimated = !routed;
-    const distance = routed ? routed.distance : loopLength(start, loop) * WALK_FACTOR;
-    if (distance > MAX_ROUTE_METERS) {
-      budget *= 0.85;
-      continue;
-    }
-    const path = routed ? routed.path : [start, ...loop, start].map((p) => [p.lat, p.lng] as [number, number]);
-    return { trail: toTrail(start, loop, distance, path, estimated), approximateStart };
-  }
-  throw new Error("Couldn't fit a route under 2.6 km here. Try again, or move somewhere with more to see.");
-}
-
-function dropCostliest(start: LatLng, loop: Candidate[]): Candidate[] {
+// The stop whose removal shortens the loop most.
+function costliestIndex(start: LatLng, loop: Candidate[]): number {
   let bestIdx = 0;
   let bestLen = Infinity;
   loop.forEach((_, i) => {
@@ -265,7 +247,114 @@ function dropCostliest(start: LatLng, loop: Candidate[]): Candidate[] {
       bestIdx = i;
     }
   });
-  return loop.filter((_, i) => i !== bestIdx);
+  return bestIdx;
+}
+
+// --- Router -----------------------------------------------------------------
+
+const routerQueue = createRateLimiter(ROUTER_INTERVAL_MS);
+
+// Routes through `points` on foot, queued at one request a second. Null when the router is unreachable.
+function routeOnFoot(points: LatLng[], headers?: Record<string, string>): Promise<RoutedLoop | null> {
+  const coords = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+  const url = `${FOOT_ROUTER}/${coords}?overview=full&geometries=geojson&steps=true&annotations=nodes`;
+  return routerQueue(async () => {
+    try {
+      const res = await fetchWithTimeout(url, { headers }, 12000);
+      if (!res.ok) return null;
+      return parseOsrmRoute((await res.json()) as OsrmResponse);
+    } catch {
+      return null;
+    }
+  });
+}
+
+// --- Public API -------------------------------------------------------------
+
+// Builds a loop of exactly five stops, routes it, and checks the route. A failed check drops the offending stop,
+// tops the loop up with another candidate, and reroutes; a loop over the limit loses its costliest stop and the
+// search tightens. After eight router calls it gives up.
+// When the router is unreachable, the loop comes back with an estimated distance (`distanceEstimated`), and only
+// the stop filters, not the path checks, have run.
+export async function generateRoute(
+  start: LatLng,
+  approximateStart: boolean,
+  options: RouteOptions = {},
+): Promise<GeneratedRoute> {
+  const maxMeters = options.maxMeters ?? MAX_ROUTE_METERS;
+  const hardCap = maxMeters + ROUTE_SLACK_METERS;
+  const data = await fetchPlaces(start, options.headers);
+
+  const dropped = new Set<string>();
+  const rejections: RouteRejection[] = [];
+  let budget = maxMeters / WALK_FACTOR;
+  let routerCalls = 0;
+
+  // Named places first; generic points (benches, viewpoints, parks) top up a loop the named ones can't fill.
+  // A random pick can wander off and leave no room for a fifth stop, so try a few; this costs no network.
+  const fill = (partial: Candidate[]): Candidate[] | null => {
+    const reachable = (c: Candidate) => {
+      const d = haversineDistanceMeters(start, c);
+      return !dropped.has(c.id) && d > MIN_STOP_DISTANCE && d < budget / 2;
+    };
+    const named = data.named.filter(reachable);
+    const generic = data.generic.filter(reachable);
+    for (const topUp of generic.length ? [false, true] : [false]) {
+      for (let attempt = 0; attempt < FILL_ATTEMPTS; attempt++) {
+        let loop = buildLoop(start, named, budget, partial);
+        if (topUp) loop = buildLoop(start, generic, budget, loop);
+        if (loop.length === STOP_COUNT) return loop;
+      }
+    }
+    return null;
+  };
+
+  const first = fill([]);
+  if (!first) throw new Error(TOO_FEW_ERROR);
+  let loop: Candidate[] = first;
+
+  for (;;) {
+    loop = orderStops(start, loop);
+    if (routerCalls >= MAX_ROUTER_CALLS) throw new Error(SAFE_LOOP_ERROR);
+    routerCalls++;
+    const routed = await routeOnFoot([start, ...loop, start], options.headers);
+
+    if (!routed) {
+      // Router unreachable: fall back to a straight-line estimate, which buildLoop already keeps within the limit.
+      const distance = loopLength(start, loop) * WALK_FACTOR;
+      const path = [start, ...loop, start].map((p) => [p.lat, p.lng] as [number, number]);
+      const trail = toTrail(start, loop, distance, path, true);
+      return { trail, approximateStart, rural: false, routerCalls, rejections };
+    }
+
+    const verdict = checkRoute(routed, data.network, start, loop);
+    let drop: number;
+    if (!verdict.ok) {
+      const issue = verdict.issues[0];
+      drop = issue.stop;
+      rejections.push({ stopId: loop[drop].id, reason: issue.reason });
+    } else if (routed.distance > hardCap) {
+      // Too long on real paths: tighten the straight-line budget by how much the paths overran, then swap out the
+      // stop that costs the most.
+      budget = Math.min(budget, loopLength(start, loop) * (maxMeters / routed.distance));
+      drop = costliestIndex(start, loop);
+      rejections.push({ stopId: loop[drop].id, reason: "length" });
+    } else {
+      const path = routed.path.map((p) => [p.lat, p.lng] as [number, number]);
+      const trail = toTrail(start, loop, routed.distance, path, false);
+      return { trail, approximateStart, rural: verdict.rural, routerCalls, rejections };
+    }
+
+    dropped.add(loop[drop].id);
+    let rest: Candidate[] = loop.filter((_, i) => i !== drop);
+    while (rest.length && loopLength(start, rest) > budget) {
+      const costliest = costliestIndex(start, rest);
+      rest = rest.filter((_, i) => i !== costliest);
+    }
+    const next: Candidate[] | null = fill(rest) ?? fill([]);
+    if (!next) throw new Error(SAFE_LOOP_ERROR);
+    loop = next;
+  }
 }
 
 function toTrail(
@@ -289,6 +378,7 @@ function toTrail(
       eyebrow: `Stop ${n} — ${c.label}`,
       prompt: isFirst ? PROMPT_WARMUP : isLast ? PROMPT_FINAL : prompts[i],
       image: `https://picsum.photos/seed/wannadoo-${c.id}/800/600`,
+      quiet: c.quiet,
     };
   });
   const km = (distance / 1000).toFixed(1);
@@ -313,7 +403,9 @@ function toTrail(
 export async function withWalkingPath(trail: Trail): Promise<Trail> {
   if (trail.path) return trail;
   const routed = await routeOnFoot(trail.stops);
-  return routed ? { ...trail, path: routed.path, distanceMeters: Math.round(routed.distance) } : trail;
+  if (!routed) return trail;
+  const path = routed.path.map((p) => [p.lat, p.lng] as [number, number]);
+  return { ...trail, path, distanceMeters: Math.round(routed.distance) };
 }
 
 // --- Location ---------------------------------------------------------------

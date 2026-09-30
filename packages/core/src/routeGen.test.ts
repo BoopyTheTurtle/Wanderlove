@@ -1,88 +1,107 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { haversineDistanceMeters } from "./geo";
 import type { LatLng } from "./geo";
+import type { OsmElement } from "./safety/overpass";
+import { START, node, offset, osrmResponse, overpassResponse, square, way } from "./safety/testFixtures";
 
-const START: LatLng = { lat: 56.95, lng: 24.1 };
-
-// Offsets a point by metres north/east of START.
-function offset(north: number, east: number): LatLng {
-  return {
-    lat: START.lat + north / 111320,
-    lng: START.lng + east / (111320 * Math.cos((START.lat * Math.PI) / 180)),
-  };
-}
-
-// 20 attractions on rings 150–550 m from the start, plus a plaque that must never be picked.
-function overpassElements() {
-  const elements = Array.from({ length: 20 }, (_, i) => {
+// 20 places on rings 150–550 m from the start. `tags` can override the kind of place per index.
+function places(tags: (i: number) => Record<string, string> = () => ({ tourism: "attraction" })): OsmElement[] {
+  return Array.from({ length: 20 }, (_, i) => {
     const angle = (i * 18 * Math.PI) / 180;
     const r = 150 + (i % 5) * 100;
     const p = offset(Math.sin(angle) * r, Math.cos(angle) * r);
-    return { type: "node", id: i + 1, lat: p.lat, lon: p.lng, tags: { name: `Place ${i + 1}`, tourism: "attraction" } };
+    return node(p, { name: `Place ${i + 1}`, ...tags(i) }, i + 1);
   });
-  const plaque = offset(200, 0);
-  elements.push({
-    type: "node",
-    id: 999,
-    lat: plaque.lat,
-    lon: plaque.lng,
-    tags: { name: "Plaque", historic: "memorial", memorial: "plaque" } as never,
-  });
-  return elements;
 }
+const placeAt = (id: number) => places().find((p) => p.id === id)!;
+const PLAQUE = node(offset(200, 0), { name: "Plaque", historic: "memorial", memorial: "plaque" }, 999);
 
-// Fake foot router: walking distance = straight-line distance × `factor`.
-function stubFetch({ routerFactor = 1.2, routerUp = true } = {}) {
-  const fetchMock = vi.fn(async (url: string) => {
+type StubOptions = {
+  overpass?: Partial<Record<string, OsmElement[]>>;
+  routerFactor?: number;
+  routerUp?: boolean;
+  // Legs touching any of these points come back as ferry legs.
+  ferryAt?: LatLng[];
+};
+
+// Fake Overpass and foot router. The router walks straight lines; its distance is straight-line distance × factor.
+function stubFetch({ overpass, routerFactor = 1.2, routerUp = true, ferryAt = [] }: StubOptions = {}) {
+  const routerCallTimes: number[] = [];
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
     if (url.includes("interpreter")) {
-      return new Response(JSON.stringify({ elements: overpassElements() }), { status: 200 });
+      const sections = overpass ?? { candidates: [...places(), PLAQUE] };
+      return new Response(JSON.stringify(overpassResponse(sections)), { status: 200 });
     }
+    routerCallTimes.push(Date.now());
     if (!routerUp) throw new TypeError("network down");
-    const coords = url.split("/driving/")[1].split("?")[0].split(";");
-    const pts = coords.map((c) => {
-      const [lng, lat] = c.split(",").map(Number);
-      return { lat, lng };
-    });
-    let d = 0;
-    for (let i = 1; i < pts.length; i++) d += haversineDistanceMeters(pts[i - 1], pts[i]);
-    return new Response(
-      JSON.stringify({
-        routes: [{ distance: d * routerFactor, geometry: { coordinates: pts.map((p) => [p.lng, p.lat]) } }],
-      }),
-      { status: 200 },
-    );
+    const pts = url
+      .split("/driving/")[1]
+      .split("?")[0]
+      .split(";")
+      .map((c) => {
+        const [lng, lat] = c.split(",").map(Number);
+        return { lat, lng };
+      });
+    const near = (p: LatLng) => ferryAt.some((f) => haversineDistanceMeters(f, p) < 1);
+    const legs = pts
+      .slice(1)
+      .map((p, i) => ({ path: [pts[i], p], mode: near(pts[i]) || near(p) ? "ferry" : undefined }));
+    const json = osrmResponse(legs);
+    json.routes![0].distance *= routerFactor;
+    return new Response(JSON.stringify(json), { status: 200 });
   });
   vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  return { fetchMock, routerCallTimes };
 }
 
-// routeGen caches places per location, so load a fresh module for each test.
+// routeGen caches places and queues router calls per module, so load a fresh module for each test.
 async function loadRouteGen() {
   vi.resetModules();
   return import("./routeGen");
 }
 
+// Runs a promise to completion under fake timers, which the router queue and retries wait on.
+async function settle<T>(promise: Promise<T>): Promise<T> {
+  let done = false;
+  promise.then(
+    () => (done = true),
+    () => (done = true),
+  );
+  while (!done) await vi.advanceTimersByTimeAsync(250);
+  return promise;
+}
+
+const toLatLng = (el: OsmElement): LatLng => ({ lat: el.lat!, lng: el.lon! });
+
 describe("generateRoute", () => {
-  beforeEach(() => vi.unstubAllGlobals());
-  afterEach(() => vi.unstubAllGlobals());
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
-  it("builds a 4–6 stop loop within the walking limit", async () => {
+  it("builds a five-stop loop within the walking limit", async () => {
     stubFetch();
-    const { generateRoute, MAX_ROUTE_METERS } = await loadRouteGen();
-    const { trail } = await generateRoute(START, false);
+    const { generateRoute, MAX_ROUTE_METERS, ROUTE_SLACK_METERS } = await loadRouteGen();
+    const { trail, rural, routerCalls } = await settle(generateRoute(START, false));
 
-    expect(trail.stops.length).toBeGreaterThanOrEqual(4);
-    expect(trail.stops.length).toBeLessThanOrEqual(6);
-    expect(trail.stopCount).toBe(trail.stops.length);
-    expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS);
+    expect(trail.stops).toHaveLength(5);
+    expect(trail.stopCount).toBe(5);
+    expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS + ROUTE_SLACK_METERS);
     expect(trail.distanceEstimated).toBe(false);
     expect(trail.kind).toBe("surprise");
+    expect(trail.durationMinutes).toBeGreaterThan(0);
+    expect(rural).toBe(false);
+    expect(routerCalls).toBeGreaterThanOrEqual(1);
   });
 
   it("starts and ends the walking path at the user's position", async () => {
     stubFetch();
     const { generateRoute } = await loadRouteGen();
-    const { trail } = await generateRoute(START, false);
+    const { trail } = await settle(generateRoute(START, false));
     const path = trail.path!;
 
     expect(haversineDistanceMeters({ lat: path[0][0], lng: path[0][1] }, START)).toBeLessThan(1);
@@ -93,7 +112,7 @@ describe("generateRoute", () => {
     stubFetch();
     const { generateRoute } = await loadRouteGen();
     for (let i = 0; i < 10; i++) {
-      const { trail } = await generateRoute(START, false);
+      const { trail } = await settle(generateRoute(START, false));
       const names = trail.stops.map((s) => s.name);
       expect(names).not.toContain("Plaque");
       expect(new Set(names).size).toBe(names.length);
@@ -103,7 +122,7 @@ describe("generateRoute", () => {
   it("gives every stop a prompt, and the first and last fixed ones", async () => {
     stubFetch();
     const { generateRoute } = await loadRouteGen();
-    const { trail } = await generateRoute(START, false);
+    const { trail } = await settle(generateRoute(START, false));
 
     for (const stop of trail.stops) expect(stop.prompt.length).toBeGreaterThan(10);
     expect(trail.stops[0].eyebrow).toMatch(/^Stop 01/);
@@ -113,28 +132,53 @@ describe("generateRoute", () => {
   it("falls back to an estimated distance when the router is unreachable", async () => {
     stubFetch({ routerUp: false });
     const { generateRoute, MAX_ROUTE_METERS } = await loadRouteGen();
-    const { trail } = await generateRoute(START, false);
+    const { trail } = await settle(generateRoute(START, false));
 
+    expect(trail.stops).toHaveLength(5);
     expect(trail.distanceEstimated).toBe(true);
     expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS);
   });
 
   it("stays within the limit when real paths are much longer than straight lines", async () => {
-    stubFetch({ routerFactor: 2.2 });
-    const { generateRoute, MAX_ROUTE_METERS } = await loadRouteGen();
-    const { trail } = await generateRoute(START, false);
+    stubFetch({ routerFactor: 1.7 });
+    const { generateRoute, MAX_ROUTE_METERS, ROUTE_SLACK_METERS } = await loadRouteGen();
+    const { trail, rejections } = await settle(generateRoute(START, false));
 
-    expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS);
+    expect(trail.stops).toHaveLength(5);
+    expect(trail.distanceMeters).toBeLessThanOrEqual(MAX_ROUTE_METERS + ROUTE_SLACK_METERS);
+    expect(rejections.every((r) => r.reason === "length")).toBe(true);
   });
 
-  it("fetches nearby places once and reuses them for the next route", async () => {
-    const fetchMock = stubFetch();
-    const { generateRoute } = await loadRouteGen();
-    await generateRoute(START, false);
-    await generateRoute(START, false);
+  it("builds a shorter loop when asked", async () => {
+    stubFetch();
+    const { generateRoute, ROUTE_SLACK_METERS } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false, { maxMeters: 1500 }));
 
-    const overpassCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes("interpreter"));
-    expect(overpassCalls).toHaveLength(1);
+    expect(trail.stops).toHaveLength(5);
+    expect(trail.distanceMeters).toBeLessThanOrEqual(1500 + ROUTE_SLACK_METERS);
+  });
+
+  it("fetches nearby places once, reuses them, and fetches again after clearPlaceCache", async () => {
+    const { fetchMock } = stubFetch();
+    const { generateRoute, clearPlaceCache } = await loadRouteGen();
+    await settle(generateRoute(START, false));
+    await settle(generateRoute(START, false));
+    const overpassCalls = () => fetchMock.mock.calls.filter(([url]) => String(url).includes("interpreter")).length;
+    expect(overpassCalls()).toBe(1);
+
+    clearPlaceCache();
+    await settle(generateRoute(START, false));
+    expect(overpassCalls()).toBe(2);
+  });
+
+  it("sends custom headers, such as a script's User-Agent, to Overpass and the router", async () => {
+    const { fetchMock } = stubFetch();
+    const { generateRoute } = await loadRouteGen();
+    await settle(generateRoute(START, false, { headers: { "User-Agent": "wannadoo-sim/1" } }));
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect((init?.headers as Record<string, string>)["User-Agent"]).toBe("wannadoo-sim/1");
+    }
   });
 
   it("reports a clear error when the map service is down", async () => {
@@ -143,6 +187,111 @@ describe("generateRoute", () => {
       vi.fn(async () => new Response("<?xml version='1.0'?><error/>", { status: 200 })),
     );
     const { generateRoute } = await loadRouteGen();
-    await expect(generateRoute(START, false)).rejects.toThrow(/map service/);
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/map service/);
+  });
+
+  it("treats a response missing its section markers as a failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ elements: places() }), { status: 200 })),
+    );
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/map service/);
+  });
+
+  it("tops up with benches, viewpoints, and parks where too few named places exist", async () => {
+    const named = places().slice(0, 2);
+    const benches = Array.from({ length: 12 }, (_, i) => {
+      const angle = (i * 30 * Math.PI) / 180;
+      return node(offset(Math.sin(angle) * 300, Math.cos(angle) * 300), { amenity: "bench" }, 100 + i);
+    });
+    const viewpoint = node(offset(-250, 100), { tourism: "viewpoint" }, 200);
+    stubFetch({ overpass: { candidates: named, generic: [...benches, viewpoint] } });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    const labels = trail.stops.map((s) => s.eyebrow.split(" — ")[1]);
+    expect(labels.filter((l) => l === "Bench").length).toBeLessThanOrEqual(3);
+    expect(labels.filter((l) => l === "Landmark").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("fails clearly when even generic points can't fill five stops", async () => {
+    stubFetch({ overpass: { candidates: places().slice(0, 3) } });
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/Not enough interesting places/);
+  });
+
+  it("flags quiet stops, keeps at most two, and puts them on slots 1, 3, or 5", async () => {
+    // Every other place is a church.
+    const overpass = {
+      candidates: places((i): Record<string, string> =>
+        i % 2 ? { amenity: "place_of_worship" } : { tourism: "attraction" },
+      ),
+    };
+    stubFetch({ overpass });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 8; run++) {
+      const { trail } = await settle(generateRoute(START, false));
+      const quiet = trail.stops.flatMap((s, i) => (s.quiet ? [i] : []));
+      expect(quiet.length).toBeLessThanOrEqual(2);
+      for (const i of quiet) expect([0, 2, 4]).toContain(i);
+      for (const s of trail.stops) expect(s.quiet).toBe(/Church/.test(s.eyebrow));
+    }
+  });
+
+  it("marks a stop inside a cemetery quiet", async () => {
+    // A cemetery around Places 1 and 6, which are otherwise ordinary attractions.
+    const graves = [placeAt(1), placeAt(6)];
+    const cemetery = graves.map((p) => way(square(toLatLng(p), 30), { landuse: "cemetery" }));
+    stubFetch({ overpass: { candidates: places(), hazards: cemetery } });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail } = await settle(generateRoute(START, false));
+      for (const s of trail.stops) expect(s.quiet).toBe(s.name === "Place 1" || s.name === "Place 6");
+    }
+  });
+
+  it("never picks a place inside a hazard area", async () => {
+    // Industrial land covers everything north of the start.
+    const industrial = way([offset(10, -800), offset(10, 800), offset(800, 800), offset(800, -800), offset(10, -800)], {
+      landuse: "industrial",
+    });
+    stubFetch({ overpass: { candidates: places(), hazards: [industrial] } });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail } = await settle(generateRoute(START, false));
+      for (const s of trail.stops) expect(s.lat).toBeLessThan(offset(10, 0).lat);
+    }
+  });
+
+  it("drops a stop whose route fails a check and reroutes", async () => {
+    const bad = [placeAt(1), placeAt(2), placeAt(6)];
+    stubFetch({ ferryAt: bad.map(toLatLng) });
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail, rejections, routerCalls } = await settle(generateRoute(START, false));
+      expect(trail.stops).toHaveLength(5);
+      for (const b of bad) expect(trail.stops.map((s) => s.id)).not.toContain(`osm-node-${b.id}`);
+      expect(rejections.every((r) => r.reason === "H3-ferry")).toBe(true);
+      expect(routerCalls).toBe(rejections.length + 1);
+    }
+  });
+
+  it("gives up after eight router calls", async () => {
+    const { routerCallTimes } = stubFetch({ ferryAt: [START] });
+    const { generateRoute, MAX_ROUTER_CALLS } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/Couldn't find a safe loop here/);
+    expect(MAX_ROUTER_CALLS).toBe(8);
+    expect(routerCallTimes).toHaveLength(8);
+  });
+
+  it("calls the router at most once a second", async () => {
+    const { routerCallTimes } = stubFetch({ ferryAt: [START] });
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow();
+    for (let i = 1; i < routerCallTimes.length; i++) {
+      expect(routerCallTimes[i] - routerCallTimes[i - 1]).toBeGreaterThanOrEqual(1000);
+    }
   });
 });
