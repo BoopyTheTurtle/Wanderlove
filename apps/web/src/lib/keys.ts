@@ -231,7 +231,16 @@ async function finishRotation(userId: string, device: DeviceKeys & { next: Devic
     .eq("user_id", userId);
   if (error) throw error;
   const self: PartnerKey = { partnerId: userId, publicKey: device.next.publicKey, keyId: device.next.keyId };
-  const { wraps } = await rewrapForPartner(rows, device, self);
+  // A copy for an invitation not yet accepted stays as it is: share_run_keys writes only for members.
+  const joined = await joinedRunIds(
+    userId,
+    rows.map((r) => r.run_id),
+  );
+  const { wraps } = await rewrapForPartner(
+    rows.filter((r) => joined.has(r.run_id)),
+    device,
+    self,
+  );
   if (wraps.length > 0) {
     // share_run_keys writes every row or none, and lets a member write their own.
     const { error: shareError } = await supabase.rpc("share_run_keys", { p_keys: wraps });
@@ -295,25 +304,29 @@ function pinPartnerKey(myId: string, partnerId: string, keyId: string) {
 
 type RunKeyRow = { run_id: string; wrapped_key: string; ephemeral_public_key: string; for_key_id: string };
 
-// This user's wrapped keys for runs the partner also walked.
+// Which of these runs the user has joined. Holding a copy of a run's key isn't enough: the partner's invitation hands
+// one over before the user accepts (docs/private-trails.md, section 2).
+async function joinedRunIds(userId: string, runIds: string[]): Promise<Set<string>> {
+  if (runIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("trail_run_members")
+    .select("run_id")
+    .eq("user_id", userId)
+    .in("run_id", runIds);
+  if (error) throw error;
+  return new Set(data.map((m) => m.run_id));
+}
+
+// This user's wrapped keys for runs both this user and the partner joined. share_run_keys refuses any other.
 async function sharedRunKeys(myId: string, partnerId: string): Promise<RunKeyRow[]> {
   const { data: mine, error } = await supabase
     .from("run_keys")
     .select("run_id, wrapped_key, ephemeral_public_key, for_key_id")
     .eq("user_id", myId);
   if (error) throw error;
-  if (mine.length === 0) return [];
-  const { data: members, error: membersError } = await supabase
-    .from("trail_run_members")
-    .select("run_id")
-    .eq("user_id", partnerId)
-    .in(
-      "run_id",
-      mine.map((r) => r.run_id),
-    );
-  if (membersError) throw membersError;
-  const shared = new Set(members.map((m) => m.run_id));
-  return mine.filter((r) => shared.has(r.run_id));
+  const ids = mine.map((r) => r.run_id);
+  const [myRuns, partnerRuns] = await Promise.all([joinedRunIds(myId, ids), joinedRunIds(partnerId, ids)]);
+  return mine.filter((r) => myRuns.has(r.run_id) && partnerRuns.has(r.run_id));
 }
 
 // The key ID an invite carried, per user: { [myId]: keyId }. Set just before redeeming, cleared once checked.

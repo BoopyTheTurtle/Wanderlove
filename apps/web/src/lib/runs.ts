@@ -214,6 +214,36 @@ export async function loadRun(runId: string, openKey: OpenRunKey): Promise<Run |
   return data ? runFromRow(data, await trailFromRow(data, openKey)) : null;
 }
 
+// ---- Invitations (docs/private-trails.md, section 2) -------------------------------------------------------------
+
+// The partner's open invitation to this user, the newest, or null. Only the invitee reads invitations, and only while
+// the run is open and the couple lasts; the run itself stays out of reach until accepted.
+export async function loadRunInvite(): Promise<{ runId: string } | null> {
+  const { data, error } = await supabase
+    .from("run_invites")
+    .select("run_id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { runId: data.run_id } : null;
+}
+
+// Joins the partner's run: "gone" when it ended, the couple unlinked, or the invitation was declined. Joining
+// abandons this user's other open runs.
+export async function acceptRun(runId: string): Promise<"joined" | "gone"> {
+  const { data, error } = await supabase.rpc("accept_run", { p_run_id: runId });
+  if (error) throw error;
+  return data === "joined" ? "joined" : "gone";
+}
+
+// "Not now": drops the invitation and this user's copy of the run key. The partner's phone can't tell it from an
+// invitation still waiting.
+export async function declineRun(runId: string): Promise<void> {
+  const { error } = await supabase.rpc("decline_run", { p_run_id: runId });
+  if (error) throw error;
+}
+
 // A walk that has ended, as the Activity list shows it.
 export type PastRun = {
   id: string;

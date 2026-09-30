@@ -29,17 +29,21 @@ import type { Stop, Trail } from "@wannadoo/core";
 import { useLivePosition } from "./lib/useLivePosition";
 import {
   abandonRun,
+  acceptRun,
   allStopsDone,
   completeStop,
+  declineRun,
   finishRun,
   canAddPhotos,
   isRunActive,
   loadActiveRun,
   loadRun,
+  loadRunInvite,
   RunKeysNotReadyError,
   startRun,
 } from "./lib/runs";
-import type { Run } from "./lib/runs";
+import type { QuestMode, Run } from "./lib/runs";
+import { QuestInvite } from "./components/QuestInvite";
 import { uploadPhoto } from "./lib/photos";
 import type { PreparedPhoto, RunPhoto } from "./lib/photos";
 import {
@@ -499,10 +503,11 @@ function SignedInApp({
   const [syncTick, setSyncTick] = useState(0);
   const runRequest = useRef(0);
   const [endedNotice, setEndedNotice] = useState(false);
-  // A trail the partner started, which this phone then joined; announced once.
-  const [joinedNotice, setJoinedNotice] = useState<{ trailName: string; startedBy: string | null } | null>(null);
-  // The first load only restores where the app was; announcing starts from then on.
-  const runLoadedOnce = useRef(false);
+  // The partner's invitation to their Together quest; this phone joins only when the user says so.
+  const [runInvite, setRunInvite] = useState<{ runId: string } | null>(null);
+  const inviteRequest = useRef(0);
+  // Who the next quest is for, chosen on Home while linked.
+  const [questMode, setQuestMode] = useState<QuestMode>("together");
   const [starting, setStarting] = useState(false);
   // Why the last start failed, shown on the map; null when it didn't.
   const [startError, setStartError] = useState<string | null>(null);
@@ -578,23 +583,12 @@ function SignedInApp({
   }, [route?.name, noRun, draft.status]);
 
   // Takes in the run the server returned. `ended` means the run this phone followed was abandoned elsewhere (the
-  // partner unlinked or started another trail): say so once and go back to the trail list.
+  // partner unlinked or started another trail): say so once and go back to the trail list. A partner's run arrives
+  // only once this user joined it, so nothing here opens the map by itself.
   const applyRun = useCallback(
     (next: Run | null, ended: boolean) => {
       // A stop or album of one run makes no sense once another run takes its place.
-      const previous = runRef.current;
-      const switched = previous?.id !== next?.id;
-      // A new open run that appeared from elsewhere: join it on the map. Announce it only when someone else started
-      // it; the user's own start on another device needs no notice.
-      const joined =
-        runLoadedOnce.current &&
-        switched &&
-        next !== null &&
-        isRunActive(next) &&
-        (previous === null || !isRunActive(previous));
-      runLoadedOnce.current = true;
-      if (joined && next.startedBy !== me.id)
-        setJoinedNotice({ trailName: next.trail.name, startedBy: next.startedBy });
+      const switched = runRef.current?.id !== next?.id;
       runRef.current = next;
       setRun(next);
       saveFollowedRun(me.id, next?.id ?? null);
@@ -610,14 +604,23 @@ function SignedInApp({
         if (r === null) return r;
         const onTrail = r.name === "map" || r.name === "challenge" || r.name === "complete";
         if (ended && onTrail) return { name: "home" };
-        if (joined && (r.name === "home" || r.name === "trailList" || r.name === "linked" || r.name === "partner"))
-          return { name: "map" };
         if (switched && (r.name === "challenge" || r.name === "complete")) return { name: "map" };
         return r;
       });
     },
     [me.id, setSimulatedPosition],
   );
+
+  // The partner's open invitation, if any. A Just me quest never has one, so it never shows here.
+  const refreshInvite = useCallback(async () => {
+    const id = ++inviteRequest.current;
+    try {
+      const next = await loadRunInvite();
+      if (id === inviteRequest.current) setRunInvite(next);
+    } catch (e) {
+      console.error("Couldn't check for invitations", e);
+    }
+  }, []);
 
   // Loads the open run, which may be one the partner started. When the run this phone followed is no longer open,
   // its fate decides what happens: finished keeps it for the album, abandoned drops it with a notice and goes home.
@@ -718,10 +721,12 @@ function SignedInApp({
   useEffect(() => {
     void refreshPartner();
     void refreshRun();
+    void refreshInvite();
     function onVisible() {
       if (document.visibilityState !== "visible") return;
       void refreshPartner();
       void refreshRun();
+      void refreshInvite();
     }
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
@@ -729,17 +734,18 @@ function SignedInApp({
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refreshPartner, refreshRun]);
+  }, [refreshPartner, refreshRun, refreshInvite]);
 
-  // While the app is in view, check now and then for the partner and the trail, open or not.
+  // While the app is in view, check now and then for the partner, the trail, open or not, and an invitation.
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refreshPartner();
       void refreshRun();
+      void refreshInvite();
     }, SYNC_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [refreshPartner, refreshRun]);
+  }, [refreshPartner, refreshRun, refreshInvite]);
 
   // Entering the map or a stop shows the latest progress.
   const trailScreen = route?.name === "map" ? "map" : route?.name === "challenge" ? `stop:${route.stopId}` : null;
@@ -884,7 +890,7 @@ function SignedInApp({
     setStartError(null);
     runRequest.current++;
     try {
-      const { run: started } = await startRun(trail, { id: me.id, keys });
+      const { run: started } = await startRun(trail, { id: me.id, keys }, partner ? questMode : "alone");
       // This phone already drew the path for the draft, so it needn't ask the router again.
       if (trail.path) {
         saveWalkingPath(me.id, started.id, trail.path, trail.distanceMeters);
@@ -902,9 +908,10 @@ function SignedInApp({
     }
   }
 
-  // Home's quest point: back to the open quest, or on to a new one. A finished run this phone still holds for its album
-  // makes way, so the map shows a fresh draft; its album stays in Activity.
-  function handleStartQuest() {
+  // Home's quest point: back to the open quest, or on to a new one, for both of you or just this user. A finished run
+  // this phone still holds for its album makes way, so the map shows a fresh draft; its album stays in Activity.
+  function handleStartQuest(mode?: QuestMode) {
+    if (mode) setQuestMode(mode);
     const current = runRef.current;
     if (current && !isRunActive(current)) {
       runRequest.current++;
@@ -914,6 +921,48 @@ function SignedInApp({
     if (draft.status === "error") setDraft({ status: "idle" });
     setRoute({ name: "map" });
   }
+
+  // Joins the partner's quest. Joining ends this user's own open quest, so it asks first when that one has progress.
+  async function handleJoinInvite() {
+    const invite = runInvite;
+    if (!invite) return;
+    const current = runRef.current;
+    if (
+      current &&
+      isRunActive(current) &&
+      !allStopsDone(current) &&
+      !window.confirm(`Join ${partner?.name ?? "your partner"}’s quest? You’ll leave “${current.trail.name}”.`)
+    ) {
+      return;
+    }
+    inviteRequest.current++;
+    const result = await acceptRun(invite.runId);
+    setRunInvite(null);
+    if (result === "gone") {
+      setEndedNotice(true);
+      return;
+    }
+    // The quest this phone followed ended by joining, not elsewhere, so it goes without the "trail has ended" notice.
+    runRequest.current++;
+    applyRun(null, false);
+    setDraft({ status: "idle" });
+    setSimulatedPosition(null);
+    await refreshRun();
+    setRoute({ name: "map" });
+  }
+
+  async function handleDeclineInvite() {
+    const invite = runInvite;
+    if (!invite) return;
+    inviteRequest.current++;
+    await declineRun(invite.runId);
+    setRunInvite(null);
+  }
+
+  const inviteCard =
+    runInvite && partner ? (
+      <QuestInvite partnerName={partner.name} onJoin={handleJoinInvite} onNotNow={handleDeclineInvite} />
+    ) : null;
 
   const nav = useMemo<NavHandlers>(
     () => ({
@@ -1019,6 +1068,7 @@ function SignedInApp({
           me={me}
           partner={partner}
           openQuest={run && isRunActive(run) ? run.trail.name : null}
+          invite={inviteCard}
           onStartQuest={handleStartQuest}
           onLinkPartner={() => setRoute({ name: "partner" })}
         />
@@ -1100,6 +1150,8 @@ function SignedInApp({
           error={draft.status === "error" ? draft.error : undefined}
           approximateStart={draft.status === "ready" ? draft.approximateStart : false}
           onStartRoute={() => void handleStartRoute()}
+          startLabel={partner ? (questMode === "alone" ? "Start just me" : "Start together") : "Start route"}
+          notice={run ? null : inviteCard}
           starting={starting}
           startError={startError}
           onNewRoute={() => void handleNewRoute()}
@@ -1203,16 +1255,8 @@ function SignedInApp({
 
       {unlinkedNotice ? (
         <UnlinkedNotice onClose={() => setUnlinkedNotice(false)} />
-      ) : endedNotice ? (
-        <TrailEndedNotice onClose={() => setEndedNotice(false)} />
       ) : (
-        joinedNotice && (
-          <JoinedNotice
-            trailName={joinedNotice.trailName}
-            partnerName={partner && partner.id === joinedNotice.startedBy ? partner.name : null}
-            onClose={() => setJoinedNotice(null)}
-          />
-        )
+        endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />
       )}
     </NavFrame>
   );
@@ -1263,32 +1307,6 @@ function UnlinkedNotice({ onClose }: { onClose: () => void }) {
         <h2 id="unlinked-title">You are no longer linked</h2>
         <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
           OK
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// The partner started a trail; this phone joined it on the map.
-function JoinedNotice({
-  trailName,
-  partnerName,
-  onClose,
-}: {
-  trailName: string;
-  partnerName: string | null;
-  onClose: () => void;
-}) {
-  const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => closeRef.current?.focus(), []);
-  return (
-    <div className="notice-backdrop">
-      <div className="notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="joined-title">
-        <h2 id="joined-title">
-          {partnerName ?? "Your partner"} started &ldquo;{trailName}&rdquo;
-        </h2>
-        <button ref={closeRef} type="button" className="btn-primary" onClick={onClose}>
-          Let&rsquo;s go
         </button>
       </div>
     </div>

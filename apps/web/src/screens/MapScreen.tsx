@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { Trail, Stop } from "@wannadoo/core";
@@ -108,6 +109,8 @@ export function MapScreen({
   error,
   approximateStart,
   onStartRoute,
+  startLabel = "Start route",
+  notice,
   starting = false,
   startError = null,
   onNewRoute,
@@ -131,6 +134,10 @@ export function MapScreen({
   error?: string;
   approximateStart?: boolean;
   onStartRoute: () => void;
+  // Says who the route starts for: together, just me, or a solo walker.
+  startLabel?: string;
+  // Shown above the route, such as the partner's invitation to their quest.
+  notice?: ReactNode;
   starting?: boolean;
   // Why the last start failed; null when it didn't.
   startError?: string | null;
@@ -268,6 +275,8 @@ export function MapScreen({
         </span>
       </div>
 
+      {notice}
+
       {status === "syncing" && (
         <section className="card route-card">
           <p className="card-kicker">
@@ -344,7 +353,7 @@ export function MapScreen({
                 </button>
               )}
               <button type="button" className="btn-small" onClick={onStartRoute} disabled={starting}>
-                {starting ? "Starting…" : "Start route"}
+                {starting ? "Starting…" : startLabel}
               </button>
             </div>
           </section>
