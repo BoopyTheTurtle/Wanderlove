@@ -1,6 +1,7 @@
 # End-to-end encrypted photos: spec
 
-Status: approved September 29, 2026: recovery options A and C, built before testers are invited. Owner: Edgar.
+Status: built and verified September 30, 2026 (PRs 23–26); recovery options A and C. One gap from the
+[security review](security-review.md) remains before hand-out: the server still accepts unencrypted photos. Owner: Edgar.
 
 Photos today sit in a private Supabase bucket. Row-level security lets only the members of a trail run read them, and
 only through signed links that expire after an hour. Anyone with the project's dashboard or database access can still
@@ -105,7 +106,20 @@ app tells the two apart by the file extension.
 E.1 and E.2 can run in parallel; E.3 and E.4 follow. The tester notice gains one line: photos are encrypted on the
 phone, and a lost recovery code means lost photos.
 
+**Done September 30.** E.1 (PR 24), E.2 (PR 23), E.3 (PR 25), and E.4 (PR 26) are merged and deployed, and the tester
+notice carries the line. Edgar checked E.5 on real phones: stored photos are `.bin` files that no viewer opens, both
+phones show them, the recovery code unlocks a cleared phone, and new keys work once the partner trusts them.
+
+| #   | Task                                                                                                           | Tag     |
+| --- | -------------------------------------------------------------------------------------------------------------- | ------- |
+| E.6 | Migration: `start_run` requires keys, and a trail with keys takes only `.bin` photos; pgTAP tests (review, #1) | [Agent] |
+
 ## 8. Decisions
 
 1. **Recovery:** A and C together, as recommended (Edgar, September 29).
 2. **Timing:** now, before the 10–20 testers are invited, so testers never upload plain photos.
+3. **The recovery code lives in Profile** (Edgar, September 30). Showing it at sign-up would scare users, so each phone
+   makes its keys without a screen and keeps the code beside them; Profile shows it on request. The security review
+   (finding 3) notes the cost.
+4. **A new trail waits for the partner's keys** (Edgar, September 30), as section 4 planned, rather than starting
+   unencrypted.

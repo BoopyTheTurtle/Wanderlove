@@ -1,6 +1,6 @@
 # Internal build: sign-in, linking, and photos
 
-Status: in progress since September 28, 2026; phases 0 and 1 done (see [Progress](#progress)). Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
+Status: in progress since September 28, 2026; phases 0 to 5 built, hand-out next (see [Progress](#progress)). Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
 
 This build puts real accounts in front of the team and a few friendly testers before the full MVP. Testers sign in with
 an emailed code, link to a partner, upload photos at each stop, and save the photos and a generated album to their
@@ -77,6 +77,11 @@ Last updated September 30, 2026. Resume from **Next** below.
 - **Wine theme.** PR 28: the whole app takes the Sherlock trail's palette (`--teal*` tokens became `--brand*`), with a
   coral-to-wine animated background. The Sherlock trail keeps its paper, stamps, and fonts; other trails can bring their
   own theme through `PhoneFrame`'s `theme`.
+- **Encryption verified (E.5).** Edgar checked on September 30 that stored photos don't open in the dashboard, that
+  both phones show them, that the recovery code unlocks a cleared phone, and that new keys work once trusted.
+- **Security review (6.1).** Run September 30; see [security-review.md](security-review.md). The access rules hold and
+  every anonymous probe was refused. One finding needs a fix before hand-out: the server still accepts unencrypted
+  trails and photos, which a phone on a stale build would send.
 - **Invite QR and reuse.** The QR draws dark on white with a four-module quiet zone, and the phone reuses its open invite
   until it is used or has under an hour left, so revisiting the invite screen no longer cancels a link already sent.
 - **Parallel work.** The `parallel-build` skill and `feature-builder` agent split complex tasks into draft PRs against
@@ -84,14 +89,12 @@ Last updated September 30, 2026. Resume from **Next** below.
 
 **Next:**
 
-1. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
+1. **[Agent]** Close the security review's findings 1 and 2: a migration so the server refuses unencrypted trails and
+   photos (task E.6), and security headers in `vercel.json`.
+2. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4; note
    whether the second "Tap to save" is needed).
-2. **[You]** Finish the encryption check (E.5): open a new photo's `.bin` in the Supabase dashboard and confirm it
-   doesn't open; on a phone with cleared site data, unlock with the recovery code from Profile; on another, choose
-   **Make new keys** and trust them on the partner's phone.
-3. **[Agent]** Security review before hand-out (task 6.1): RLS, storage policies, the key and photo RPCs, and the anon
-   key as the only key in the bundle.
-4. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
+3. **[You]** Hand-out (tasks 6.2 and 6.3): message the testers with the URL and the notice, and start a deletion log.
+4. **[Agent + You]** A roadmap for the next round of UI work.
 
 **Lessons from phase 2:**
 
@@ -347,8 +350,12 @@ Test data is the one planned break: section 7, question 1, wipes it before launc
 
 ## 7. Open questions
 
-1. **Test data at launch.** This spec wipes it. Keeping it means asking testers to accept the real privacy policy and
-   migrating their accounts into production; wiping is simpler and avoids reusing data collected under a test notice.
+1. **Test data at launch.** Resolved September 30, 2026: wipe it. Keeping it would mean asking testers to accept the
+   real privacy policy and migrating their accounts into production; wiping is simpler and avoids reusing data collected
+   under a test notice. Plain photos from before encryption go with it.
 2. **Email sender.** Resolved September 28, 2026: `wannadoo.app` bought at Porkbun, and Resend sends through Supabase's
    SMTP settings. The domain carries into the MVP.
 3. **Solo testers.** Resolved September 29, 2026: yes. The link screen offers "Walk solo for now".
+4. **How long the server keeps photos.** Open. At about 15 MB per trail, Supabase's free 1 GB holds roughly 70 trails,
+   enough for testing (security review, "Storage"). For launch, the server could delete a trail's photos some weeks
+   after it ends, since users save them to their phones; that needs a scheduled job calling the Storage API.
