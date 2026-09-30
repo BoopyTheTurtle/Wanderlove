@@ -358,6 +358,5 @@ Test data is the one planned break: section 7, question 1, wipes it before launc
 2. **Email sender.** Resolved September 28, 2026: `wannadoo.app` bought at Porkbun, and Resend sends through Supabase's
    SMTP settings. The domain carries into the MVP.
 3. **Solo testers.** Resolved September 29, 2026: yes. The link screen offers "Walk solo for now".
-4. **How long the server keeps photos.** Open. At about 15 MB per trail, Supabase's free 1 GB holds roughly 70 trails,
-   enough for testing (security review, "Storage"). For launch, the server could delete a trail's photos some weeks
-   after it ends, since users save them to their phones; that needs a scheduled job calling the Storage API.
+4. **How long the server keeps photos.** Resolved September 30, 2026: one month after a trail ends; stage 1 of the
+   [MVP roadmap](mvp-roadmap.md) builds the deletion job.

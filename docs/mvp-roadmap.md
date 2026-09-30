@@ -13,20 +13,25 @@ Research and design workflows run first, in parallel, because the build stages d
 
 ## 1. Decisions
 
-| Topic               | Decision (Edgar, September 30)                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Route shape         | A loop back to the start; about 2 km of real walking, return included                                            |
-| Stops               | Five, from the user's current position each time                                                                 |
-| Task arc            | Stop 1 introductory, 2 silly game, 3 deep task, 4 silly game, 5 wrap-up                                          |
-| Repeats             | A pair never gets a task it has done; the same person may get it again with a new partner                        |
-| Tasks and places    | Generic tasks first, doable at any stop; place-aware tasks later (section 5)                                     |
-| Photos              | Each stop still takes a photo or a skip                                                                          |
-| Special quests      | Sherlock stays as the first special quest, in a repository of special quests; their triggers come later          |
-| Solo mode           | Stays, with nothing built for it; if it breaks something, it goes                                                |
-| Avatars             | Male-ish to female-ish, younger to older, hair, clothes, accessories, skin, eyes, randomise; no gender is stored |
-| Leaderboard         | Global and weekly, by couple name only, with no profile reachable from it                                        |
-| Community listening | Themes only; no usernames, no quotes, no record of who said what                                                 |
-| Push notifications  | Specified now, built with the move to a native app                                                               |
+| Topic                  | Decision (Edgar, September 30)                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Route shape            | A loop back to the start; about 2 km of real walking, return included                                            |
+| Stops                  | Five, from the user's current position each time                                                                 |
+| Task arc               | Stop 1 introductory, 2 silly game, 3 deep task, 4 silly game, 5 wrap-up                                          |
+| Repeats                | A pair never gets a task it has done; the same person may get it again with a new partner                        |
+| Tasks and places       | Generic tasks first, doable at any stop; place-aware tasks later (section 5)                                     |
+| Photos                 | Each stop still takes a photo or a skip                                                                          |
+| Special quests         | Sherlock stays as the first special quest, in a repository of special quests; their triggers come later          |
+| Solo mode              | Stays, with nothing built for it; if it breaks something, it goes                                                |
+| Avatars                | Male-ish to female-ish, younger to older, hair, clothes, accessories, skin, eyes, randomise; no gender is stored |
+| Leaderboard            | Global and weekly, by couple name only, with no profile reachable from it                                        |
+| Community listening    | Themes only; no usernames, no quotes, no record of who said what                                                 |
+| Push notifications     | Specified now, built with the move to a native app                                                               |
+| Photo retention        | The server keeps a trail's photos for one month after it ends, then deletes them                                 |
+| Points                 | Earned for finishing quests, for uploading photos, and many for sharing photos to social media; more to follow   |
+| Special-quest triggers | To be decided; holiday quests are certain                                                                        |
+| Journey map            | Infinite: the path extends as the couple walks                                                                   |
+| Lifetime stats         | Each couple and each user keeps totals of quests done, photos taken, challenges completed, and points scored     |
 
 ## 2. What the research gives the task pool
 
@@ -78,7 +83,13 @@ Remove the Map, Tasks, and Quizzes tabs; keep the notification bell. Home become
 single "Start a quest" point, which opens today's quest flow. The **Activity** tab lists past journeys together, newest
 first, each opening its photos and album while the server holds them.
 
-**Done when:** a couple starts a quest from home, finishes it, and finds it in Activity with its photos on both phones.
+Photos older than a month go: a scheduled job deletes a trail's photos one month after it ends, through the Storage
+API, since removing rows from `storage.objects` leaves the files behind. Activity keeps the journey's entry, its stops,
+and its date after the photos go, and says so.
+
+**Done when:** a couple starts a quest from home, finishes it, and finds it in Activity with its photos on both phones;
+and on the local stack, a trail aged past a month loses its photos, rows and files alike, while its Activity entry
+stays.
 
 ### 2. Route generator v2
 
@@ -119,18 +130,27 @@ avatar, and edits sync to the partner's phone.
 
 ### 6. Journey map home
 
-The illustrated map from A5, where village, countryside, and city meet, with a path of points. Both avatars stand at
-the couple's current point and move one point per finished quest; the next point opens a quest. The street map stays
-inside the quest.
+The illustrated map from A5, where village, countryside, and city meet, with a path of points that never ends: the
+path is drawn from repeating tiles, so it extends as the couple walks. Both avatars stand at the couple's current
+point and move one point per finished quest; the next point opens a quest. The street map stays inside the quest.
 
 **Done when:** progress survives a relink, matches on both phones, and the map reads well at 390 px.
 
-### 7. Couple name and points
+### 7. Couple name, stats, and points
 
-The couple chooses a name, checked against a word filter. The server computes points from finished quests, never
-from the phone. The point rules come from A3.
+The couple chooses a name, checked against a word filter. The server keeps lifetime totals per couple and per user:
+quests done, photos taken, challenges completed, and points scored. The totals live in their own table, because the
+photos themselves go after a month and the counts must outlive them; the journey map's position reads from them.
 
-**Done when:** points can't be raised from the client, and both phones agree.
+Points come from finished quests, uploaded photos, and, weighted heavily, photos shared to social media; A3 sets the
+amounts and adds further sources later. The server awards points only for what it can confirm: a finished quest and a
+stored photo are facts in the database. A share is weaker evidence, since the phone reports only that the share sheet
+completed, not what the user posted, so share points get a cap per trail. A shared photo usually shows the partner,
+so the share step asks both partners' consent once per couple; points for sharing must never pressure a partner into
+being posted.
+
+**Done when:** the totals match the history on both phones, survive the photo deletion, and can't be raised from the
+client beyond the share cap.
 
 ### 8. Weekly leaderboard
 
@@ -192,8 +212,5 @@ directly from the chosen style.
 
 ## 7. Open questions
 
-1. **How long the server keeps photos** (internal build, open question 4). It decides how far back the Activity tab
-   reaches.
-2. **Points:** what earns them beyond finished quests, for instance photos, streaks, or special quests. A3 proposes.
-3. **Special-quest triggers:** season, place, milestone, or a date the couple sets.
-4. **The journey map's length:** a finite path per season, or one that extends as the couple walks.
+1. **Special-quest triggers:** holidays are certain; season, place, milestone, or a date the couple sets remain open.
+2. **Point amounts** and further point sources, from A3.
