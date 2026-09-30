@@ -68,6 +68,8 @@ import {
   KeysAlreadyExistError,
   checkPartnerKey,
   loadKeyState,
+  loadRecoveryViewedAt,
+  markRecoveryViewed,
   partnerKeyIdForCheck,
   prepareAccountKeys,
   rotateAccountKeys,
@@ -491,6 +493,7 @@ function SignedInApp({
   const [hintDone, setHintDone] = useState(() => recoveryHintDone(me.id));
   // The partner's key ID for the emoji check on the linked screen and in Profile.
   const [partnerKeyId, setPartnerKeyId] = useState<string | null>(null);
+  const [recoveryViewedAt, setRecoveryViewedAt] = useState<string | null>(null);
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
@@ -825,6 +828,27 @@ function SignedInApp({
     setRoute({ name: "waiting" });
     void refreshPartner();
   }
+
+  // Profile shows when the current recovery code was first viewed.
+  const onProfile = route?.name === "settings";
+  useEffect(() => {
+    if (!onProfile) return;
+    let active = true;
+    loadRecoveryViewedAt(me.id).then(
+      (at) => active && setRecoveryViewedAt(at),
+      (e: unknown) => console.error("Couldn't load when the recovery code was viewed", e),
+    );
+    return () => {
+      active = false;
+    };
+  }, [onProfile, me.id, keys]);
+
+  const handleRecoveryCodeShown = useCallback(() => {
+    markRecoveryViewed().then(
+      (at) => setRecoveryViewedAt(at),
+      (e: unknown) => console.error("Couldn't record the recovery code viewing", e),
+    );
+  }, []);
 
   function handleRecoveryCodeSeen() {
     markRecoveryHintDone(me.id);
@@ -1182,6 +1206,8 @@ function SignedInApp({
           partner={partner}
           recoveryCode={recoveryCode}
           onRecoveryCodeSeen={handleRecoveryCodeSeen}
+          onRecoveryCodeShown={handleRecoveryCodeShown}
+          recoveryViewedAt={recoveryViewedAt}
           onNewRecoveryCode={handleNewRecoveryCode}
           myKeyId={keys.keyId}
           partnerKeyId={partner ? partnerKeyId : null}

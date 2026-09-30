@@ -203,6 +203,24 @@ export async function unlockWithRecoveryCode(userId: string, code: string): Prom
   return device;
 }
 
+// "Recovery code viewed on" (abuse threat model, K2): the server records when the current code was first shown, so a
+// code someone else read first shows a date its owner doesn't recognise. Only the owner reads it.
+export async function markRecoveryViewed(): Promise<string | null> {
+  const { data, error } = await supabase.rpc("mark_recovery_viewed");
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function loadRecoveryViewedAt(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("user_keys")
+    .select("recovery_viewed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.recovery_viewed_at ?? null;
+}
+
 // A new pair and a new recovery code for a user whose code is gone from this device (security review, finding 3).
 // The order keeps a failure safe: this device stores the new pair beside the current one first; then the new public
 // key goes out; then this user's run keys are rewrapped for it; only then does the new pair replace the current one

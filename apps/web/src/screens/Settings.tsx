@@ -18,6 +18,10 @@ export type SettingsProps = {
   recoveryCode: string | null;
   // The user closed the code dialog: the phone forgets the code (security review, finding 3).
   onRecoveryCodeSeen: () => void;
+  // The code dialog opened: the server records the first viewing.
+  onRecoveryCodeShown: () => void;
+  // When the current recovery code was first shown, or null if never (or not loaded yet).
+  recoveryViewedAt: string | null;
   // Makes a new key pair and code (lib/keys.ts, rotateAccountKeys); the new code then arrives as recoveryCode.
   onNewRecoveryCode: () => Promise<void>;
   // This phone's key ID and the partner's, for the emoji check; the partner's is null while loading or keyless.
@@ -44,6 +48,8 @@ export function Settings({
   partner,
   recoveryCode,
   onRecoveryCodeSeen,
+  onRecoveryCodeShown,
+  recoveryViewedAt,
   onNewRecoveryCode,
   myKeyId,
   partnerKeyId,
@@ -141,6 +147,16 @@ export function Settings({
         >
           {recoveryCode ? "Recovery code" : "Make a new recovery code"}
         </button>
+        {recoveryViewedAt && (
+          <p className="settings-viewed">
+            Recovery code viewed on{" "}
+            {new Date(recoveryViewedAt).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </p>
+        )}
         <button type="button" className="text-button" onClick={onSignOut}>
           Sign out
         </button>
@@ -193,6 +209,7 @@ export function Settings({
       {recoveryCode && codeDialog === "show" && (
         <RecoveryCodeDialog
           code={recoveryCode}
+          onShown={onRecoveryCodeShown}
           onClose={() => {
             setCodeDialog("closed");
             onRecoveryCodeSeen();
@@ -419,10 +436,18 @@ function NewCodeDialog({
 }
 
 // The photo recovery code, shown once: it unlocks the photos on a new phone. Closing forgets it on this phone.
-function RecoveryCodeDialog({ code, onClose }: { code: string; onClose: () => void }) {
+function RecoveryCodeDialog({ code, onShown, onClose }: { code: string; onShown: () => void; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const formatted = formatRecoveryCode(code);
+
+  // Once per showing; the server keeps only the first date, so a repeat does no harm.
+  const shown = useRef(false);
+  useEffect(() => {
+    if (shown.current) return;
+    shown.current = true;
+    onShown();
+  }, [onShown]);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
