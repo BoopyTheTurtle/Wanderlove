@@ -185,6 +185,59 @@ export type Database = {
           },
         ];
       };
+      link_requests: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          id: string;
+          invitee_id: string;
+          inviter_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          invitee_id: string;
+          inviter_id: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          invitee_id?: string;
+          inviter_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "link_requests_invitee_id_fkey";
+            columns: ["invitee_id"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "link_requests_invitee_id_fkey";
+            columns: ["invitee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "link_requests_inviter_id_fkey";
+            columns: ["inviter_id"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "link_requests_inviter_id_fkey";
+            columns: ["inviter_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       photo_hidden: {
         Row: {
           photo_id: string;
@@ -312,6 +365,46 @@ export type Database = {
           username?: string | null;
         };
         Relationships: [];
+      };
+      run_invites: {
+        Row: {
+          created_at: string;
+          run_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          run_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          run_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "run_invites_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "trail_runs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "run_invites_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "run_invites_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       run_keys: {
         Row: {
@@ -464,34 +557,49 @@ export type Database = {
           abandoned_at: string | null;
           completed_at: string | null;
           couple_id: string | null;
+          details_ciphertext: string | null;
+          details_nonce: string | null;
           id: string;
           photos_purged_at: string | null;
           started_at: string;
           started_by: string | null;
+          stop_count: number | null;
+          summary_ciphertext: string | null;
+          summary_nonce: string | null;
           trail_id: string;
-          trail_snapshot: NonNullable<Json>;
+          trail_snapshot: Json | null;
         };
         Insert: {
           abandoned_at?: string | null;
           completed_at?: string | null;
           couple_id?: string | null;
+          details_ciphertext?: string | null;
+          details_nonce?: string | null;
           id?: string;
           photos_purged_at?: string | null;
           started_at?: string;
           started_by?: string | null;
+          stop_count?: number | null;
+          summary_ciphertext?: string | null;
+          summary_nonce?: string | null;
           trail_id: string;
-          trail_snapshot: NonNullable<Json>;
+          trail_snapshot?: Json | null;
         };
         Update: {
           abandoned_at?: string | null;
           completed_at?: string | null;
           couple_id?: string | null;
+          details_ciphertext?: string | null;
+          details_nonce?: string | null;
           id?: string;
           photos_purged_at?: string | null;
           started_at?: string;
           started_by?: string | null;
+          stop_count?: number | null;
+          summary_ciphertext?: string | null;
+          summary_nonce?: string | null;
           trail_id?: string;
-          trail_snapshot?: NonNullable<Json>;
+          trail_snapshot?: Json | null;
         };
         Relationships: [
           {
@@ -524,6 +632,7 @@ export type Database = {
           recovery_blob: string | null;
           recovery_iv: string | null;
           recovery_salt: string | null;
+          recovery_viewed_at: string | null;
           updated_at: string;
           user_id: string;
         };
@@ -533,6 +642,7 @@ export type Database = {
           recovery_blob?: string | null;
           recovery_iv?: string | null;
           recovery_salt?: string | null;
+          recovery_viewed_at?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -542,6 +652,7 @@ export type Database = {
           recovery_blob?: string | null;
           recovery_iv?: string | null;
           recovery_salt?: string | null;
+          recovery_viewed_at?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -577,8 +688,12 @@ export type Database = {
       };
     };
     Functions: {
+      accept_run: { Args: { p_run_id: string }; Returns: string };
       accept_terms: { Args: { p_version: string }; Returns: undefined };
+      confirm_link: { Args: { p_request: string }; Returns: string };
       create_invite: { Args: Record<PropertyKey, never>; Returns: string };
+      decline_link: { Args: { p_request: string }; Returns: undefined };
+      decline_run: { Args: { p_run_id: string }; Returns: undefined };
       expired_photos: {
         Args: { p_limit?: number };
         Returns: {
@@ -587,6 +702,7 @@ export type Database = {
           storage_path: string;
         }[];
       };
+      mark_recovery_viewed: { Args: Record<PropertyKey, never>; Returns: string };
       peek_invite: { Args: { p_code: string }; Returns: Json };
       purge_photos: {
         Args: { p_photo_ids: string[] };
@@ -596,8 +712,23 @@ export type Database = {
         }[];
       };
       redeem_invite: { Args: { p_code: string }; Returns: string };
+      redeem_invite_pending: { Args: { p_code: string }; Returns: string };
       share_run_keys: { Args: { p_keys: Json }; Returns: undefined };
-      start_run: { Args: { p_keys?: Json; p_run_id?: string; p_snapshot: Json; p_trail_id: string }; Returns: string };
+      start_run: {
+        Args: {
+          p_details?: string;
+          p_details_nonce?: string;
+          p_keys?: Json;
+          p_partner?: string;
+          p_run_id?: string;
+          p_snapshot: Json;
+          p_stop_count?: number;
+          p_summary?: string;
+          p_summary_nonce?: string;
+          p_trail_id: string;
+        };
+        Returns: string;
+      };
       unlink: { Args: Record<PropertyKey, never>; Returns: undefined };
     };
     Enums: {

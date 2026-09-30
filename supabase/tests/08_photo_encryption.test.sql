@@ -39,7 +39,7 @@ select ok(
   'signed-in users cannot delete or truncate key rows'
 );
 select ok(
-  not has_function_privilege('anon', 'public.start_run(text, jsonb, jsonb, uuid)', 'execute')
+  not has_function_privilege('anon', 'public.start_run(text, jsonb, jsonb, uuid, text, text, text, text, text, int)', 'execute')
   and not has_function_privilege('anon', 'public.share_run_keys(jsonb)', 'execute'),
   'anon cannot call the key RPCs'
 );
