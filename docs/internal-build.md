@@ -101,6 +101,8 @@ batch (stage 1b) is in progress.
    once; check the camera scanner under the new security headers.
 3. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
 4. **[Agent]** Safety batch wave 1, then wave 2 (MVP roadmap, stage 1b).
+5. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers: message them with the URL and the
+   notice, and start a deletion log.
 
 **Lessons from phase 2:**
 
