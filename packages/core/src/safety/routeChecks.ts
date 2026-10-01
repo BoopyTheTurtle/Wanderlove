@@ -15,6 +15,11 @@ export const MATCH_METERS = 1; // a path vertex this close to an OSM node is tha
 export const ID_MATCH_METERS = 5; // looser, when the router named the node by ID as well
 export const NO_SIDEWALK_METERS = 20; // H2: along a road tagged without a sidewalk; more than a junction's width
 export const RURAL_ROAD_METERS = 300; // H2: along fast roads, before the route counts as rural
+// H2: a start on a road without a pavement has no other way off it. The unbroken stretch along that road as the walk
+// leaves the start, and as it comes back, gets the rural-road note instead of a rejection no choice of stops could fix.
+// The stretch may begin this far in, where the router joins the road, and counts up to the cap.
+export const START_LEAD_METERS = 50;
+export const START_EXIT_MAX_METERS = 500;
 // OSRM prints node IDs of 10^10 and above in floating point with ten significant digits, so they arrive rounded.
 const TRUSTED_ID_LIMIT = 1e10;
 
@@ -314,14 +319,37 @@ export function checkRoute(loop: RoutedLoop, net: RoadNetwork, start: LatLng, st
   // allows with the rural-road note rather than refuses (mvp-roadmap.md, open question 3).
   const legs = loop.legs.length;
   const noSidewalk = new Array<number>(legs).fill(0);
+  let exitMeters = 0;
   let fastRoadMeters = 0;
+  const highway = (t: Tags) => t.highway ?? "";
+  const segLength = (i: number) => haversineDistanceMeters(pts[i], pts[i + 1]);
+  const segNoSidewalk = along.map((ways) =>
+    ways.some((w) => TERTIARY_OR_ABOVE.test(highway(net.roads[w].tags)) && taggedWithoutSidewalk(net.roads[w].tags)),
+  );
+  const exitRun = new Set<number>();
+  const markExit = (order: number[]) => {
+    let lead = 0;
+    let run = 0;
+    for (const i of order) {
+      if (segNoSidewalk[i]) {
+        run += segLength(i);
+        if (run > START_EXIT_MAX_METERS) return;
+        exitRun.add(i);
+      } else if (run > 0) return;
+      else if ((lead += segLength(i)) > START_LEAD_METERS) return;
+    }
+  };
+  const segments = along.map((_, i) => i);
+  markExit(segments);
+  markExit([...segments].reverse());
   along.forEach((ways, i) => {
     if (!ways.length) return;
-    const len = haversineDistanceMeters(pts[i], pts[i + 1]);
+    const len = segLength(i);
     const tags = ways.map((w) => net.roads[w].tags);
-    const highway = (t: Tags) => t.highway ?? "";
-    if (tags.some((t) => TERTIARY_OR_ABOVE.test(highway(t)) && taggedWithoutSidewalk(t)))
-      noSidewalk[legOf[i + 1]] += len;
+    if (segNoSidewalk[i]) {
+      if (exitRun.has(i)) exitMeters += len;
+      else noSidewalk[legOf[i + 1]] += len;
+    }
     const fast = (t: Tags) => {
       const speed = speedKmh(t);
       if (speed !== null && speed > 50) return true;
@@ -408,5 +436,6 @@ export function checkRoute(loop: RoutedLoop, net: RoadNetwork, start: LatLng, st
   }
   issues.sort((a, b) => rank(b.stop) - rank(a.stop));
 
-  return { ok: issues.length === 0, issues, rural: fastRoadMeters > RURAL_ROAD_METERS, fastRoadMeters };
+  const rural = fastRoadMeters > RURAL_ROAD_METERS || exitMeters > NO_SIDEWALK_METERS;
+  return { ok: issues.length === 0, issues, rural, fastRoadMeters };
 }

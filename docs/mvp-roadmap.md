@@ -159,11 +159,10 @@ industrial areas, and stops across major roads without a crossing; flag a start 
 the UK and the US where testers live, all produce five-stop loops within the limit,
 and a manual audit of 30 of them finds no unsafe stop.
 
-**Status, October 1:** code merged (PRs 40 to 44, 50). PR 50 fixed live failures: one of the two Overpass servers
-died, and the other is often too busy. The main simulation pass gave 183 valid loops from 200 starts with no network
-failures. Twelve failures ran out of router calls, mostly where `H2-sidewalk` rejects untagged rural roads; five ran
-out of candidate stops. The January pass and the UK and US starts are open, as are the fixes and Edgar's audit of 30
-routes ([internal-build.md](internal-build.md), Progress).
+**Status, October 1:** code merged (PRs 40 to 44, 50, 57). The full simulation gives 268 valid loops from 280
+starts with no check violations; the 12 failures sit at hemmed-in or bridge starts and along Līgatne's pavement-less
+main street ([internal-build.md](internal-build.md), Progress). Edgar's audit of 30 routes and the UK and US starts are
+open.
 
 ### 3. Quest engine
 
@@ -292,8 +291,7 @@ directly from the chosen style.
 
 1. **Special-quest triggers:** holidays are certain; season, place, milestone, or a date the couple sets remain open.
 2. **Point amounts** and further point sources, from A3.
-3. **Rural roads in the generator:** the decision allows rural roads with a warning, but `H2-sidewalk` still rejects
-   untagged major roads, so rural starts often fail. Proposed: untagged fast roads set the rural warning instead of
-   rejecting the loop, while roads tagged without a sidewalk in town stay rejected.
-4. **Starts in closed land:** a start inside the freeport or a rail yard may fail with a clear message rather than
-   count against stage 2's done-when, since a safe loop may not exist there.
+3. **Rural roads in the generator:** decided October 1. Untagged fast roads give the rural warning instead of
+   rejecting the loop; roads tagged without a sidewalk stay rejected, except the stretch a walk needs to leave its start.
+4. **Starts in closed land:** decided October 1. A start on industrial, military, private, railway, quarry, or
+   building-site land fails at once with a message saying why, and doesn't count against stage 2's done-when.

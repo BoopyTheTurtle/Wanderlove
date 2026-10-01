@@ -59,6 +59,17 @@ const CLOSED_START: Record<string, string> = {
   "H6-construction": "a building site",
   "H8-quarry": "a quarry",
 };
+// No safe loop within the router-call cap, or no candidates left to try. Carries what the search rejected, for the
+// simulation script.
+export class NoSafeLoopError extends Error {
+  constructor(
+    public routerCalls: number,
+    public rejections: RouteRejection[],
+  ) {
+    super(SAFE_LOOP_ERROR);
+  }
+}
+
 export class ClosedStartError extends Error {
   constructor(public reason: string) {
     super(
@@ -483,7 +494,7 @@ export async function generateRoute(
 
   for (;;) {
     loop = orderStops(start, loop);
-    if (routerCalls >= MAX_ROUTER_CALLS) throw new Error(SAFE_LOOP_ERROR);
+    if (routerCalls >= MAX_ROUTER_CALLS) throw new NoSafeLoopError(routerCalls, rejections);
     routerCalls++;
     const routed = await routeOnFoot([start, ...loop, start], options.headers);
 
@@ -518,7 +529,7 @@ export async function generateRoute(
       rest = rest.filter((_, i) => i !== costliest);
     }
     const next: Candidate[] | null = fill(rest) ?? fill([]);
-    if (!next) throw new Error(SAFE_LOOP_ERROR);
+    if (!next) throw new NoSafeLoopError(routerCalls, rejections);
     loop = next;
   }
 }

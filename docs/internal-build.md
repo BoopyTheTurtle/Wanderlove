@@ -103,12 +103,18 @@ stops, and a simulation script.
   busy". Queries now start on `overpass-api.de` or `overpass.openstreetmap.fr` at random, bring in the other after 4 s
   or on failure, and retry once. The French server has no area index, so the query no longer uses `map_to_area`; the
   phone already keeps only service roads inside closed land (H5).
-- **Stage 2 simulation, main pass.** 183 of 200 starts gave valid loops (Old Town 40/40, Purvciems 37/40,
-  Sarkandaugava 37/40, Ķīpsala 37/40, Līgatne 32/40), with no network failures. Twelve failures ran out of the eight
-  router calls, mostly in Līgatne, where `H2-sidewalk` rejects untagged rural roads although rural roads are allowed
-  with a warning; five ran out of candidate stops after 0–1 router calls. The January pass stopped 3 starts in, when
-  Overpass began refusing connections from this PC (16:57); results are in `tools/route-sim/out/live/`, and a rerun
-  of `run` resumes.
+- **Stage 2 simulation and fixes (PR 57 and the failure-reasons PR).** The full 280-start run now gives 268 valid
+  loops (Old Town and Purvciems 40/40, Sarkandaugava 37, Ķīpsala 38 in each pass, Līgatne 38 and 37 in January),
+  with no check violations; it gave 246 before. The fixes: untagged fast roads give the rural note instead of a
+  rejection (open question 3); school and kindergarten grounds are off limits; a start on closed land fails at once
+  and says why (open question 4); the first loop guess uses a walk factor of 1.5; the router-call cap is 12; a lone far
+  named place no longer blocks every fill; and the unbroken stretch along a pavement-less road as the walk leaves or
+  returns to its start gets the rural note. The simulation now starts each route on the nearest way, runs its main
+  pass at a fixed midday, and records why a failed start failed. The ice rule stayed: Līgatne's drops come from a real
+  village pond. The 12 failures left: three Sarkandaugava starts hemmed in by Tvaika iela and the railway without a
+  marked crossing, two Ķīpsala starts on a bridge (both passes), two Līgatne starts whose every loop walks along
+  Brīvības iela (tagged `sidewalk=no`), and three Līgatne starts that run out of stops. Results and the new audit
+  pack are in `tools/route-sim/out/live4/`.
 - **Stage 3, the quest engine (PRs 47 to 49, 51).** Task model and selection in core, a per-pair task history
   (relinking keeps it; Just me records under the player alone), a generic task screen, and the wiring: tasks travel
   sealed in the trail, and a mobility toggle in Profile drops `move` tasks. Edgar checked that relinking keeps history.
@@ -123,10 +129,9 @@ stops, and a simulation script.
 
 **Next:**
 
-1. **[Agent]** Rerun the stage 2 simulation once Overpass answers again, then fix the generator failures: let `H2`
-   flag untagged rural roads with the rural warning instead of rejecting them, and widen the candidate pool where
-   starts run dry. Edgar decides whether a start inside the freeport may fail with a clear message.
-2. **[You]** Audit the 30 routes in `tools/route-sim/out/live/audit/checklist.md` (route-safety.md, section 5).
+1. **[You]** Audit the 30 routes in `tools/route-sim/out/live4/audit/checklist.md` (route-safety.md, section 5), and
+   say whether Līgatne's Brīvības iela really lacks a pavement: two starts fail on it.
+2. **[You]** Name the UK and US places where testers live; the agent adds a few starts there to finish stage 2.
 3. **[You]** On two phones: start a Together quest and check both phones show the same tasks, edit an avatar and
    watch it update on the other phone, and skip the avatar step with a new account.
 4. **[You]** On your phone: the safety note, the after-sunset card, and the "Skip photo" and "Skip this task" buttons,
