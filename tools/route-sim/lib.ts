@@ -77,6 +77,9 @@ export type StartRecord = {
   status: "discarded" | "ok" | "failed";
   finishedAt: string;
   error?: string;
+  // A failed start that sat on closed land (the hazard reason): it fails with a clear message by design and doesn't
+  // count against the stage (mvp-roadmap.md, open question 4).
+  closedStart?: string;
   // Route requests seen on the wire for this start (the generator's own count is lost when it throws).
   routerCallsObserved?: number;
   overpassCallsObserved?: number;

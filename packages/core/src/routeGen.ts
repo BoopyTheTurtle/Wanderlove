@@ -50,6 +50,23 @@ const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move some
 const ROUTER_ERROR = "Couldn't reach the walking router to check this loop. Check your connection and try again.";
 const TOO_FEW_ERROR = "Couldn't find walkable streets around you. Try again from a street or path.";
 
+// A start on closed land fails at once, with the reason (mvp-roadmap.md, open question 4): the paths out of a port, a
+// rail yard, or a building site are its own service roads, so no safe loop may exist. Water is left out, since a
+// start on a bridge sits inside the river's area.
+const CLOSED_START: Record<string, string> = {
+  "H5-closed": "industrial, military, or private grounds",
+  "H7-railway": "railway land",
+  "H6-construction": "a building site",
+  "H8-quarry": "a quarry",
+};
+export class ClosedStartError extends Error {
+  constructor(public reason: string) {
+    super(
+      `You're on ${CLOSED_START[reason]}, where we can't plan a safe walk. Head out to a public street and try again.`,
+    );
+  }
+}
+
 // Two public Overpass servers. The main one often answers "too busy" (504), so each query starts on one at random
 // and brings in the other when the first is slow or fails (queryOverpass). vercel.json's connect-src lists both.
 export const OVERPASS_ENDPOINTS = [
@@ -413,6 +430,8 @@ export async function generateRoute(
   const maxMeters = options.maxMeters ?? MAX_ROUTE_METERS;
   const hardCap = maxMeters + ROUTE_SLACK_METERS;
   const data = await fetchPlaces(start, options.headers);
+  const ground = checkContainment(start, data.hazards).hazard;
+  if (ground && ground in CLOSED_START) throw new ClosedStartError(ground);
 
   const dropped = new Set<string>();
   const rejections: RouteRejection[] = [];

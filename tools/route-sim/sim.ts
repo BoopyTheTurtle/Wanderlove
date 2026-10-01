@@ -4,7 +4,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { LatLng } from "../../packages/core/src/index.ts";
-import { clearPlaceCache, generateRoute } from "../../packages/core/src/index.ts";
+import { ClosedStartError, clearPlaceCache, generateRoute } from "../../packages/core/src/index.ts";
 import { seasonNote, walkLight } from "../../packages/core/src/daylight.ts";
 import { SNAP_LIMIT_METERS } from "../../packages/core/src/safety/routeChecks.ts";
 import type { AreaId, Pass, StartRecord } from "./lib.ts";
@@ -106,6 +106,7 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
     const message = (e as Error).message;
     if (/^Couldn't reach/.test(message)) throw new NetworkAbort(message);
     record = { ...draft, status: "failed", finishedAt: new Date().toISOString(), error: message };
+    if (e instanceof ClosedStartError) record.closedStart = e.reason;
   } finally {
     Math.random = random;
   }

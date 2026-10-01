@@ -51,6 +51,7 @@ type AreaStats = {
   discarded: number;
   ok: number;
   failed: number;
+  closed: number;
   routerCalls: number;
   rejections: number;
   reasons: Map<string, number>;
@@ -72,6 +73,7 @@ function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
     discarded: 0,
     ok: 0,
     failed: 0,
+    closed: 0,
     routerCalls: 0,
     rejections: 0,
     reasons: new Map(),
@@ -94,6 +96,9 @@ function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
           bump(s.reasons, j.reason);
         }
       }
+    } else if (r.closedStart) {
+      s.closed++;
+      bump(s.errors, `start on closed land (${r.closedStart}), expected`);
     } else {
       s.failed++;
       const calls = r.routerCallsObserved ?? 0;
@@ -141,8 +146,9 @@ export function buildReport(records: StartRecord[], perArea: number): Report {
         lines.push(`${" ".repeat(16)}candidates dropped before routing, summed over starts: ${timed.join(", ")}`);
       }
       for (const [error, n] of s.errors) lines.push(`${" ".repeat(16)}failed ${n}x: ${error}`);
+      if (s.closed) lines.push(`${" ".repeat(16)}${s.closed} start(s) on closed land fail by design and don't count`);
       if (s.failed) allRouted = false;
-      if (routed < perArea) complete = false;
+      if (routed + s.closed < perArea) complete = false;
     }
     lines.push("");
   }
