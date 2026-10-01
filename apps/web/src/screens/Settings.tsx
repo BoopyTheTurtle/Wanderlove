@@ -4,6 +4,7 @@ import type { Profile } from "@wannadoo/core";
 import { StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { BottomNav } from "../components/BottomNav";
+import { CoupleNameSection } from "../components/CoupleNameSection";
 import { formatRecoveryCode } from "../lib/crypto";
 import { PairEmoji } from "./PartnerKeyConfirm";
 import "../keys.css";
@@ -162,6 +163,8 @@ export function Settings({
           </>
         )}
       </section>
+
+      {partner && <CoupleNameSection key={partner.id} partnerName={partner.name} />}
 
       <section className="card settings-card settings-devices" aria-labelledby="settings-quests-title">
         <p className="card-kicker" id="settings-quests-title">

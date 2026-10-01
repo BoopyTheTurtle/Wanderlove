@@ -4,6 +4,7 @@ import type { Profile } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { ProfileAvatar } from "../components/ProfileAvatar";
 import { BottomNav } from "../components/BottomNav";
+import { CoupleTotalsCard } from "../components/CoupleTotals";
 import { BellIcon, CompassIcon, HeartIcon } from "../components/Icons";
 import type { QuestMode } from "../lib/runs";
 import "../home.css";
@@ -68,6 +69,8 @@ export function Home({
       </header>
 
       {invite}
+
+      {partner && <CoupleTotalsCard key={partner.id} />}
 
       <section className="journey" aria-label="Your journey">
         <svg className="journey-path" viewBox="0 0 350 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
