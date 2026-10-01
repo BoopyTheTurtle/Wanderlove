@@ -25,13 +25,29 @@ type StubOptions = {
   // Where the router puts each waypoint: a street name, metres moved north onto the path, and the snap distance.
   // `call` counts router calls from 0.
   snapTo?: (index: number, call: number) => { street?: string; north?: number; distance?: number };
+  // How each Overpass server answers: "ok" (the default), an HTTP status such as 504, or "hang" until aborted.
+  overpassServer?: (url: string) => "ok" | "hang" | number;
 };
 
 // Fake Overpass and foot router. The router walks straight lines; its distance is straight-line distance × factor.
-function stubFetch({ overpass, routerFactor = 1.2, routerUp = true, ferryAt = [], snapTo }: StubOptions = {}) {
+function stubFetch({
+  overpass,
+  routerFactor = 1.2,
+  routerUp = true,
+  ferryAt = [],
+  snapTo,
+  overpassServer = () => "ok",
+}: StubOptions = {}) {
   const routerCallTimes: number[] = [];
-  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url) => {
+  const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
     if (url.includes("interpreter")) {
+      const answer = overpassServer(url);
+      if (answer === "hang") {
+        return new Promise<Response>((_, reject) =>
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))),
+        );
+      }
+      if (answer !== "ok") return new Response("<?xml version='1.0'?><busy/>", { status: answer });
       const sections = overpass ?? { candidates: [...places(), PLAQUE] };
       return new Response(JSON.stringify(overpassResponse(sections)), { status: 200 });
     }
@@ -195,6 +211,38 @@ describe("generateRoute", () => {
     );
     const { generateRoute } = await loadRouteGen();
     await expect(settle(generateRoute(START, false))).rejects.toThrow(/map service/);
+  });
+
+  it("uses the other map server when one is busy", async () => {
+    for (const busy of ["overpass-api.de", "openstreetmap.fr"]) {
+      stubFetch({ overpassServer: (url) => (url.includes(busy) ? 504 : "ok") });
+      const { generateRoute } = await loadRouteGen();
+      const { trail } = await settle(generateRoute(START, false));
+      expect(trail.stops).toHaveLength(5);
+    }
+  });
+
+  it("asks the second map server after a few seconds when the first hangs, and aborts the slow one", async () => {
+    for (const slow of ["overpass-api.de", "openstreetmap.fr"]) {
+      const { fetchMock } = stubFetch({ overpassServer: (url) => (url.includes(slow) ? "hang" : "ok") });
+      const { generateRoute } = await loadRouteGen();
+      const started = Date.now();
+      const { trail } = await settle(generateRoute(START, false));
+      expect(trail.stops).toHaveLength(5);
+      const overpass = fetchMock.mock.calls.filter(([url]) => url.includes("interpreter"));
+      expect(overpass.length).toBeLessThanOrEqual(2);
+      expect(overpass.every(([, init]) => init?.signal?.aborted)).toBe(true);
+      expect(Date.now() - started).toBeLessThan(15000);
+    }
+  });
+
+  it("tries a second round before giving up on the map service", async () => {
+    let calls = 0;
+    stubFetch({ overpassServer: () => (++calls <= 2 ? 504 : "ok") });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+    expect(trail.stops).toHaveLength(5);
+    expect(calls).toBe(3);
   });
 
   it("treats a response missing its section markers as a failure", async () => {

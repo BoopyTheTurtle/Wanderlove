@@ -4,16 +4,15 @@
 // - Overpass queries are spaced by OVERPASS_GAP_MS, and every other start swaps the two Overpass endpoints the
 //   generator tries, so the load spreads across both;
 // - every request carries the script's User-Agent, which Overpass requires from scripts.
+import { OVERPASS_ENDPOINTS } from "../../packages/core/src/routeGen.ts";
 import { USER_AGENT, sleep } from "./lib.ts";
 
 export const ROUTER_HOST = "routing.openstreetmap.de";
 export const ROUTER_GAP_MS = 1100;
 export const OVERPASS_GAP_MS = 3000;
-// The two endpoints routeGen.ts tries, in its order. If that list changes, the swap below simply stops matching.
-export const OVERPASS_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
-];
+// The two endpoints routeGen.ts uses. It already starts each query on one at random, so the swap below only adds
+// a second, seeded coin flip.
+export { OVERPASS_ENDPOINTS };
 
 export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 

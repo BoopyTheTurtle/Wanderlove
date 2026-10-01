@@ -100,7 +100,7 @@ services yet; the cloud agents' network blocks both.
 **Next:**
 
 1. **[You]** Run the stage 2 simulation from your PC (`tools/route-sim/README.md`), or allow `overpass-api.de`,
-   `overpass.private.coffee`, and `routing.openstreetmap.de` in the cloud environment so an agent can. The first live
+   `overpass.openstreetmap.fr`, and `routing.openstreetmap.de` in the cloud environment so an agent can. The first live
    request shows whether the Overpass query works; then audit the 30 picked routes (route-safety.md, section 5).
 2. **[You]** On your phone: start a quest from Home and check the safety note, the after-sunset card, and a real
    surprise route; start Together and watch the waiting screen move on when the partner joins.

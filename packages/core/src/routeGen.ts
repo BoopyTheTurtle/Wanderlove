@@ -47,10 +47,16 @@ const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move some
 const ROUTER_ERROR = "Couldn't reach the walking router to check this loop. Check your connection and try again.";
 const TOO_FEW_ERROR = "Couldn't find walkable streets around you. Try again from a street or path.";
 
-const OVERPASS_ENDPOINTS = [
+// Two public Overpass servers. The main one often answers "too busy" (504), so each query starts on one at random
+// and brings in the other when the first is slow or fails (queryOverpass). vercel.json's connect-src lists both.
+export const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
 ];
+const OVERPASS_HEDGE_MS = 4000; // ask the second server too when the first hasn't answered by then
+const OVERPASS_TIMEOUT_MS = 25000; // per round, across both servers
+const OVERPASS_ROUNDS = 2;
+const OVERPASS_RETRY_PAUSE_MS = 2000;
 const FOOT_ROUTER = "https://routing.openstreetmap.de/routed-foot/route/v1/driving";
 
 const PROMPT_WARMUP = "What's a small thing about this place you'd never have noticed if we'd just walked past?";
@@ -141,29 +147,62 @@ function fetchPlaces(center: LatLng, headers?: Record<string, string>): Promise<
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// One query to one server: its sections, or null when the server is busy, errs, is aborted, or sends a partial
+// answer (a busy server can answer 200 with an XML error page or a cut-off list, so parse defensively).
+async function askOverpass(
+  endpoint: string,
+  data: string,
+  signal: AbortSignal,
+  headers?: Record<string, string>,
+): Promise<OverpassSections | null> {
+  try {
+    const res = await fetch(endpoint, { method: "POST", body: new URLSearchParams({ data }), headers, signal });
+    if (!res.ok) return null;
+    return splitSections((JSON.parse(await res.text()) as { elements: OsmElement[] }).elements) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// One round: ask one server, chosen at random to spread the load. If it fails, or hasn't answered within
+// OVERPASS_HEDGE_MS, ask the other too, and take the first usable answer. The loser is aborted.
+function hedgedOverpass(data: string, headers?: Record<string, string>): Promise<OverpassSections | null> {
+  const order = Math.random() < 0.5 ? OVERPASS_ENDPOINTS : [...OVERPASS_ENDPOINTS].reverse();
+  const ctl = new AbortController();
+  return new Promise((resolve) => {
+    let next = 0;
+    let pending = 0;
+    let settled = false;
+    const finish = (sections: OverpassSections | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hedgeTimer);
+      clearTimeout(deadline);
+      ctl.abort();
+      resolve(sections);
+    };
+    const launch = () => {
+      if (settled || next >= order.length) return;
+      pending++;
+      void askOverpass(order[next++], data, ctl.signal, headers).then((sections) => {
+        pending--;
+        if (sections) return finish(sections);
+        launch(); // this server failed: bring in the next one now
+        if (pending === 0) finish(null);
+      });
+    };
+    const hedgeTimer = setTimeout(launch, OVERPASS_HEDGE_MS);
+    const deadline = setTimeout(() => finish(null), OVERPASS_TIMEOUT_MS);
+    launch();
+  });
+}
+
 async function queryOverpass(center: LatLng, headers?: Record<string, string>): Promise<OverpassSections | null> {
-  const body = () => new URLSearchParams({ data: overpassQuery(center, SEARCH_RADIUS) });
-  for (const [i, endpoint] of OVERPASS_ENDPOINTS.entries()) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetchWithTimeout(
-          endpoint,
-          { method: "POST", body: body(), headers },
-          i === 0 ? 25000 : 15000,
-        );
-        if (res.status === 429 || res.status === 504) {
-          await sleep(1500);
-          continue; // busy: one retry on the same server
-        }
-        if (!res.ok) break;
-        // A busy server can answer 200 with an XML error page or a partial list, so parse defensively.
-        const sections = splitSections((JSON.parse(await res.text()) as { elements: OsmElement[] }).elements);
-        if (sections) return sections;
-        break;
-      } catch {
-        break; // timeout or network error: try the next server
-      }
-    }
+  const data = overpassQuery(center, SEARCH_RADIUS);
+  for (let round = 0; round < OVERPASS_ROUNDS; round++) {
+    if (round > 0) await sleep(OVERPASS_RETRY_PAUSE_MS);
+    const sections = await hedgedOverpass(data, headers);
+    if (sections) return sections;
   }
   return null;
 }
