@@ -60,6 +60,38 @@ export type Database = {
           },
         ];
       };
+      couple_stats: {
+        Row: {
+          challenges_done: number;
+          couple_id: string;
+          photos_taken: number;
+          quests_done: number;
+          updated_at: string;
+        };
+        Insert: {
+          challenges_done?: number;
+          couple_id: string;
+          photos_taken?: number;
+          quests_done?: number;
+          updated_at?: string;
+        };
+        Update: {
+          challenges_done?: number;
+          couple_id?: string;
+          photos_taken?: number;
+          quests_done?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "couple_stats_couple_id_fkey";
+            columns: ["couple_id"];
+            isOneToOne: true;
+            referencedRelation: "couples";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       couples: {
         Row: {
           created_at: string;
@@ -503,6 +535,54 @@ export type Database = {
           },
         ];
       };
+      stop_reports: {
+        Row: {
+          created_at: string;
+          id: string;
+          lat: number;
+          lng: number;
+          note: string | null;
+          reason: string;
+          reporter: string | null;
+          status: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          lat: number;
+          lng: number;
+          note?: string | null;
+          reason: string;
+          reporter?: string | null;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          lat?: number;
+          lng?: number;
+          note?: string | null;
+          reason?: string;
+          reporter?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stop_reports_reporter_fkey";
+            columns: ["reporter"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stop_reports_reporter_fkey";
+            columns: ["reporter"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       task_history: {
         Row: {
           at: string;
@@ -735,7 +815,17 @@ export type Database = {
     Functions: {
       accept_run: { Args: { p_run_id: string }; Returns: string };
       accept_terms: { Args: { p_version: string }; Returns: undefined };
+      clear_couple_name: { Args: Record<PropertyKey, never>; Returns: undefined };
+      confirm_couple_name: { Args: { p_name?: string }; Returns: string };
       confirm_link: { Args: { p_request: string }; Returns: string };
+      couple_name: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          name: string;
+          proposal: string;
+          proposed_by_me: boolean;
+        }[];
+      };
       create_invite: { Args: Record<PropertyKey, never>; Returns: string };
       decline_link: { Args: { p_request: string }; Returns: undefined };
       decline_run: { Args: { p_run_id: string }; Returns: undefined };
@@ -757,6 +847,15 @@ export type Database = {
         }[];
       };
       redeem_invite_pending: { Args: { p_code: string }; Returns: string };
+      report_stop: { Args: { p_lat: number; p_lng: number; p_note?: string; p_reason: string }; Returns: undefined };
+      reported_places: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          lat: number;
+          lng: number;
+        }[];
+      };
+      set_couple_name: { Args: { p_name: string }; Returns: string };
       share_run_keys: { Args: { p_keys: Json }; Returns: undefined };
       start_run: {
         Args: {
