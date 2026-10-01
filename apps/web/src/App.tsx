@@ -18,13 +18,22 @@ import { LinkInvite, LinkRequestDialog, LinkWaiting } from "./screens/LinkInvite
 import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
+import { AvatarCreator } from "./screens/AvatarCreator";
 import { KeyUnlock } from "./screens/KeyUnlock";
 import { PartnerKeyConfirm, PartnerKeyMismatch } from "./screens/PartnerKeyConfirm";
 import { BrandMark, StatusBar } from "./components/PhoneFrame";
-import type { Profile } from "@wannadoo/core";
+import { randomAppearance } from "@wannadoo/core";
+import type { Appearance, Profile } from "@wannadoo/core";
 import { clearPendingInvite, forgetOpenInvite, loadLinkState, loadPendingInvite, saveLinkState } from "./lib/session";
 import type { LinkState } from "./lib/session";
-import { confirmLink, declineLink, loadLinkRequests, loadPartner, NO_LINK_REQUESTS, unlink } from "./lib/couples";
+import {
+  confirmLink,
+  declineLink,
+  loadLinkRequests,
+  loadPartnerWithAvatar,
+  NO_LINK_REQUESTS,
+  unlink,
+} from "./lib/couples";
 import type { LinkRequests } from "./lib/couples";
 import { trail as curatedTrail } from "@wannadoo/core";
 import type { Stop, Trail } from "@wannadoo/core";
@@ -77,6 +86,8 @@ import { historyPartnerFor, questTaskFor, withQuestTasks } from "./lib/questTask
 import { loadTaskHistory, recordTask } from "./lib/taskHistory";
 import type { TaskHistoryEntry } from "@wannadoo/core";
 import { isLocalStack } from "./lib/supabase";
+import { appearanceFrom, AvatarContext, saveMyAppearance } from "./lib/avatar";
+import type { AvatarState } from "./lib/avatar";
 import {
   KeysAlreadyExistError,
   checkPartnerKey,
@@ -139,6 +150,27 @@ export default function App() {
 
   useEffect(() => dropLegacyTrailData(), []);
 
+  // Someone onboarded before avatars, or whose skip failed to save, gets one random avatar, quietly. Once per user per
+  // app open: a failed save leaves initials until the next open.
+  const avatarFill = useRef<{ userId: string; failed: boolean } | null>(null);
+  const [, setAvatarFillFailed] = useState(false);
+  const readyRow = loaded?.state.status === "ready" ? loaded.state.row : null;
+  const needsAvatar = readyRow !== null && isOnboarded(readyRow) && readyRow.appearance === null;
+  useEffect(() => {
+    if (!needsAvatar || !readyRow || avatarFill.current?.userId === readyRow.id) return;
+    const id = readyRow.id;
+    avatarFill.current = { userId: id, failed: false };
+    const appearance = randomAppearance();
+    saveMyAppearance(id, appearance).then(
+      () => setLoaded((cur) => withAppearance(cur, id, appearance)),
+      (e: unknown) => {
+        console.error("Couldn't save a random avatar", e);
+        avatarFill.current = { userId: id, failed: true };
+        setAvatarFillFailed(true);
+      },
+    );
+  }, [needsAvatar, readyRow]);
+
   useEffect(() => {
     if (!userId) return;
     let active = true;
@@ -196,6 +228,19 @@ export default function App() {
     );
   }
 
+  const row = profile.row;
+  const myAvatar: AvatarState =
+    row.appearance !== null
+      ? appearanceFrom(row.appearance)
+      : avatarFill.current?.userId === row.id && avatarFill.current.failed
+        ? null
+        : "loading";
+
+  async function handleSaveAvatar(appearance: Appearance) {
+    await saveMyAppearance(row.id, appearance);
+    setLoaded((cur) => withAppearance(cur, row.id, appearance));
+  }
+
   // Keyed by user, so switching accounts starts the key check and the trail flow afresh.
   return (
     <KeyGate key={auth.user.id} userId={auth.user.id} onSignOut={() => signOutAndClear(auth.user.id)}>
@@ -203,6 +248,8 @@ export default function App() {
         <RunKeyProvider userId={auth.user.id} keys={keys}>
           <SignedInApp
             me={toProfile(profile.row, auth.user.email ?? "")}
+            myAvatar={myAvatar}
+            onSaveAvatar={handleSaveAvatar}
             keys={keys}
             onKeysChange={setKeys}
             onSignOut={() => signOutAndClear(auth.user.id)}
@@ -211,6 +258,16 @@ export default function App() {
       )}
     </KeyGate>
   );
+}
+
+// The loaded profile with a newly saved appearance, if it is still that user's.
+function withAppearance(
+  cur: { userId: string; state: ProfileState } | null,
+  userId: string,
+  appearance: Appearance,
+): { userId: string; state: ProfileState } | null {
+  if (cur?.userId !== userId || cur.state.status !== "ready") return cur;
+  return { userId, state: { status: "ready", row: { ...cur.state.row, appearance: { ...appearance } } } };
 }
 
 // Every screen below reaches run photo keys through this (lib/photoKeys.ts), so the device keys stay here.
@@ -476,6 +533,8 @@ type Route =
   | { name: "waiting" }
   | { name: "linked" }
   | { name: "settings" }
+  // The avatar creator, opened from Profile.
+  | { name: "avatar" }
   | { name: "trailList" }
   | { name: "map" }
   | { name: "challenge"; stopId: string }
@@ -490,11 +549,16 @@ type Draft =
 
 function SignedInApp({
   me,
+  myAvatar,
+  onSaveAvatar,
   keys,
   onKeysChange,
   onSignOut,
 }: {
   me: Profile;
+  myAvatar: AvatarState;
+  // Saves the user's avatar; may reject.
+  onSaveAvatar: (appearance: Appearance) => Promise<void>;
   // This device's photo keys: an encrypted start wraps the run key for them.
   keys: DeviceKeys;
   onKeysChange: (keys: DeviceKeys) => void;
@@ -513,6 +577,8 @@ function SignedInApp({
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
+  // The partner's avatar from their profile card, refreshed with their name; null when they have none.
+  const [partnerAppearance, setPartnerAppearance] = useState<Appearance | null>(null);
   // Open link requests while unlinked (docs/private-trails.md, section 6); null until first loaded.
   const [linkRequests, setLinkRequests] = useState<LinkRequests | null>(null);
   // The other side's key ID for the emoji check on a link request.
@@ -718,7 +784,9 @@ function SignedInApp({
   // unlinked: the app quietly carries on solo, with no dialog (abuse threat model, section 6, decision 3). The unlinked
   // state shows the next time the link matters, on Home and in Profile.
   const applyPartner = useCallback(
-    (next: Profile | null) => {
+    (card: { profile: Profile; appearance: Appearance | null } | null) => {
+      const next = card?.profile ?? null;
+      setPartnerAppearance(card?.appearance ?? null);
       const known = loadLinkState(me.id).knownPartnerId;
       if (next && next.id !== known) {
         setLinkState(saveLinkState(me.id, { knownPartnerId: next.id, solo: false }));
@@ -742,7 +810,7 @@ function SignedInApp({
   const refreshPartner = useCallback(async () => {
     const id = ++partnerRequest.current;
     try {
-      const next = await loadPartner(me.id);
+      const next = await loadPartnerWithAvatar(me.id);
       const requests = next ? NO_LINK_REQUESTS : await loadLinkRequests(me.id);
       if (id !== partnerRequest.current) return;
       applyPartner(next);
@@ -963,7 +1031,7 @@ function SignedInApp({
     clearPendingInvite();
     const id = ++partnerRequest.current;
     try {
-      const next = await loadPartner(me.id);
+      const next = await loadPartnerWithAvatar(me.id);
       if (id !== partnerRequest.current) return;
       applyPartner(next);
       setRoute(next ? { name: "linked" } : { name: "home" });
@@ -979,6 +1047,7 @@ function SignedInApp({
     partnerRequest.current++;
     setLinkState(saveLinkState(me.id, { knownPartnerId: null, solo: true }));
     setPartner(null);
+    setPartnerAppearance(null);
     void refreshRun();
   }
 
@@ -1127,7 +1196,12 @@ function SignedInApp({
 
   const inviteCard =
     runInvite && partner ? (
-      <QuestInvite partnerName={partner.name} onJoin={handleJoinInvite} onNotNow={handleDeclineInvite} />
+      <QuestInvite
+        partner={partner}
+        partnerName={partner.name}
+        onJoin={handleJoinInvite}
+        onNotNow={handleDeclineInvite}
+      />
     ) : null;
 
   const nav = useMemo<NavHandlers>(
@@ -1248,6 +1322,12 @@ function SignedInApp({
     return photo;
   }
 
+  const partnerAvatarId = partner?.id ?? null;
+  const avatars = useMemo<Record<string, AvatarState>>(
+    () => ({ [me.id]: myAvatar, ...(partnerAvatarId ? { [partnerAvatarId]: partnerAppearance } : {}) }),
+    [me.id, myAvatar, partnerAvatarId, partnerAppearance],
+  );
+
   if (route === null)
     return (
       <PhoneFrame>
@@ -1256,278 +1336,293 @@ function SignedInApp({
     );
 
   return (
-    <NavFrame nav={nav} theme={theme}>
-      {route.name === "home" && (
-        <Home
-          me={me}
-          partner={partner}
-          openQuest={run && isRunActive(run) ? run.trail.name : null}
-          invite={inviteCard}
-          onStartQuest={handleStartQuest}
-          onLinkPartner={() => setRoute({ name: "partner" })}
-        />
-      )}
+    <AvatarContext.Provider value={avatars}>
+      <NavFrame nav={nav} theme={theme}>
+        {route.name === "home" && (
+          <Home
+            me={me}
+            partner={partner}
+            openQuest={run && isRunActive(run) ? run.trail.name : null}
+            invite={inviteCard}
+            onStartQuest={handleStartQuest}
+            onLinkPartner={() => setRoute({ name: "partner" })}
+          />
+        )}
 
-      {route.name === "activity" && (
-        <Activity
-          refreshKey={syncTick}
-          onOpen={(past) => setRoute({ name: "album", runId: past.id, trailId: past.trailId })}
-        />
-      )}
+        {route.name === "activity" && (
+          <Activity
+            refreshKey={syncTick}
+            onOpen={(past) => setRoute({ name: "album", runId: past.id, trailId: past.trailId })}
+          />
+        )}
 
-      {route.name === "partner" && (
-        <PartnerLink
-          me={me}
-          keyId={keys.keyId}
-          onEnterCode={(code, keyId) => setRoute({ name: "accept", code, keyId })}
-          onWalkSolo={handleWalkSolo}
-          onInviteRefused={refreshPartner}
-          onSignOut={handleSignOut}
-        />
-      )}
+        {route.name === "partner" && (
+          <PartnerLink
+            me={me}
+            keyId={keys.keyId}
+            onEnterCode={(code, keyId) => setRoute({ name: "accept", code, keyId })}
+            onWalkSolo={handleWalkSolo}
+            onInviteRefused={refreshPartner}
+            onSignOut={handleSignOut}
+          />
+        )}
 
-      {route.name === "accept" && (
-        <LinkInvite
-          key={route.code}
-          code={route.code}
-          keyId={route.keyId}
-          myId={me.id}
-          onPending={handlePending}
-          onDone={handleInviteDone}
-        />
-      )}
+        {route.name === "accept" && (
+          <LinkInvite
+            key={route.code}
+            code={route.code}
+            keyId={route.keyId}
+            myId={me.id}
+            onPending={handlePending}
+            onDone={handleInviteDone}
+          />
+        )}
 
-      {route.name === "waiting" && (
-        <LinkWaiting
-          request={linkRequests === null ? undefined : linkRequests.outgoing}
-          myKeyId={keys.keyId}
-          inviterKeyId={requestKeyId}
-          onCancel={async (request) => {
-            await declineLink(request.id);
-            setRoute(homeRoute());
-            await refreshPartner();
-          }}
-          onDone={() => setRoute(homeRoute())}
-        />
-      )}
+        {route.name === "waiting" && (
+          <LinkWaiting
+            request={linkRequests === null ? undefined : linkRequests.outgoing}
+            myKeyId={keys.keyId}
+            inviterKeyId={requestKeyId}
+            onCancel={async (request) => {
+              await declineLink(request.id);
+              setRoute(homeRoute());
+              await refreshPartner();
+            }}
+            onDone={() => setRoute(homeRoute())}
+          />
+        )}
 
-      {route.name === "linked" && partner && (
-        <LinkedScreen
-          me={me}
-          partner={partner}
-          myKeyId={keys.keyId}
-          partnerKeyId={partnerKeyId}
-          onContinue={() => setRoute({ name: "home" })}
-        />
-      )}
+        {route.name === "linked" && partner && (
+          <LinkedScreen
+            me={me}
+            partner={partner}
+            myKeyId={keys.keyId}
+            partnerKeyId={partnerKeyId}
+            onContinue={() => setRoute({ name: "home" })}
+          />
+        )}
 
-      {route.name === "settings" && (
-        <Settings
-          me={me}
-          email={me.email}
-          partner={partner}
-          recoveryCode={recoveryCode}
-          onRecoveryCodeSeen={handleRecoveryCodeSeen}
-          onRecoveryCodeShown={handleRecoveryCodeShown}
-          recoveryViewedAt={recoveryViewedAt}
-          hiddenPhotoCount={hiddenPhotoCount}
-          mobility={mobility}
-          onMobilityChange={async (value) => {
-            await saveMobility(me.id, value);
-            setMobility(value);
-          }}
-          onShowHiddenPhotos={async () => {
-            await showHiddenPhotos(me.id);
-            setHiddenPhotoCount(0);
-            setSyncTick((t) => t + 1);
-          }}
-          onNewRecoveryCode={handleNewRecoveryCode}
-          myKeyId={keys.keyId}
-          partnerKeyId={partner ? partnerKeyId : null}
-          onUnlink={handleUnlink}
-          onLinkPartner={() => setRoute({ name: "partner" })}
-          onSignOut={handleSignOut}
-          onSignOutOthers={signOutOtherDevices}
-          onLeaveClean={handleLeaveClean}
-          onExplore={() => setRoute({ name: "home" })}
-        />
-      )}
+        {route.name === "settings" && (
+          <Settings
+            me={me}
+            email={me.email}
+            partner={partner}
+            recoveryCode={recoveryCode}
+            onRecoveryCodeSeen={handleRecoveryCodeSeen}
+            onRecoveryCodeShown={handleRecoveryCodeShown}
+            recoveryViewedAt={recoveryViewedAt}
+            hiddenPhotoCount={hiddenPhotoCount}
+            mobility={mobility}
+            onMobilityChange={async (value) => {
+              await saveMobility(me.id, value);
+              setMobility(value);
+            }}
+            onShowHiddenPhotos={async () => {
+              await showHiddenPhotos(me.id);
+              setHiddenPhotoCount(0);
+              setSyncTick((t) => t + 1);
+            }}
+            onNewRecoveryCode={handleNewRecoveryCode}
+            myKeyId={keys.keyId}
+            partnerKeyId={partner ? partnerKeyId : null}
+            onUnlink={handleUnlink}
+            onLinkPartner={() => setRoute({ name: "partner" })}
+            onSignOut={handleSignOut}
+            onSignOutOthers={signOutOtherDevices}
+            onLeaveClean={handleLeaveClean}
+            onExplore={() => setRoute({ name: "home" })}
+            onEditAvatar={() => setRoute({ name: "avatar" })}
+          />
+        )}
 
-      {route.name === "trailList" && (
-        <TrailList
-          curated={curatedTrail}
-          activeTrail={runTrail && !activeDone ? runTrail : null}
-          onBack={() => setRoute(partner ? { name: "map" } : { name: "partner" })}
-          onContinue={() => setRoute({ name: "map" })}
-          onSelectSurprise={() => void handleSelectSurprise()}
-          onSelectCurated={() => void handleSelectCurated()}
-        />
-      )}
+        {route.name === "avatar" && (
+          <AvatarCreator
+            initial={myAvatar && myAvatar !== "loading" ? myAvatar : randomAppearance()}
+            title="Your avatar"
+            onBack={() => setRoute({ name: "settings" })}
+            onSave={async (appearance) => {
+              await onSaveAvatar(appearance);
+              setRoute({ name: "settings" });
+            }}
+          />
+        )}
 
-      {route.name === "map" && (
-        <MapScreen
-          trail={shownTrail}
-          status={mapStatus}
-          error={draft.status === "error" ? draft.error : undefined}
-          approximateStart={draft.status === "ready" ? draft.approximateStart : false}
-          rural={draft.status === "ready" ? draft.rural === true : false}
-          loadingMeters={draft.status === "loading" ? draft.maxMeters : undefined}
-          shortened={draft.status === "ready" && draft.maxMeters !== undefined}
-          safetyNote={{ show: !safetyNote.hidden, canHide: canHideSafetyNote(safetyNote) }}
-          onHideSafetyNote={() => setSafetyNote(hideSafetyNote(me.id))}
-          onShorterLoop={() => void generateSurprise(SHORTER_LOOP_METERS)}
-          onMaybeTomorrow={handleMaybeTomorrow}
-          onStartRoute={() => void handleStartRoute()}
-          startLabel={partner ? (questMode === "alone" ? "Start just me" : "Start together") : "Start route"}
-          notice={run ? null : inviteCard}
-          starting={starting}
-          startError={startError}
-          onNewRoute={() => void handleNewRoute()}
-          onRetrySync={() => {
-            setRunSync("loading");
-            void refreshRun();
-          }}
-          completions={run?.completions ?? {}}
-          position={position}
-          simulated={simulated}
-          onSimulateArrival={handleSimulateArrival}
-          onOpenChallenge={(stopId) => setRoute({ name: "challenge", stopId })}
-          onViewAlbum={() => setRoute({ name: "complete" })}
-          me={me}
-          partner={partner}
-          onLinkPartner={() => setRoute({ name: "partner" })}
-          onProfile={() => setRoute({ name: "settings" })}
-          onSignOut={handleSignOut}
-          onBack={() => setRoute({ name: "trailList" })}
-          onHome={() => setRoute({ name: "home" })}
-        />
-      )}
+        {route.name === "trailList" && (
+          <TrailList
+            curated={curatedTrail}
+            activeTrail={runTrail && !activeDone ? runTrail : null}
+            onBack={() => setRoute(partner ? { name: "map" } : { name: "partner" })}
+            onContinue={() => setRoute({ name: "map" })}
+            onSelectSurprise={() => void handleSelectSurprise()}
+            onSelectCurated={() => void handleSelectCurated()}
+          />
+        )}
 
-      {route.name === "map" && waitingPartnerId && partner && (
-        <PartnerWaiting partnerName={partner.name} onStartAlone={() => setWaitingRunId(null)} />
-      )}
+        {route.name === "map" && (
+          <MapScreen
+            trail={shownTrail}
+            status={mapStatus}
+            error={draft.status === "error" ? draft.error : undefined}
+            approximateStart={draft.status === "ready" ? draft.approximateStart : false}
+            rural={draft.status === "ready" ? draft.rural === true : false}
+            loadingMeters={draft.status === "loading" ? draft.maxMeters : undefined}
+            shortened={draft.status === "ready" && draft.maxMeters !== undefined}
+            safetyNote={{ show: !safetyNote.hidden, canHide: canHideSafetyNote(safetyNote) }}
+            onHideSafetyNote={() => setSafetyNote(hideSafetyNote(me.id))}
+            onShorterLoop={() => void generateSurprise(SHORTER_LOOP_METERS)}
+            onMaybeTomorrow={handleMaybeTomorrow}
+            onStartRoute={() => void handleStartRoute()}
+            startLabel={partner ? (questMode === "alone" ? "Start just me" : "Start together") : "Start route"}
+            notice={run ? null : inviteCard}
+            starting={starting}
+            startError={startError}
+            onNewRoute={() => void handleNewRoute()}
+            onRetrySync={() => {
+              setRunSync("loading");
+              void refreshRun();
+            }}
+            completions={run?.completions ?? {}}
+            position={position}
+            simulated={simulated}
+            onSimulateArrival={handleSimulateArrival}
+            onOpenChallenge={(stopId) => setRoute({ name: "challenge", stopId })}
+            onViewAlbum={() => setRoute({ name: "complete" })}
+            me={me}
+            partner={partner}
+            onLinkPartner={() => setRoute({ name: "partner" })}
+            onProfile={() => setRoute({ name: "settings" })}
+            onSignOut={handleSignOut}
+            onBack={() => setRoute({ name: "trailList" })}
+            onHome={() => setRoute({ name: "home" })}
+          />
+        )}
 
-      {route.name === "challenge" &&
-        run &&
-        runTrail &&
-        (() => {
-          const index = runTrail.stops.findIndex((s) => s.id === route.stopId);
-          if (index < 0) return null;
-          const stop = runTrail.stops[index];
-          const common = {
-            runId: run.id,
-            canAddPhotos: canAddPhotos(run),
-            completions: run.completions,
-            syncTick,
-            onBack: () => setRoute({ name: "map" }),
-            onContinue: () => setRoute(allStopsDone(run) ? { name: "complete" } : { name: "map" }),
-            continueLabel: allStopsDone(run) ? "See your album" : "On to the next stop",
-            onUpload: (prepared: PreparedPhoto) => handleStopPhoto(stop.id, prepared),
-            onSkip: () => completeAndMoveOn(stop.id),
-          };
-          if (runTrail.id === SHERLOCK_ID) {
+        {route.name === "map" && waitingPartnerId && partner && (
+          <PartnerWaiting partner={partner} partnerName={partner.name} onStartAlone={() => setWaitingRunId(null)} />
+        )}
+
+        {route.name === "challenge" &&
+          run &&
+          runTrail &&
+          (() => {
+            const index = runTrail.stops.findIndex((s) => s.id === route.stopId);
+            if (index < 0) return null;
+            const stop = runTrail.stops[index];
+            const common = {
+              runId: run.id,
+              canAddPhotos: canAddPhotos(run),
+              completions: run.completions,
+              syncTick,
+              onBack: () => setRoute({ name: "map" }),
+              onContinue: () => setRoute(allStopsDone(run) ? { name: "complete" } : { name: "map" }),
+              continueLabel: allStopsDone(run) ? "See your album" : "On to the next stop",
+              onUpload: (prepared: PreparedPhoto) => handleStopPhoto(stop.id, prepared),
+              onSkip: () => completeAndMoveOn(stop.id),
+            };
+            if (runTrail.id === SHERLOCK_ID) {
+              return (
+                <SherlockChallengeScreen
+                  key={stop.id}
+                  {...common}
+                  trail={runTrail}
+                  stop={stop}
+                  me={me}
+                  partner={partner}
+                  runPartnerName={runPartnerName}
+                />
+              );
+            }
+            // A stop with a known quest task shows it; runs started before quest tasks keep the plain prompt.
+            const task = questTaskFor(stop);
+            if (task) {
+              return (
+                <QuestTaskScreen
+                  key={stop.id}
+                  {...common}
+                  task={task}
+                  stopId={stop.id}
+                  stopName={stop.name}
+                  stopImage={stop.image || undefined}
+                  quiet={stop.quiet}
+                  stopNumber={index + 1}
+                  stopCount={runTrail.stops.length}
+                  meId={me.id}
+                  partnerName={runPartnerName}
+                  onSkipTask={() => completeAndMoveOn(stop.id, "skipped")}
+                />
+              );
+            }
             return (
-              <SherlockChallengeScreen
+              <ChallengeScreen
                 key={stop.id}
                 {...common}
                 trail={runTrail}
                 stop={stop}
-                me={me}
-                partner={partner}
-                runPartnerName={runPartnerName}
-              />
-            );
-          }
-          // A stop with a known quest task shows it; runs started before quest tasks keep the plain prompt.
-          const task = questTaskFor(stop);
-          if (task) {
-            return (
-              <QuestTaskScreen
-                key={stop.id}
-                {...common}
-                task={task}
-                stopId={stop.id}
-                stopName={stop.name}
-                stopImage={stop.image || undefined}
-                quiet={stop.quiet}
-                stopNumber={index + 1}
-                stopCount={runTrail.stops.length}
                 meId={me.id}
                 partnerName={runPartnerName}
-                onSkipTask={() => completeAndMoveOn(stop.id, "skipped")}
               />
             );
-          }
-          return (
-            <ChallengeScreen
-              key={stop.id}
-              {...common}
-              trail={runTrail}
-              stop={stop}
+          })()}
+
+        {route.name === "complete" &&
+          run &&
+          (run.trail.id === SHERLOCK_ID ? (
+            <SherlockCompleteScreen
+              runId={run.id}
               meId={me.id}
               partnerName={runPartnerName}
+              syncTick={syncTick}
+              notice={recoveryHint}
+              onLeave={() => setRoute({ name: "map" })}
             />
-          );
-        })()}
+          ) : (
+            <CompleteScreen
+              runId={run.id}
+              meId={me.id}
+              partnerName={runPartnerName}
+              syncTick={syncTick}
+              notice={recoveryHint}
+              onLeave={() => setRoute({ name: "map" })}
+            />
+          ))}
 
-      {route.name === "complete" &&
-        run &&
-        (run.trail.id === SHERLOCK_ID ? (
-          <SherlockCompleteScreen
-            runId={run.id}
-            meId={me.id}
-            partnerName={runPartnerName}
-            syncTick={syncTick}
-            notice={recoveryHint}
-            onLeave={() => setRoute({ name: "map" })}
-          />
-        ) : (
-          <CompleteScreen
-            runId={run.id}
-            meId={me.id}
-            partnerName={runPartnerName}
-            syncTick={syncTick}
-            notice={recoveryHint}
-            onLeave={() => setRoute({ name: "map" })}
-          />
-        ))}
+        {route.name === "album" &&
+          (route.trailId === SHERLOCK_ID ? (
+            <SherlockCompleteScreen
+              key={route.runId}
+              runId={route.runId}
+              meId={me.id}
+              partnerName={partner?.name ?? null}
+              syncTick={syncTick}
+              past
+              onLeave={() => setRoute({ name: "activity" })}
+            />
+          ) : (
+            <CompleteScreen
+              key={route.runId}
+              runId={route.runId}
+              meId={me.id}
+              partnerName={partner?.name ?? null}
+              syncTick={syncTick}
+              past
+              onLeave={() => setRoute({ name: "activity" })}
+            />
+          ))}
 
-      {route.name === "album" &&
-        (route.trailId === SHERLOCK_ID ? (
-          <SherlockCompleteScreen
-            key={route.runId}
-            runId={route.runId}
-            meId={me.id}
-            partnerName={partner?.name ?? null}
-            syncTick={syncTick}
-            past
-            onLeave={() => setRoute({ name: "activity" })}
+        {linkRequests?.incoming && !partner && (
+          <LinkRequestDialog
+            key={linkRequests.incoming.id}
+            request={linkRequests.incoming}
+            myKeyId={keys.keyId}
+            inviteeKeyId={requestKeyId}
+            onConfirm={handleConfirmLink}
+            onDecline={handleDeclineLink}
           />
-        ) : (
-          <CompleteScreen
-            key={route.runId}
-            runId={route.runId}
-            meId={me.id}
-            partnerName={partner?.name ?? null}
-            syncTick={syncTick}
-            past
-            onLeave={() => setRoute({ name: "activity" })}
-          />
-        ))}
+        )}
 
-      {linkRequests?.incoming && !partner && (
-        <LinkRequestDialog
-          key={linkRequests.incoming.id}
-          request={linkRequests.incoming}
-          myKeyId={keys.keyId}
-          inviteeKeyId={requestKeyId}
-          onConfirm={handleConfirmLink}
-          onDecline={handleDeclineLink}
-        />
-      )}
-
-      {endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />}
-    </NavFrame>
+        {endedNotice && <TrailEndedNotice onClose={() => setEndedNotice(false)} />}
+      </NavFrame>
+    </AvatarContext.Provider>
   );
 }
 

@@ -1,14 +1,19 @@
 import { useState } from "react";
+import type { Profile } from "@wannadoo/core";
 import { CompassIcon } from "./Icons";
+import { ProfileAvatar } from "./ProfileAvatar";
 import "../quest-invite.css";
 
 // The partner started a Together quest: a calm card that asks, and joins only on "Join" (abuse threat model,
 // section 6, decision 1). "Not now" declines, which the partner's phone can't tell from waiting.
 export function QuestInvite({
+  partner,
   partnerName,
   onJoin,
   onNotNow,
 }: {
+  // Shows the partner's avatar in place of the compass.
+  partner?: Profile;
   partnerName: string | null;
   onJoin: () => Promise<void>;
   onNotNow: () => Promise<void>;
@@ -31,9 +36,13 @@ export function QuestInvite({
 
   return (
     <aside className="quest-invite" aria-label="Quest invitation">
-      <span className="quest-invite-icon" aria-hidden="true">
-        <CompassIcon size={20} />
-      </span>
+      {partner ? (
+        <ProfileAvatar profile={partner} size={38} />
+      ) : (
+        <span className="quest-invite-icon" aria-hidden="true">
+          <CompassIcon size={20} />
+        </span>
+      )}
       <p className="quest-invite-text">
         <strong>{partnerName ?? "Your partner"} started a quest</strong>
         <small>Join to walk it together.</small>

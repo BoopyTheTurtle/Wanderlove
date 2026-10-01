@@ -45,6 +45,8 @@ export type SettingsProps = {
   onLeaveClean: () => Promise<void>;
   // Bottom nav back to the map.
   onExplore: () => void;
+  // Opens the avatar creator.
+  onEditAvatar: () => void;
 };
 
 // The Profile tab: who I am, who I explore with, unlinking, and signing out.
@@ -70,6 +72,7 @@ export function Settings({
   onSignOutOthers,
   onLeaveClean,
   onExplore,
+  onEditAvatar,
 }: SettingsProps) {
   const [confirming, setConfirming] = useState(false);
   const [codeDialog, setCodeDialog] = useState<"closed" | "show" | "new">("closed");
@@ -118,6 +121,9 @@ export function Settings({
         <div>
           <p className="settings-name">{me.name}</p>
           <p className="settings-email">{email}</p>
+          <button type="button" className="settings-edit-avatar" onClick={onEditAvatar}>
+            Edit avatar
+          </button>
         </div>
       </section>
 

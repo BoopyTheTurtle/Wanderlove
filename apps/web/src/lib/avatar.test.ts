@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadMyAppearance, loadPartnerCard, saveMyAppearance } from "./avatar";
+import { DEFAULT_APPEARANCE } from "@wannadoo/core";
+import type { Appearance } from "@wannadoo/core";
+import { appearanceFrom, loadMyAppearance, loadPartnerCard, saveMyAppearance } from "./avatar";
 
 // A query builder that records each call and resolves to the queued result.
 const calls: { method: string; args: unknown[] }[] = [];
@@ -29,7 +31,9 @@ function builder(): Chain {
 vi.mock("./supabase", () => ({ supabase: { from: (table: string) => builder().from(table as never) } }));
 
 const ME = "user-a";
+// A stored value with an unknown key and missing fields, and what parseAppearance makes of it.
 const look = { v: 1, skin: 3, hair: "curly" };
+const parsed: Appearance = { ...DEFAULT_APPEARANCE, skin: 3, hair: "curly" };
 
 beforeEach(() => {
   calls.length = 0;
@@ -37,9 +41,9 @@ beforeEach(() => {
 });
 
 describe("loadMyAppearance", () => {
-  it("returns the stored value untouched", async () => {
+  it("parses the stored value", async () => {
     result = { data: { appearance: look }, error: null };
-    expect(await loadMyAppearance(ME)).toEqual(look);
+    expect(await loadMyAppearance(ME)).toEqual(parsed);
     expect(calls).toContainEqual({ method: "from", args: ["profiles"] });
     expect(calls).toContainEqual({ method: "eq", args: ["id", ME] });
   });
@@ -57,25 +61,39 @@ describe("loadMyAppearance", () => {
 
 describe("saveMyAppearance", () => {
   it("writes the appearance to the caller's row", async () => {
-    await saveMyAppearance(ME, look);
-    expect(calls).toContainEqual({ method: "update", args: [{ appearance: look }] });
+    await saveMyAppearance(ME, parsed);
+    expect(calls).toContainEqual({ method: "update", args: [{ appearance: parsed }] });
     expect(calls).toContainEqual({ method: "eq", args: ["id", ME] });
   });
 
   it("throws when the server refuses the value", async () => {
     result = { data: null, error: new Error("check constraint") };
-    await expect(saveMyAppearance(ME, look)).rejects.toThrow("check constraint");
+    await expect(saveMyAppearance(ME, parsed)).rejects.toThrow("check constraint");
   });
 });
 
 describe("loadPartnerCard", () => {
-  it("reads the name and appearance from profile_cards", async () => {
+  it("reads the name and parsed appearance from profile_cards", async () => {
     result = { data: { display_name: "Emma", appearance: look }, error: null };
-    expect(await loadPartnerCard("user-b")).toEqual({ displayName: "Emma", appearance: look });
+    expect(await loadPartnerCard("user-b")).toEqual({ displayName: "Emma", appearance: parsed });
     expect(calls).toContainEqual({ method: "from", args: ["profile_cards"] });
+  });
+
+  it("keeps a null appearance, as an ex or a partner without an avatar reads", async () => {
+    result = { data: { display_name: "Emma", appearance: null }, error: null };
+    expect(await loadPartnerCard("user-b")).toEqual({ displayName: "Emma", appearance: null });
   });
 
   it("returns null when the profile is out of sight", async () => {
     expect(await loadPartnerCard("user-b")).toBeNull();
+  });
+});
+
+describe("appearanceFrom", () => {
+  it("keeps null for no avatar and parses anything else", () => {
+    expect(appearanceFrom(null)).toBeNull();
+    expect(appearanceFrom(undefined)).toBeNull();
+    expect(appearanceFrom("not json")).toEqual(DEFAULT_APPEARANCE);
+    expect(appearanceFrom(look)).toEqual(parsed);
   });
 });

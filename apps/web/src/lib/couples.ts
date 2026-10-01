@@ -1,4 +1,5 @@
-import type { Profile } from "@wannadoo/core";
+import type { Appearance, Profile } from "@wannadoo/core";
+import { loadPartnerCard } from "./avatar";
 import { partnerProfile } from "./profile";
 import { loadOpenInvite, saveOpenInvite } from "./session";
 import { supabase } from "./supabase";
@@ -126,8 +127,12 @@ export async function unlink(): Promise<void> {
   if (error) throw error;
 }
 
-// The caller's active partner, or null when walking solo. RLS limits couples to the caller's own.
-export async function loadPartner(myId: string): Promise<Profile | null> {
+// The caller's active partner with their avatar, or null when walking solo. RLS limits couples to the caller's own;
+// the card shows the appearance only while the two are linked. App.tsx polls this, so a new avatar the partner saves
+// shows here on the next focus or sync.
+export async function loadPartnerWithAvatar(
+  myId: string,
+): Promise<{ profile: Profile; appearance: Appearance | null } | null> {
   const { data: couples, error } = await supabase
     .from("couples")
     .select("id, couple_members(user_id)")
@@ -137,11 +142,11 @@ export async function loadPartner(myId: string): Promise<Profile | null> {
   const partnerId = couples[0]?.couple_members.find((m) => m.user_id !== myId)?.user_id;
   if (!partnerId) return null;
 
-  const { data: card, error: cardError } = await supabase
-    .from("profile_cards")
-    .select("display_name")
-    .eq("id", partnerId)
-    .maybeSingle();
-  if (cardError) throw cardError;
-  return partnerProfile(partnerId, card?.display_name ?? null);
+  const card = await loadPartnerCard(partnerId);
+  return { profile: partnerProfile(partnerId, card?.displayName ?? null), appearance: card?.appearance ?? null };
+}
+
+// The caller's active partner, or null when walking solo.
+export async function loadPartner(myId: string): Promise<Profile | null> {
+  return (await loadPartnerWithAvatar(myId))?.profile ?? null;
 }
