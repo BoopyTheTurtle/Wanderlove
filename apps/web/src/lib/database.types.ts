@@ -891,7 +891,28 @@ export type Database = {
           storage_path: string;
         }[];
       };
+      join_leaderboard: { Args: Record<PropertyKey, never>; Returns: string };
+      leaderboard_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          in_league: boolean;
+          my_yes: boolean;
+          needs_name: boolean;
+          partner_yes: boolean;
+        }[];
+      };
+      leave_leaderboard: { Args: Record<PropertyKey, never>; Returns: undefined };
       mark_recovery_viewed: { Args: Record<PropertyKey, never>; Returns: string };
+      my_league: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          couple_name: string;
+          is_me: boolean;
+          league_quests: number;
+          my_band: string;
+          weekly_points: number;
+        }[];
+      };
       peek_invite: { Args: { p_code: string }; Returns: Json };
       purge_photos: {
         Args: { p_photo_ids: string[] };
