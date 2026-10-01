@@ -13,6 +13,7 @@ import {
   JANUARY_AREAS,
   JANUARY_WHEN,
   JITTER_METERS,
+  MAIN_WHEN,
   MAX_DRAWS_PER_AREA,
   USER_AGENT,
   hashString,
@@ -75,8 +76,8 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
   Math.random = rngFor(seed, draft.key, "generator");
   let record: StartRecord;
   try {
-    // The January pass generates for its date and time, so the ice and after-dusk rules apply.
-    const when = draft.pass === "january" ? new Date(JANUARY_WHEN) : undefined;
+    // Each pass generates for its own date and time; in January the ice and after-dusk rules apply.
+    const when = new Date(draft.pass === "january" ? JANUARY_WHEN : MAIN_WHEN);
     const route = await generateRoute(draft.start, false, { headers: { "User-Agent": USER_AGENT }, when });
     const { trail } = route;
     record = {
