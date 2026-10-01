@@ -318,6 +318,7 @@ export type Database = {
       profiles: {
         Row: {
           age_confirmed_at: string | null;
+          appearance: Json | null;
           avatar_path: string | null;
           created_at: string;
           display_name: string | null;
@@ -329,6 +330,7 @@ export type Database = {
         };
         Insert: {
           age_confirmed_at?: string | null;
+          appearance?: Json | null;
           avatar_path?: string | null;
           created_at?: string;
           display_name?: string | null;
@@ -340,6 +342,7 @@ export type Database = {
         };
         Update: {
           age_confirmed_at?: string | null;
+          appearance?: Json | null;
           avatar_path?: string | null;
           created_at?: string;
           display_name?: string | null;
@@ -718,6 +721,7 @@ export type Database = {
     Views: {
       profile_cards: {
         Row: {
+          appearance: Json | null;
           avatar_path: string | null;
           display_name: string | null;
           id: string | null;
