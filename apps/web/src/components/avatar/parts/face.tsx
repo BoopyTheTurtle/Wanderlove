@@ -1,6 +1,7 @@
 import type { Appearance } from "@wannadoo/core";
 import { CX, EYE_LINE, HEAD, HEAD_CENTRE, buildOf, headPath } from "../frame";
 import type { Tints } from "../tints";
+import { Blush } from "../Blush";
 
 const CHEEK = "#ee7c6a";
 
@@ -47,13 +48,13 @@ export function features(a: Appearance, t: Tints) {
             />
             <ellipse cx={x} cy={y} rx={9.5} ry={eyeRy} fill={t.eyes.colour} />
             <circle cx={x + 3} cy={y - 4} r={3} fill="#fff" opacity={0.85} />
-            <ellipse
+            <Blush
               cx={x + side * 20}
               cy={y + 34}
-              rx={older ? 25 : 22}
-              ry={older ? 16 : 14}
-              fill={CHEEK}
-              opacity={a.skin >= 6 ? 0.35 : 0.42}
+              rx={older ? 30 : 27}
+              ry={older ? 20 : 18}
+              colour={CHEEK}
+              opacity={a.skin >= 6 ? 0.3 : 0.32}
             />
             {older && (
               <>
