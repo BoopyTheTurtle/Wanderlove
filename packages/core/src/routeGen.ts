@@ -433,7 +433,8 @@ export async function generateRoute(
 
   // Named places first; everyday points (cafés, benches, parks) top up a loop the named ones can't fill, and street
   // corners fill whatever is left, so a quiet suburb still gets a walk. A random pick can wander off and leave no room
-  // for a fifth stop, so try a few; this costs no network.
+  // for a fifth stop, so try a few; this costs no network. The last stage leaves the named places out: where the only
+  // one sits at the edge of reach, every loop that starts with it has no room left.
   const fill = (partial: Candidate[]): Candidate[] | null => {
     const reachable = (c: Candidate) => {
       const d = haversineDistanceMeters(start, c);
@@ -445,12 +446,12 @@ export async function generateRoute(
       .filter((c) => !dropped.has(c.id))
       .map((c) => ({ ...c, ice: c.ice && winter, darkPark: c.darkPark && dark }))
       .filter((c) => !c.ice && !c.darkPark);
-    for (const stage of [0, 1, 2]) {
+    for (const stage of [0, 1, 2, 3]) {
       if (stage === 1 && !generic.length) continue;
       for (let attempt = 0; attempt < FILL_ATTEMPTS; attempt++) {
-        let loop = buildLoop(start, named, budget, partial);
+        let loop = stage < 3 ? buildLoop(start, named, budget, partial) : partial;
         if (stage >= 1) loop = buildLoop(start, generic, budget, loop);
-        if (stage === 2) loop = buildLoop(start, spots, budget, loop);
+        if (stage >= 2) loop = buildLoop(start, spots, budget, loop);
         if (loop.length === STOP_COUNT) return loop;
       }
     }

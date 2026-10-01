@@ -286,6 +286,17 @@ describe("generateRoute", () => {
     expect(trail.stops.filter((s) => s.name.startsWith("Place")).length).toBe(2);
   });
 
+  it("leaves out a lone named place at the edge of reach that leaves no room for the rest", async () => {
+    // budget = 2000 / 1.5 ≈ 1333 m of straight line; a church 660 m out uses nearly all of it there and back.
+    const church = node(offset(660, 0), { name: "Far Church", amenity: "place_of_worship" }, 1);
+    stubFetch({ overpass: { candidates: [church] } });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    expect(trail.stops.map((s) => s.name)).not.toContain("Far Church");
+  });
+
   it("builds a loop even where the map has no places at all", async () => {
     stubFetch({ overpass: {} });
     const { generateRoute } = await loadRouteGen();
