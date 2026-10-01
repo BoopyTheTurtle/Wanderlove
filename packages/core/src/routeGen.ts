@@ -23,8 +23,9 @@ import type { OsrmResponse, RoadNetwork, RoutedLoop } from "./safety/routeChecks
 export const MAX_ROUTE_METERS = 2000;
 export const ROUTE_SLACK_METERS = 100;
 export const STOP_COUNT = 5;
-// The FOSSGIS router allows one request a second and forbids heavy use (route-safety.md §3).
-export const MAX_ROUTER_CALLS = 8;
+// The FOSSGIS router allows one request a second and forbids heavy use (route-safety.md §3). Twelve calls take about
+// 13 s at worst; the stage 2 simulation lost most failed starts to the earlier cap of eight.
+export const MAX_ROUTER_CALLS = 12;
 const ROUTER_INTERVAL_MS = 1000;
 
 const SEARCH_RADIUS = 900;
@@ -39,13 +40,32 @@ const SPOT_DIRECTIONS = 12;
 const SPOT_SNAP_METERS = 150;
 const SPOT_LABEL = "Street corner";
 const FILL_ATTEMPTS = 30;
-const WALK_FACTOR = 1.3; // walking distance ≈ straight line × this, used for pre-filtering
+// Walking distance ≈ straight line × this, for the first guess at a loop. The stage 2 simulation measured 1.56 as the
+// median (1.41 in Riga's Old Town, 1.72 on Ķīpsala); 1.3 made nearly every first loop too long.
+const WALK_FACTOR = 1.5;
 const WALK_METERS_PER_MIN = 75;
 const MINUTES_PER_STOP = 6;
 
 const SAFE_LOOP_ERROR = "Couldn't find a safe loop here. Try again, or move somewhere with more to see.";
 const ROUTER_ERROR = "Couldn't reach the walking router to check this loop. Check your connection and try again.";
 const TOO_FEW_ERROR = "Couldn't find walkable streets around you. Try again from a street or path.";
+
+// A start on closed land fails at once, with the reason (mvp-roadmap.md, open question 4): the paths out of a port, a
+// rail yard, or a building site are its own service roads, so no safe loop may exist. Water is left out, since a
+// start on a bridge sits inside the river's area.
+const CLOSED_START: Record<string, string> = {
+  "H5-closed": "industrial, military, or private grounds",
+  "H7-railway": "railway land",
+  "H6-construction": "a building site",
+  "H8-quarry": "a quarry",
+};
+export class ClosedStartError extends Error {
+  constructor(public reason: string) {
+    super(
+      `You're on ${CLOSED_START[reason]}, where we can't plan a safe walk. Head out to a public street and try again.`,
+    );
+  }
+}
 
 // Two public Overpass servers. The main one often answers "too busy" (504), so each query starts on one at random
 // and brings in the other when the first is slow or fails (queryOverpass). vercel.json's connect-src lists both.
@@ -400,7 +420,7 @@ function routeOnFoot(points: LatLng[], headers?: Record<string, string>): Promis
 
 // Builds a loop of exactly five stops, routes it, and checks the route. A failed check drops the offending stop,
 // tops the loop up with another candidate, and reroutes; a loop over the limit loses its costliest stop and the
-// search tightens. After eight router calls it gives up.
+// search tightens. After MAX_ROUTER_CALLS router calls it gives up.
 // When the router is unreachable it fails rather than hand out a loop whose crossings and paths nobody checked.
 export async function generateRoute(
   start: LatLng,
@@ -410,6 +430,8 @@ export async function generateRoute(
   const maxMeters = options.maxMeters ?? MAX_ROUTE_METERS;
   const hardCap = maxMeters + ROUTE_SLACK_METERS;
   const data = await fetchPlaces(start, options.headers);
+  const ground = checkContainment(start, data.hazards).hazard;
+  if (ground && ground in CLOSED_START) throw new ClosedStartError(ground);
 
   const dropped = new Set<string>();
   const rejections: RouteRejection[] = [];
@@ -430,7 +452,8 @@ export async function generateRoute(
 
   // Named places first; everyday points (cafés, benches, parks) top up a loop the named ones can't fill, and street
   // corners fill whatever is left, so a quiet suburb still gets a walk. A random pick can wander off and leave no room
-  // for a fifth stop, so try a few; this costs no network.
+  // for a fifth stop, so try a few; this costs no network. The last stage leaves the named places out: where the only
+  // one sits at the edge of reach, every loop that starts with it has no room left.
   const fill = (partial: Candidate[]): Candidate[] | null => {
     const reachable = (c: Candidate) => {
       const d = haversineDistanceMeters(start, c);
@@ -442,12 +465,12 @@ export async function generateRoute(
       .filter((c) => !dropped.has(c.id))
       .map((c) => ({ ...c, ice: c.ice && winter, darkPark: c.darkPark && dark }))
       .filter((c) => !c.ice && !c.darkPark);
-    for (const stage of [0, 1, 2]) {
+    for (const stage of [0, 1, 2, 3]) {
       if (stage === 1 && !generic.length) continue;
       for (let attempt = 0; attempt < FILL_ATTEMPTS; attempt++) {
-        let loop = buildLoop(start, named, budget, partial);
+        let loop = stage < 3 ? buildLoop(start, named, budget, partial) : partial;
         if (stage >= 1) loop = buildLoop(start, generic, budget, loop);
-        if (stage === 2) loop = buildLoop(start, spots, budget, loop);
+        if (stage >= 2) loop = buildLoop(start, spots, budget, loop);
         if (loop.length === STOP_COUNT) return loop;
       }
     }

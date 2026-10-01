@@ -41,10 +41,12 @@ Options for `run` and `report`:
 1. **Starts.** For each area it draws starts uniformly within 300 m of the area's point, from a random sequence seeded
    by `--seed` and the area, so the same seed gives the same starts. Each start is looked up with the router's
    `nearest` service; one more than 40 m from a walkable way is recorded as discarded and another is drawn, until the
-   area has 40 (at most 120 draws).
-2. **Routes.** For each start it calls `clearPlaceCache()` and `generateRoute(start, false, { headers })` with the
-   User-Agent `Wannadoo-route-sim/0.1 (admin@wannadoo.app)`. `Math.random` is seeded per start during the call, so on
-   unchanged OSM data a rerun draws the same loops.
+   area has 40 (at most 120 draws). An accepted start moves onto that way, since a phone starts where its owner
+   stands: a point in the river within 40 m of the embankment would otherwise start the walk in the water.
+2. **Routes.** For each start it calls `clearPlaceCache()` and `generateRoute(start, false, { headers, when })` with
+   the User-Agent `Wannadoo-route-sim/0.1 (admin@wannadoo.app)`. `when` is midday on 15 September 2026, so the time of
+   the run cannot switch on the darkness rule. `Math.random` is seeded per start during the call, so on unchanged OSM
+   data a rerun draws the same loops.
 3. **January pass.** The accepted Ķīpsala and Līgatne starts run again, and each records `walkLight` and `seasonNote`
    for 15 January 2027, 17:00 Riga time. The date goes to the generator as `RouteOptions.when`, so the thin-ice (H4)
    and dark-park (H10) rules apply to the route itself.
@@ -93,7 +95,8 @@ check. A start the generator could not route counts against the stage.
 The **rejection rate** is rejections divided by router calls: each router call routes one loop, which is either
 accepted or rejected for one reason. A failed start's router calls were all rejections, but the generator throws its
 list away, so their reasons show as `unknown (start failed)`. An area above 50% is flagged: the filters are too strict
-there, or the data too sparse.
+there, or the data too sparse. Candidates the ice and darkness rules drop before any router call are listed apart
+and stay out of the rate.
 
 ## Manual audit
 

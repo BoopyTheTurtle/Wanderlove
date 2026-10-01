@@ -1,10 +1,10 @@
-// Runs the simulated starts (route-safety.md §5): draws the jittered starts, discards those off any public way,
-// generates a route from each, and appends one line per start to results.jsonl. A rerun skips every start already
-// in the file, so an interrupted run resumes where it stopped.
+// Runs the simulated starts (route-safety.md §5): draws the jittered starts, discards those off any public way, moves
+// the rest onto the nearest way, generates a route from each, and appends one line per start to results.jsonl. A rerun
+// skips every start already in the file, so an interrupted run resumes where it stopped.
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { LatLng } from "../../packages/core/src/index.ts";
-import { clearPlaceCache, generateRoute } from "../../packages/core/src/index.ts";
+import { ClosedStartError, clearPlaceCache, generateRoute } from "../../packages/core/src/index.ts";
 import { seasonNote, walkLight } from "../../packages/core/src/daylight.ts";
 import { SNAP_LIMIT_METERS } from "../../packages/core/src/safety/routeChecks.ts";
 import type { AreaId, Pass, StartRecord } from "./lib.ts";
@@ -13,6 +13,7 @@ import {
   JANUARY_AREAS,
   JANUARY_WHEN,
   JITTER_METERS,
+  MAIN_WHEN,
   MAX_DRAWS_PER_AREA,
   USER_AGENT,
   hashString,
@@ -47,21 +48,24 @@ export function readResults(file: string): StartRecord[] {
     .map((line) => JSON.parse(line) as StartRecord);
 }
 
-async function snapDistance(pacer: Pacer, start: LatLng): Promise<number> {
+// The nearest walkable way: how far it is, and the point on it. A phone starts where its owner stands, on a path; a
+// jittered point can sit in the river within reach of the embankment, so the run starts from the snapped point.
+async function nearestWay(pacer: Pacer, start: LatLng): Promise<{ meters: number; at: LatLng }> {
   const url = `${ROUTER}/nearest/v1/driving/${start.lng.toFixed(6)},${start.lat.toFixed(6)}?number=1`;
   try {
     const res = await pacer.fetch(url, { headers: { "User-Agent": USER_AGENT } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = (await res.json()) as { waypoints?: { distance?: number }[] };
+    const body = (await res.json()) as { waypoints?: { distance?: number; location?: [number, number] }[] };
     const d = body.waypoints?.[0]?.distance;
-    if (typeof d !== "number") throw new Error("no waypoint in the answer");
-    return d;
+    const loc = body.waypoints?.[0]?.location;
+    if (typeof d !== "number" || !loc) throw new Error("no waypoint in the answer");
+    return { meters: d, at: { lat: Number(loc[1].toFixed(6)), lng: Number(loc[0].toFixed(6)) } };
   } catch (e) {
     throw new NetworkAbort(`The router's nearest service failed (${(e as Error).message}).`);
   }
 }
 
-type Draft = Pick<StartRecord, "key" | "pass" | "area" | "draw" | "start" | "snapMeters">;
+type Draft = Pick<StartRecord, "key" | "pass" | "area" | "draw" | "drawn" | "start" | "snapMeters">;
 
 async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<StartRecord> {
   clearPlaceCache();
@@ -72,8 +76,8 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
   Math.random = rngFor(seed, draft.key, "generator");
   let record: StartRecord;
   try {
-    // The January pass generates for its date and time, so the ice and after-dusk rules apply.
-    const when = draft.pass === "january" ? new Date(JANUARY_WHEN) : undefined;
+    // Each pass generates for its own date and time; in January the ice and after-dusk rules apply.
+    const when = new Date(draft.pass === "january" ? JANUARY_WHEN : MAIN_WHEN);
     const route = await generateRoute(draft.start, false, { headers: { "User-Agent": USER_AGENT }, when });
     const { trail } = route;
     record = {
@@ -102,6 +106,7 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
     const message = (e as Error).message;
     if (/^Couldn't reach/.test(message)) throw new NetworkAbort(message);
     record = { ...draft, status: "failed", finishedAt: new Date().toISOString(), error: message };
+    if (e instanceof ClosedStartError) record.closedStart = e.reason;
   } finally {
     Math.random = random;
   }
@@ -148,16 +153,17 @@ export async function runSimulation(options: SimOptions): Promise<{ added: numbe
       const rng = rngFor(seed, area.id);
       const list: Draft[] = [];
       for (let draw = 0; list.length < perArea && draw < MAX_DRAWS_PER_AREA; draw++) {
-        const start = jitter(area.center, JITTER_METERS, rng);
+        const drawn = jitter(area.center, JITTER_METERS, rng);
         const key = `main:${area.id}:${draw}`;
         const pass: Pass = "main";
         let record = done.get(key);
         if (!record) {
-          const snapMeters = await snapDistance(pacer, start);
-          const draft: Draft = { key, pass, area: area.id, draw, start, snapMeters };
+          const near = await nearestWay(pacer, drawn);
+          const snapMeters = near.meters;
+          const draft: Draft = { key, pass, area: area.id, draw, drawn, start: near.at, snapMeters };
           record =
             snapMeters > SNAP_LIMIT_METERS
-              ? { ...draft, status: "discarded", finishedAt: new Date().toISOString() }
+              ? { ...draft, start: drawn, status: "discarded", finishedAt: new Date().toISOString() }
               : await simulate(pacer, seed, draft);
           save(record);
         }
@@ -172,8 +178,8 @@ export async function runSimulation(options: SimOptions): Promise<{ added: numbe
       for (const main of accepted.get(areaId) ?? []) {
         const key = `january:${areaId}:${main.draw}`;
         if (done.has(key)) continue;
-        const { draw, start, snapMeters } = main;
-        save(await simulate(pacer, seed, { key, pass: "january", area: areaId, draw, start, snapMeters }));
+        const { draw, drawn, start, snapMeters } = main;
+        save(await simulate(pacer, seed, { key, pass: "january", area: areaId, draw, drawn, start, snapMeters }));
       }
     }
   } finally {

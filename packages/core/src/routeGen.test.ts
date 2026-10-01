@@ -286,6 +286,30 @@ describe("generateRoute", () => {
     expect(trail.stops.filter((s) => s.name.startsWith("Place")).length).toBe(2);
   });
 
+  it("leaves out a lone named place at the edge of reach that leaves no room for the rest", async () => {
+    // budget = 2000 / 1.5 ≈ 1333 m of straight line; a church 660 m out uses nearly all of it there and back.
+    const church = node(offset(660, 0), { name: "Far Church", amenity: "place_of_worship" }, 1);
+    stubFetch({ overpass: { candidates: [church] } });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+
+    expect(trail.stops).toHaveLength(5);
+    expect(trail.stops.map((s) => s.name)).not.toContain("Far Church");
+  });
+
+  it("fails at once, saying why, when the start sits on closed land", async () => {
+    stubFetch({ overpass: { candidates: places(), hazards: [way(square(START, 100), { landuse: "industrial" })] } });
+    const { generateRoute } = await loadRouteGen();
+    await expect(settle(generateRoute(START, false))).rejects.toThrow(/^You're on industrial, military, or private/);
+  });
+
+  it("still plans from a start inside a river's area, as on a bridge", async () => {
+    stubFetch({ overpass: { candidates: places(), hazards: [way(square(START, 30), { natural: "water" })] } });
+    const { generateRoute } = await loadRouteGen();
+    const { trail } = await settle(generateRoute(START, false));
+    expect(trail.stops).toHaveLength(5);
+  });
+
   it("builds a loop even where the map has no places at all", async () => {
     stubFetch({ overpass: {} });
     const { generateRoute } = await loadRouteGen();
@@ -324,8 +348,12 @@ describe("generateRoute", () => {
   });
 
   it("fails clearly when all the land around is off limits", async () => {
-    const yard = way(square(START, 2000), { landuse: "industrial" });
-    stubFetch({ overpass: { hazards: [yard] } });
+    // A ring of yards: the start sits on a public street in the middle, every spot around it on closed land.
+    const yards = [-1, 1].flatMap((side) => [
+      way(square(offset(side * 1050, 0), 1000), { landuse: "industrial" }),
+      way(square(offset(0, side * 1050), 1000), { landuse: "industrial" }),
+    ]);
+    stubFetch({ overpass: { hazards: yards } });
     const { generateRoute } = await loadRouteGen();
     await expect(settle(generateRoute(START, false))).rejects.toThrow(/walkable streets/);
   });
@@ -429,12 +457,12 @@ describe("generateRoute", () => {
     }
   });
 
-  it("gives up after eight router calls", async () => {
+  it("gives up after twelve router calls", async () => {
     const { routerCallTimes } = stubFetch({ ferryAt: [START] });
     const { generateRoute, MAX_ROUTER_CALLS } = await loadRouteGen();
     await expect(settle(generateRoute(START, false))).rejects.toThrow(/Couldn't find a safe loop here/);
-    expect(MAX_ROUTER_CALLS).toBe(8);
-    expect(routerCallTimes).toHaveLength(8);
+    expect(MAX_ROUTER_CALLS).toBe(12);
+    expect(routerCallTimes).toHaveLength(12);
   });
 
   it("calls the router at most once a second", async () => {

@@ -93,6 +93,7 @@ export function overpassQuery(center: LatLng, radiusMeters: number): string {
   wr[man_made~"^(wastewater_plant|works|pier|breakwater|groyne)$"];
   wr[access~"^(private|no)$"][!highway][!building];
   wr[amenity=grave_yard];
+  wr[amenity~"^(school|kindergarten|childcare)$"];
   wr[natural=water];
   wr[waterway=riverbank];
   way[natural=cliff];

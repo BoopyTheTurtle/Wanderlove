@@ -51,15 +51,20 @@ type AreaStats = {
   discarded: number;
   ok: number;
   failed: number;
+  closed: number;
   routerCalls: number;
   rejections: number;
   reasons: Map<string, number>;
+  // Candidates dropped before routing for the time of the walk, summed over the area's routed starts.
+  timed: Map<string, number>;
   errors: Map<string, number>;
 };
 
 // Every router call ends in one routed loop that is either accepted or rejected, so the rejection rate is
 // rejections / router calls. A failed start's calls were all rejections, but the generator throws away the list,
-// so their reasons show as "unknown (start failed)".
+// so their reasons show as "unknown (start failed)". Candidates dropped for the time of the walk (H4, H10) go before
+// any router call, so they are counted apart and stay out of the rate.
+const TIMED = new Set(["H4-ice", "H10-dark-park"]);
 function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
   const s: AreaStats = {
     pass,
@@ -68,9 +73,11 @@ function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
     discarded: 0,
     ok: 0,
     failed: 0,
+    closed: 0,
     routerCalls: 0,
     rejections: 0,
     reasons: new Map(),
+    timed: new Map(),
     errors: new Map(),
   };
   const bump = (m: Map<string, number>, k: string, n = 1) => m.set(k, (m.get(k) ?? 0) + n);
@@ -82,8 +89,16 @@ function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
     } else if (r.status === "ok") {
       s.ok++;
       s.routerCalls += r.routerCalls ?? 0;
-      s.rejections += r.rejections?.length ?? 0;
-      for (const j of r.rejections ?? []) bump(s.reasons, j.reason);
+      for (const j of r.rejections ?? []) {
+        if (TIMED.has(j.reason)) bump(s.timed, j.reason);
+        else {
+          s.rejections++;
+          bump(s.reasons, j.reason);
+        }
+      }
+    } else if (r.closedStart) {
+      s.closed++;
+      bump(s.errors, `start on closed land (${r.closedStart}), expected`);
     } else {
       s.failed++;
       const calls = r.routerCallsObserved ?? 0;
@@ -126,9 +141,14 @@ export function buildReport(records: StartRecord[], perArea: number): Report {
         const reasons = [...s.reasons].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`);
         lines.push(`${" ".repeat(16)}rejections by reason: ${reasons.join(", ")}`);
       }
+      if (s.timed.size) {
+        const timed = [...s.timed].map(([k, n]) => `${k} ${n}`);
+        lines.push(`${" ".repeat(16)}candidates dropped before routing, summed over starts: ${timed.join(", ")}`);
+      }
       for (const [error, n] of s.errors) lines.push(`${" ".repeat(16)}failed ${n}x: ${error}`);
+      if (s.closed) lines.push(`${" ".repeat(16)}${s.closed} start(s) on closed land fail by design and don't count`);
       if (s.failed) allRouted = false;
-      if (routed < perArea) complete = false;
+      if (routed + s.closed < perArea) complete = false;
     }
     lines.push("");
   }

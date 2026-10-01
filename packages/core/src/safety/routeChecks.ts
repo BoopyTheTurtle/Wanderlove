@@ -14,8 +14,7 @@ export const SNAP_LIMIT_METERS = 40; // H15: farther than this from a path, a st
 export const MATCH_METERS = 1; // a path vertex this close to an OSM node is that node
 export const ID_MATCH_METERS = 5; // looser, when the router named the node by ID as well
 export const NO_SIDEWALK_METERS = 20; // H2: along a road tagged without a sidewalk; more than a junction's width
-export const UNTAGGED_MAJOR_METERS = 100; // H2: along a primary, secondary, or trunk road with no sidewalk tag
-export const RURAL_ROAD_METERS = 300; // H2: along roads faster than 50 km/h, before the route counts as rural
+export const RURAL_ROAD_METERS = 300; // H2: along fast roads, before the route counts as rural
 // OSRM prints node IDs of 10^10 and above in floating point with ten significant digits, so they arrive rounded.
 const TRUSTED_ID_LIMIT = 1e10;
 
@@ -309,32 +308,29 @@ export function checkRoute(loop: RoutedLoop, net: RoadNetwork, start: LatLng, st
     if (i < pts.length - 1 && alongWays(onFord, i).length) add("H3-ford", legEnds(legOf[i + 1]), p);
   });
 
-  // H2: how far the path walks along roads without sidewalks, per leg, and along fast roads in total.
+  // H2: how far the path walks along roads tagged without sidewalks, per leg, and along fast roads in total. A
+  // primary, secondary, or trunk road with no sidewalk tag counts as fast unless its limit is 50 km/h or less: town
+  // streets of that class are mostly tagged with one or the other, so the rest are country roads, which the decision
+  // allows with the rural-road note rather than refuses (mvp-roadmap.md, open question 3).
   const legs = loop.legs.length;
   const noSidewalk = new Array<number>(legs).fill(0);
-  const untaggedMajor = new Array<number>(legs).fill(0);
   let fastRoadMeters = 0;
   along.forEach((ways, i) => {
     if (!ways.length) return;
     const len = haversineDistanceMeters(pts[i], pts[i + 1]);
-    const leg = legOf[i + 1];
     const tags = ways.map((w) => net.roads[w].tags);
     const highway = (t: Tags) => t.highway ?? "";
-    if (tags.some((t) => TERTIARY_OR_ABOVE.test(highway(t)) && taggedWithoutSidewalk(t))) noSidewalk[leg] += len;
-    else if (
-      tags.some((t) => {
-        const speed = speedKmh(t);
-        return NEEDS_SIDEWALK_TAG.test(highway(t)) && !hasSidewalkTag(t) && !(speed !== null && speed <= 50);
-      })
-    ) {
-      untaggedMajor[leg] += len;
-    }
-    if (tags.some((t) => (speedKmh(t) ?? 0) > 50)) fastRoadMeters += len;
+    if (tags.some((t) => TERTIARY_OR_ABOVE.test(highway(t)) && taggedWithoutSidewalk(t)))
+      noSidewalk[legOf[i + 1]] += len;
+    const fast = (t: Tags) => {
+      const speed = speedKmh(t);
+      if (speed !== null && speed > 50) return true;
+      return NEEDS_SIDEWALK_TAG.test(highway(t)) && !hasSidewalkTag(t) && speed === null;
+    };
+    if (tags.some(fast)) fastRoadMeters += len;
   });
-  const worstLeg = (meters: number[]) => meters.indexOf(Math.max(...meters));
-  if (noSidewalk.reduce((a, b) => a + b, 0) > NO_SIDEWALK_METERS) add("H2-sidewalk", legEnds(worstLeg(noSidewalk)));
-  if (untaggedMajor.reduce((a, b) => a + b, 0) > UNTAGGED_MAJOR_METERS) {
-    add("H2-sidewalk", legEnds(worstLeg(untaggedMajor)));
+  if (noSidewalk.reduce((a, b) => a + b, 0) > NO_SIDEWALK_METERS) {
+    add("H2-sidewalk", legEnds(noSidewalk.indexOf(Math.max(...noSidewalk))));
   }
 
   // H1: a path vertex on a major road, with neither neighbouring segment along a major road, crosses it there when it

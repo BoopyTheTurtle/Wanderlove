@@ -6,6 +6,7 @@ export type Kind = { label: string; weight: number };
 
 const WATER_EDGE = /^(pier|breakwater|groyne)$/;
 const CLOSED_LANDUSE = /^(industrial|military|railway|landfill|brownfield)$/;
+const SCHOOL = /^(school|kindergarten|childcare)$/;
 
 // Why a candidate must never become a stop, or null when its own tags raise nothing.
 // The reason names the hazard from route-safety.md, so a simulation can count rejections per hazard.
@@ -24,6 +25,7 @@ export function tagRejection(tags: Tags): string | null {
   if (tags.power === "plant" || tags.power === "substation") return "H5-closed";
   if (tags.man_made === "wastewater_plant" || tags.man_made === "works") return "H5-closed";
   if (tags.abandoned === "yes" || tags.disused === "yes") return "H5-closed";
+  if (SCHOOL.test(tags.amenity ?? "")) return "H5-school";
 
   // H6, construction: a building site or anything under a disused:* lifecycle prefix.
   if (tags.landuse === "construction" || tags.construction) return "H6-construction";

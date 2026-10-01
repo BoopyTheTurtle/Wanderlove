@@ -33,6 +33,9 @@ export type Containment = { hazard: string | null; quiet: boolean };
 // that neither the stop nor the area marks as lit, dropped after civil dusk (H10).
 export type TimedHazards = { ice: boolean; darkPark: boolean };
 
+// School and kindergarten grounds count as closed land (H5): often fenced, and no place for strangers' photos.
+const SCHOOL = /^(school|kindergarten|childcare)$/;
+
 // The reasons an area makes a stop inside it unsafe (route-safety.md H3, H5, H6, H7, H8).
 export function areaHazards(tags: Tags): string[] {
   const reasons: string[] = [];
@@ -45,6 +48,7 @@ export function areaHazards(tags: Tags): string[] {
   if (tags.power === "plant" || tags.power === "substation") reasons.push("H5-closed");
   if (tags.man_made === "wastewater_plant" || tags.man_made === "works") reasons.push("H5-closed");
   if ((tags.access === "private" || tags.access === "no") && !tags.highway && !tags.building) reasons.push("H5-closed");
+  if (SCHOOL.test(tags.amenity ?? "")) reasons.push("H5-school");
   if (/^(pier|breakwater|groyne)$/.test(tags.man_made ?? "")) reasons.push("H3-water");
   if (tags.natural === "water" || tags.waterway === "riverbank") reasons.push("H3-water");
   return [...new Set(reasons)];

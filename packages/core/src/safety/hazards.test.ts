@@ -38,6 +38,16 @@ describe("containment filter", () => {
     expect(checkContainment(offset(5000, 0), index).hazard).toBeNull();
   });
 
+  it("drops points on school and kindergarten grounds", () => {
+    const index = buildHazardIndex([
+      way(square(offset(1000, 0), 50), { amenity: "school", name: "Rīgas 80. vidusskola" }),
+      way(square(offset(2000, 0), 50), { amenity: "kindergarten" }),
+    ]);
+    expect(checkContainment(offset(1000, 0), index).hazard).toBe("H5-school");
+    expect(checkContainment(offset(2000, 0), index).hazard).toBe("H5-school");
+    expect(checkContainment(offset(1100, 0), index).hazard).toBeNull();
+  });
+
   it("treats a way clipped by the query box as an area", () => {
     const [a, b, , d] = square(offset(0, 0), 100);
     const index = buildHazardIndex([way([a, b, null, d, a], { landuse: "quarry" })]);

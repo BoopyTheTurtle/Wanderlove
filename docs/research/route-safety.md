@@ -129,6 +129,7 @@ task guide (A1) should carry this rule.
 - `landuse=industrial|military|railway|quarry|landfill|brownfield|construction`
 - `military=*`, `aeroway=aerodrome`, `power=plant|substation`, `man_made=wastewater_plant|works`
 - `access=private|no` on an area without `highway` or `building` (fenced grounds, private estates)
+- `amenity=school|kindergarten|childcare` (school grounds: often fenced, and no place for strangers' photos)
 - on the candidate itself: `access=private|no`, `abandoned=yes`, `disused=yes`, `building=ruins`, `ruins=yes`
 
 Keep `historic=ruins` only when also tagged `tourism=attraction` or `access=yes|permissive`; unmanaged ruins (common
@@ -261,6 +262,7 @@ area geometry to the box with `geom(<bbox>)`, or the Daugava's relation returns 
   wr[man_made~"^(wastewater_plant|works|pier|breakwater|groyne)$"];
   wr[access~"^(private|no)$"][!highway][!building];
   wr[amenity=grave_yard];
+  wr[amenity~"^(school|kindergarten|childcare)$"];
   wr[natural=water];
   way[natural=cliff];
 )->.hazard;

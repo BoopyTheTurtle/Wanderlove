@@ -13,6 +13,7 @@ describe("tagRejection", () => {
     [{ tourism: "artwork", landuse: "industrial" }, "H5-closed"],
     [{ historic: "building", abandoned: "yes" }, "H5-closed"],
     [{ historic: "building", disused: "yes" }, "H5-closed"],
+    [{ historic: "building", amenity: "school" }, "H5-school"],
     [{ amenity: "fountain", "disused:amenity": "fountain" }, "H6-construction"],
     [{ tourism: "attraction", construction: "yes" }, "H6-construction"],
     [{ tourism: "viewpoint", landuse: "quarry" }, "H8-quarry"],

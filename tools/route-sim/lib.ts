@@ -49,6 +49,10 @@ export const AREAS: Area[] = [
   },
 ];
 
+// The main pass runs at midday in September, so neither the ice nor the darkness rule applies whatever the clock says
+// when the simulation runs.
+export const MAIN_WHEN = "2026-09-15T12:00:00+03:00";
+
 // The second pass: the riverside and rural starts again, on a January day at 17:00 Riga time (EET, UTC+2), for the
 // ice and darkness rules.
 export const JANUARY_AREAS: AreaId[] = ["kipsala", "ligatne"];
@@ -64,12 +68,18 @@ export type StartRecord = {
   pass: Pass;
   area: AreaId;
   draw: number;
+  // The jittered point, and the start the route was generated from: that point moved onto the nearest walkable way
+  // (the drawn point itself for a discarded start).
+  drawn?: LatLng;
   start: LatLng;
-  // Metres from the jittered start to the nearest walkable way, from the router's nearest service.
+  // Metres from the drawn point to the nearest walkable way, from the router's nearest service.
   snapMeters: number;
   status: "discarded" | "ok" | "failed";
   finishedAt: string;
   error?: string;
+  // A failed start that sat on closed land (the hazard reason): it fails with a clear message by design and doesn't
+  // count against the stage (mvp-roadmap.md, open question 4).
+  closedStart?: string;
   // Route requests seen on the wire for this start (the generator's own count is lost when it throws).
   routerCallsObserved?: number;
   overpassCallsObserved?: number;
