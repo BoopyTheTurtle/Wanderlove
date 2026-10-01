@@ -20,6 +20,9 @@ npx vite-node tools/route-sim/main.ts -- run --dry-run --gap 0
 # The live run against Overpass and the FOSSGIS router (roughly 30 to 60 minutes).
 npx vite-node tools/route-sim/main.ts -- run
 
+# Where testers live abroad: 10 starts each in London, Seattle, Los Angeles, and New York, at local midday.
+npx vite-node tools/route-sim/main.ts -- run --areas abroad --out tools/route-sim/out/abroad
+
 # Rebuild the summary and the audit pack from the recorded results, without any network.
 npx vite-node tools/route-sim/main.ts -- report
 ```

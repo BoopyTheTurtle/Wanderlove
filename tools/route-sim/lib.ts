@@ -11,9 +11,19 @@ export const STARTS_PER_AREA = 40;
 // Give up drawing starts for an area after this many draws, in case most land off any public way.
 export const MAX_DRAWS_PER_AREA = 120;
 
-export type AreaId = "old-town" | "purvciems" | "sarkandaugava" | "kipsala" | "ligatne";
+export type AreaId =
+  | "old-town"
+  | "purvciems"
+  | "sarkandaugava"
+  | "kipsala"
+  | "ligatne"
+  | "london-islington"
+  | "seattle-capitol-hill"
+  | "la-silver-lake"
+  | "nyc-park-slope";
 
-export type Area = { id: AreaId; name: string; center: LatLng; stresses: string };
+// `when`: the main pass's walk time, local midday, for areas outside Riga's time zone.
+export type Area = { id: AreaId; name: string; center: LatLng; stresses: string; when?: string };
 
 // route-safety.md §5, "Start points".
 export const AREAS: Area[] = [
@@ -52,6 +62,44 @@ export const AREAS: Area[] = [
 // The main pass runs at midday in September, so neither the ice nor the darkness rule applies whatever the clock says
 // when the simulation runs.
 export const MAIN_WHEN = "2026-09-15T12:00:00+03:00";
+
+// Where testers live outside Latvia (mvp-roadmap.md stage 2: "a few in the UK and the US"). A separate set, run with
+// `--areas abroad`, so the Riga done-when keeps its 200 starts.
+export const ABROAD_AREAS: Area[] = [
+  {
+    id: "london-islington",
+    name: "London, Islington (Angel)",
+    center: { lat: 51.5322, lng: -0.1058 },
+    stresses: "Dense terraces, busy A-roads (H1), canal towpath (H3)",
+    when: "2026-09-15T12:00:00+01:00",
+  },
+  {
+    id: "seattle-capitol-hill",
+    name: "Seattle, Capitol Hill",
+    center: { lat: 47.6205, lng: -122.3212 },
+    stresses: "Steep grid, arterials, mph limits (H1, H2)",
+    when: "2026-09-15T12:00:00-07:00",
+  },
+  {
+    id: "la-silver-lake",
+    name: "Los Angeles, Silver Lake",
+    center: { lat: 34.0869, lng: -118.2702 },
+    stresses: "Hills, streets without sidewalks, the reservoir (H2, H3)",
+    when: "2026-09-15T12:00:00-07:00",
+  },
+  {
+    id: "nyc-park-slope",
+    name: "New York, Park Slope",
+    center: { lat: 40.671, lng: -73.9814 },
+    stresses: "Brownstone grid, avenues, Prospect Park (H1, H10)",
+    when: "2026-09-15T12:00:00-04:00",
+  },
+];
+export const ABROAD_STARTS_PER_AREA = 10;
+
+export const AREA_SETS = { riga: AREAS, abroad: ABROAD_AREAS } as const;
+export type AreaSet = keyof typeof AREA_SETS;
+export const ALL_AREAS: Area[] = [...AREAS, ...ABROAD_AREAS];
 
 // The second pass: the riverside and rural starts again, on a January day at 17:00 Riga time (EET, UTC+2), for the
 // ice and darkness rules.
