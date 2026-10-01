@@ -128,7 +128,7 @@ select is(
 );
 select is(
   (select array_agg(key order by key) from public.couple_stats s, jsonb_object_keys(to_jsonb(s)) key),
-  array['challenges_done', 'couple_id', 'photos_taken', 'quests_done', 'updated_at'],
+  array['challenges_done', 'couple_id', 'photos_taken', 'points', 'quests_done', 'updated_at'],
   'the row says how much, never who'
 );
 

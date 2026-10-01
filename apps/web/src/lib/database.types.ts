@@ -65,6 +65,7 @@ export type Database = {
           challenges_done: number;
           couple_id: string;
           photos_taken: number;
+          points: number;
           quests_done: number;
           updated_at: string;
         };
@@ -72,6 +73,7 @@ export type Database = {
           challenges_done?: number;
           couple_id: string;
           photos_taken?: number;
+          points?: number;
           quests_done?: number;
           updated_at?: string;
         };
@@ -79,6 +81,7 @@ export type Database = {
           challenges_done?: number;
           couple_id?: string;
           photos_taken?: number;
+          points?: number;
           quests_done?: number;
           updated_at?: string;
         };
@@ -385,6 +388,57 @@ export type Database = {
           username?: string | null;
         };
         Relationships: [];
+      };
+      quest_points: {
+        Row: {
+          couple_id: string;
+          finish_points: number;
+          photo_points: number;
+          run_id: string;
+          stop_points: number;
+          total: number | null;
+          updated_at: string;
+          week_bonus: number;
+          week_start: string;
+        };
+        Insert: {
+          couple_id: string;
+          finish_points?: number;
+          photo_points?: number;
+          run_id: string;
+          stop_points?: number;
+          total?: never;
+          updated_at?: string;
+          week_bonus?: number;
+          week_start: string;
+        };
+        Update: {
+          couple_id?: string;
+          finish_points?: number;
+          photo_points?: number;
+          run_id?: string;
+          stop_points?: number;
+          total?: never;
+          updated_at?: string;
+          week_bonus?: number;
+          week_start?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "quest_points_couple_id_fkey";
+            columns: ["couple_id"];
+            isOneToOne: false;
+            referencedRelation: "couples";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quest_points_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: true;
+            referencedRelation: "trail_runs";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       run_invites: {
         Row: {
