@@ -198,3 +198,23 @@
 .partner-waiting .link-dots {
   margin-bottom: 14px;
 }
+.partner-waiting-avatar {
+  margin: 4px 0 14px;
+}
+
+/* Profile's way into the creator, under the user's own avatar. */
+.settings-edit-avatar {
+  margin-top: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--brand-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-edit-avatar:hover {
+  background: var(--brand-wash);
+}

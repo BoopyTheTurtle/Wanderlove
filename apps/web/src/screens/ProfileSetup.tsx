@@ -1,12 +1,17 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
+import { randomAppearance } from "@wannadoo/core";
+import type { Appearance } from "@wannadoo/core";
 import { completeOnboarding } from "../lib/profile";
 import type { ProfileRow } from "../lib/profile";
+import { saveMyAppearance } from "../lib/avatar";
+import { AvatarCreator } from "./AvatarCreator";
 
 const MAX_NAME = 40;
 
-// One-time onboarding: a display name and the tester-notice tick box.
+// One-time onboarding: a display name and the tester-notice tick box, then an optional avatar. Skipping the avatar
+// saves a random one, so nobody goes without; a skip that fails to save is filled in by App.tsx on the next load.
 export function ProfileSetup({
   userId,
   onDone,
@@ -20,6 +25,9 @@ export function ProfileSetup({
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The saved profile once the name step is done; the avatar step follows.
+  const [saved, setSaved] = useState<ProfileRow | null>(null);
+  const [firstLook] = useState(() => randomAppearance());
 
   const trimmed = name.trim();
   const valid = trimmed.length >= 1 && trimmed.length <= MAX_NAME && agreed;
@@ -30,11 +38,32 @@ export function ProfileSetup({
     setBusy(true);
     setError(null);
     try {
-      onDone(await completeOnboarding(userId, trimmed));
+      setSaved(await completeOnboarding(userId, trimmed));
     } catch {
       setError("Couldn't save your profile. Check your connection and try again.");
       setBusy(false);
     }
+  }
+
+  if (saved) {
+    const finish = async (appearance: Appearance) => {
+      await saveMyAppearance(userId, appearance);
+      onDone({ ...saved, appearance: { ...appearance } });
+    };
+    return (
+      <AvatarCreator
+        initial={firstLook}
+        title="Make your avatar"
+        intro="Your partner sees it next to your name."
+        onSave={finish}
+        onSkip={() =>
+          finish(randomAppearance()).catch((e: unknown) => {
+            console.error("Couldn't save a random avatar", e);
+            onDone(saved);
+          })
+        }
+      />
+    );
   }
 
   return (

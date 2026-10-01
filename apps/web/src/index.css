@@ -1242,6 +1242,17 @@ img.profile-avatar {
   object-fit: cover;
   background: #f6d3ca;
 }
+/* A drawn avatar (components/avatar) fills the circle; the placeholder holds its place while it loads. */
+.profile-avatar.drawn {
+  overflow: hidden;
+  background: var(--brand-soft);
+}
+.profile-avatar.drawn svg {
+  display: block;
+}
+.profile-avatar.placeholder {
+  background: var(--brand-soft);
+}
 .profile-avatar.empty {
   background: var(--brand-wash);
   color: var(--brand);

@@ -1,7 +1,11 @@
 import type { Profile } from "@wannadoo/core";
+import { Avatar } from "./avatar";
+import { useAvatarState } from "../lib/avatar";
 
-// The profile's avatar illustration, or its initials on its colour when it has none.
+// The profile's avatar: the drawn avatar when the person has one (lib/avatar.ts, AvatarContext), a plain circle while
+// it loads, else the illustration of a seeded test profile, else initials on a colour.
 export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null; size?: number }) {
+  const avatar = useAvatarState(profile?.id);
   if (!profile) {
     return (
       <span
@@ -10,6 +14,23 @@ export function ProfileAvatar({ profile, size = 44 }: { profile: Profile | null;
         aria-label="No partner yet"
       >
         ?
+      </span>
+    );
+  }
+  if (avatar === "loading") {
+    return (
+      <span
+        className="profile-avatar placeholder"
+        style={{ width: size, height: size }}
+        aria-label={profile.name}
+        role="img"
+      />
+    );
+  }
+  if (avatar) {
+    return (
+      <span className="profile-avatar drawn" style={{ width: size, height: size }}>
+        <Avatar appearance={avatar} size={size} label={profile.name} />
       </span>
     );
   }

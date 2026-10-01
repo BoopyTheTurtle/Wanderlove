@@ -1,11 +1,26 @@
+import type { Profile } from "@wannadoo/core";
+import { ProfileAvatar } from "./ProfileAvatar";
 import "../settings.css";
 
 // After a Together start: waits for the partner to join, and moves on by itself once they do. A declined invitation
 // looks the same as one still waiting, so this never tells the starter "no" (abuse threat model, section 6).
-export function PartnerWaiting({ partnerName, onStartAlone }: { partnerName: string; onStartAlone: () => void }) {
+export function PartnerWaiting({
+  partner,
+  partnerName,
+  onStartAlone,
+}: {
+  partner?: Profile;
+  partnerName: string;
+  onStartAlone: () => void;
+}) {
   return (
     <div className="settings-backdrop">
       <div className="settings-dialog partner-waiting" role="dialog" aria-modal="true" aria-labelledby="waiting-title">
+        {partner && (
+          <div className="partner-waiting-avatar">
+            <ProfileAvatar profile={partner} size={64} />
+          </div>
+        )}
         <div className="link-dots" aria-hidden="true">
           <i />
           <i />
