@@ -1,0 +1,153 @@
+/* The journey map on Home: a window onto a strip of painted scenes, with the couple standing on a marker. */
+.journey-map {
+  position: relative;
+  flex: 1;
+  min-height: 220px;
+  margin: 10px 16px 0;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #c99a7e;
+  box-shadow:
+    0 0 0 1px #ffffff38,
+    0 12px 28px #2e0d1640;
+}
+.journey-map-strip {
+  position: absolute;
+  inset: 0 0 auto;
+}
+.journey-map-scene {
+  position: relative;
+}
+.journey-map-scene img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.journey-map-scene img.loaded {
+  opacity: 1;
+}
+
+/* A marker the couple has already passed: a faint warm rim on the stone. */
+.journey-map-walked {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #ffb36b14 55%, #ff9f5a40);
+  box-shadow:
+    0 0 0 2px #f59a55d9,
+    0 0 10px 2px #ff9a4f80;
+  pointer-events: none;
+}
+
+/* The couple's feet rest on the marker's centre. */
+.journey-map-couple {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.journey-map-pair {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  translate: -50% 8%;
+  transform-origin: 50% 100%;
+}
+.journey-map-hop {
+  display: flex;
+}
+.journey-map-pair .profile-avatar {
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 6px 14px #2e0d1659;
+}
+.journey-map-pair .profile-avatar + .profile-avatar {
+  margin-left: -16%;
+}
+
+/* Transitions run only while the couple walks, so the first paint and later layout changes don't slide. */
+.journey-map.walking .journey-map-strip {
+  transition: transform 0.9s ease-in-out;
+}
+.journey-map.walking .journey-map-couple {
+  transition:
+    left 0.8s ease-in-out,
+    top 0.8s ease-in-out;
+}
+.journey-map.walking .journey-map-pair {
+  transition: transform 0.8s ease-in-out;
+}
+.journey-map.walking .journey-map-hop {
+  animation: journey-map-hop 0.8s ease-in-out;
+}
+@keyframes journey-map-hop {
+  30% {
+    transform: translateY(-14%);
+  }
+  60% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-map *,
+  .journey-map.walking * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Home around the map: compact totals above it, the quest point below it, all on one 390 by 844 screen. */
+.journey-home .couple-totals {
+  padding: 6px 10px 7px;
+  border-radius: 14px;
+}
+.journey-home .couple-totals-name {
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.journey-home .couple-totals dd {
+  font-size: 16px;
+}
+.journey-home .couple-totals dt {
+  font-size: 10.5px;
+}
+.journey-home .journey-point {
+  margin: 14px 20px 4px;
+  gap: 8px;
+}
+.journey-home .quest-point {
+  grid-template-columns: auto 1fr;
+  justify-items: start;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 0;
+  text-align: left;
+}
+.journey-home .quest-point-dot {
+  grid-row: span 2;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  box-shadow:
+    0 0 0 6px #ffffff2e,
+    0 0 0 12px #ffffff14,
+    0 10px 22px #2e0d1655;
+  animation: none;
+}
+.journey-home .quest-point-dot svg {
+  width: 24px;
+  height: 24px;
+}
+.journey-home .quest-point strong {
+  font-size: 19px;
+  align-self: end;
+}
+.journey-home .quest-point small {
+  align-self: start;
+}
+.journey-home .quest-choice {
+  width: 100%;
+  max-width: 330px;
+}
