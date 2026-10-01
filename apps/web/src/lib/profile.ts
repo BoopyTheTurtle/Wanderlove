@@ -16,6 +16,19 @@ export async function loadOwnProfile(userId: string): Promise<ProfileRow> {
   return data;
 }
 
+// Mobility: true means the person prefers tasks without movement, so quests leave out tasks tagged `move`. Only the
+// owner reads and writes it; the partner never sees it.
+export async function loadMobility(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.from("profiles").select("mobility").eq("id", userId).single();
+  if (error) throw error;
+  return data.mobility;
+}
+
+export async function saveMobility(userId: string, mobility: boolean): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ mobility }).eq("id", userId);
+  if (error) throw error;
+}
+
 export function isOnboarded(row: ProfileRow): boolean {
   return Boolean(row.display_name && row.terms_accepted_at);
 }

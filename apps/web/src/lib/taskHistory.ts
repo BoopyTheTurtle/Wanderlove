@@ -1,8 +1,6 @@
+import type { TaskHistoryEntry } from "@wannadoo/core";
 import type { Database } from "./database.types";
 import { supabase } from "./supabase";
-
-// TODO: import TaskHistoryEntry from @wannadoo/core once feature/quest-core merges
-export type TaskHistoryEntry = { taskId: string; outcome: "done" | "skipped"; at: string };
 
 type TaskHistoryRow = Database["public"]["Tables"]["task_history"]["Row"];
 
@@ -42,17 +40,5 @@ export async function recordTask(
   const { error } = await supabase
     .from("task_history")
     .insert({ ...pairOf(meId, partnerId), task_id: taskId, outcome });
-  if (error) throw error;
-}
-
-// Mobility: true means the person prefers tasks without movement, so quests leave out tasks tagged `move`.
-export async function loadMobility(userId: string): Promise<boolean> {
-  const { data, error } = await supabase.from("profiles").select("mobility").eq("id", userId).single();
-  if (error) throw error;
-  return data.mobility;
-}
-
-export async function saveMobility(userId: string, mobility: boolean): Promise<void> {
-  const { error } = await supabase.from("profiles").update({ mobility }).eq("id", userId);
   if (error) throw error;
 }

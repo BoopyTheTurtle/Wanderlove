@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { QuestTask } from "@wannadoo/core";
 import type { Completions } from "../lib/runs";
 import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
@@ -8,20 +9,8 @@ import { QUIET_STOP_LINE } from "../lib/routeSafety";
 import "../route-safety.css";
 import "../quest-task.css";
 
-// TODO: import QuestTask from @wannadoo/core once feature/quest-core merges, and drop this local copy of its shape.
-export type QuestTaskView = {
-  id: string;
-  category: "intro" | "silly" | "deep" | "wrapup";
-  title: string;
-  prompt: string;
-  steps: string[];
-  photoHint: string;
-  tags: string[];
-  minutes: number;
-};
-
 // How each category introduces itself (docs/research/task-design-guide.md, section 2).
-const CATEGORY: Record<QuestTaskView["category"], { label: string; note: string | null }> = {
+const CATEGORY: Record<QuestTask["category"], { label: string; note: string | null }> = {
   intro: { label: "Warm-up", note: null },
   silly: {
     label: "Silly game",
@@ -53,7 +42,7 @@ export function QuestTaskScreen({
   onSkip,
   onSkipTask,
 }: {
-  task: QuestTaskView;
+  task: QuestTask;
   stopNumber: number; // 1 to stopCount
   stopCount?: number;
   stopId: string;

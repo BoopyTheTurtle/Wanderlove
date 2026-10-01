@@ -4,6 +4,7 @@ import { TrailList } from "./screens/TrailList";
 import { MapScreen } from "./screens/MapScreen";
 import type { RouteStatus } from "./screens/MapScreen";
 import { ChallengeScreen } from "./screens/ChallengeScreen";
+import { QuestTaskScreen } from "./screens/QuestTaskScreen";
 import { CompleteScreen } from "./screens/CompleteScreen";
 import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
@@ -70,8 +71,11 @@ import {
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
 import { signOut, signOutOtherDevices, useAuth } from "./lib/auth";
-import { isOnboarded, loadOwnProfile, toProfile } from "./lib/profile";
+import { isOnboarded, loadMobility, loadOwnProfile, saveMobility, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
+import { historyPartnerFor, questTaskFor, withQuestTasks } from "./lib/questTasks";
+import { loadTaskHistory, recordTask } from "./lib/taskHistory";
+import type { TaskHistoryEntry } from "@wannadoo/core";
 import { isLocalStack } from "./lib/supabase";
 import {
   KeysAlreadyExistError,
@@ -504,6 +508,8 @@ function SignedInApp({
   const [partnerKeyId, setPartnerKeyId] = useState<string | null>(null);
   const [recoveryViewedAt, setRecoveryViewedAt] = useState<string | null>(null);
   const [hiddenPhotoCount, setHiddenPhotoCount] = useState(0);
+  // The user's own mobility setting, for Profile; null until loaded there.
+  const [mobility, setMobility] = useState<boolean | null>(null);
   const loadRunKey = useRunKeyLoader();
   const [linkState, setLinkState] = useState<LinkState>(() => loadLinkState(me.id));
   const [partner, setPartner] = useState<Profile | null>(null);
@@ -537,6 +543,8 @@ function SignedInApp({
   const [routedPaths, setRoutedPaths] = useState<Record<string, WalkingPath>>({});
   const routing = useRef(new Set<string>());
   const finishing = useRef(new Set<string>());
+  // Stops whose task outcome this phone already recorded, as "<run id>:<stop id>", so a retry never records twice.
+  const recordedTasks = useRef(new Set<string>());
   // A photo that uploaded but whose stop failed to save; Retry then only saves the stop.
   const uploaded = useRef(new WeakMap<PreparedPhoto, RunPhoto>());
   const [draft, setDraft] = useState<Draft>({ status: "idle" });
@@ -891,6 +899,10 @@ function SignedInApp({
       (n) => active && setHiddenPhotoCount(n),
       (e: unknown) => console.error("Couldn't count the hidden photos", e),
     );
+    loadMobility(me.id).then(
+      (value) => active && setMobility(value),
+      (e: unknown) => console.error("Couldn't load the mobility setting", e),
+    );
     return () => {
       active = false;
     };
@@ -1007,15 +1019,41 @@ function SignedInApp({
     setRoute({ name: "map" });
   }
 
+  // A surprise trail gets its quest tasks as it starts, chosen against the history of whoever walks it: the pair on a
+  // Together quest, the user alone on Just me. The partner's mobility is private, so the starter's own setting
+  // decides. History or the setting failing to load never blocks the walk; the choice then starts from nothing.
+  async function withTasksForStart(trail: Trail, mode: QuestMode): Promise<Trail> {
+    if (trail.kind !== "surprise") return trail;
+    const pairWith = partner && mode === "together" ? partner.id : null;
+    const [history, lowMobility] = await Promise.all([
+      loadTaskHistory(me.id, pairWith).catch((e: unknown): TaskHistoryEntry[] => {
+        console.error("Couldn't load the task history", e);
+        return [];
+      }),
+      loadMobility(me.id).catch((e: unknown) => {
+        console.error("Couldn't load the mobility setting", e);
+        return false;
+      }),
+    ]);
+    try {
+      return withQuestTasks(trail, history, lowMobility);
+    } catch (e) {
+      // Stops without a task show their plain prompt instead.
+      console.error("Couldn't choose the quest tasks", e);
+      return trail;
+    }
+  }
+
   // Starting a run on the server also abandons any run either partner still had open.
   async function handleStartRoute() {
     if (draft.status !== "ready" || starting) return;
-    const trail = draft.trail;
+    const mode: QuestMode = partner ? questMode : "alone";
     setStarting(true);
     setStartError(null);
     runRequest.current++;
     try {
-      const { run: started, plan } = await startRun(trail, { id: me.id, keys }, partner ? questMode : "alone");
+      const trail = await withTasksForStart(draft.trail, mode);
+      const { run: started, plan } = await startRun(trail, { id: me.id, keys }, mode);
       // Only a start that invited the partner waits for them.
       setWaitingRunId(plan.kind === "encrypted" && plan.recipients.length > 1 ? started.id : null);
       // This phone already drew the path for the draft, so it needn't ask the router again.
@@ -1145,9 +1183,25 @@ function SignedInApp({
     setSimulatedPosition({ lat: stop.lat, lng: stop.lng });
   }
 
+  // Records a stop's task outcome once, from the phone whose completion the server kept, so both phones finishing the
+  // same stop add one row, not two (two skips would read as "skipped twice" and retire the task). Never blocks the walk.
+  function recordStopTask(run: Run, stopId: string, outcome: TaskHistoryEntry["outcome"]) {
+    const stop = run.trail.stops.find((s) => s.id === stopId);
+    const task = stop ? questTaskFor(stop) : null;
+    const key = `${run.id}:${stopId}`;
+    if (!task || run.completions[stopId]?.by !== me.id || recordedTasks.current.has(key)) return;
+    const pairWith = historyPartnerFor(run.coupleId, partner?.id ?? null);
+    if (pairWith === undefined) return;
+    recordedTasks.current.add(key);
+    recordTask(me.id, pairWith, task.id, outcome).catch((e: unknown) => {
+      console.error("Couldn't record the task", e);
+      recordedTasks.current.delete(key);
+    });
+  }
+
   // The first photo or skip completes a stop (a partner's earlier completion stands). Then back to the map, or on to
-  // the album once every stop is done.
-  async function completeAndMoveOn(stopId: string) {
+  // the album once every stop is done. `outcome` is the stop task's: skipping the task records "skipped".
+  async function completeAndMoveOn(stopId: string, outcome: TaskHistoryEntry["outcome"] = "done") {
     const current = runRef.current;
     if (!current) throw new Error("No trail is running");
     try {
@@ -1162,6 +1216,7 @@ function SignedInApp({
       ...current,
       completions: { ...current.completions, [stopId]: { by: me.id, at: new Date().toISOString() } },
     };
+    recordStopTask(fresh, stopId, outcome);
     if (isRunActive(fresh) && allStopsDone(fresh)) {
       finishing.current.add(fresh.id);
       try {
@@ -1276,6 +1331,11 @@ function SignedInApp({
           onRecoveryCodeShown={handleRecoveryCodeShown}
           recoveryViewedAt={recoveryViewedAt}
           hiddenPhotoCount={hiddenPhotoCount}
+          mobility={mobility}
+          onMobilityChange={async (value) => {
+            await saveMobility(me.id, value);
+            setMobility(value);
+          }}
           onShowHiddenPhotos={async () => {
             await showHiddenPhotos(me.id);
             setHiddenPhotoCount(0);
@@ -1351,11 +1411,10 @@ function SignedInApp({
         run &&
         runTrail &&
         (() => {
-          const stop = runTrail.stops.find((s) => s.id === route.stopId);
-          if (!stop) return null;
-          const shared = {
-            trail: runTrail,
-            stop,
+          const index = runTrail.stops.findIndex((s) => s.id === route.stopId);
+          if (index < 0) return null;
+          const stop = runTrail.stops[index];
+          const common = {
             runId: run.id,
             canAddPhotos: canAddPhotos(run),
             completions: run.completions,
@@ -1370,14 +1429,45 @@ function SignedInApp({
             return (
               <SherlockChallengeScreen
                 key={stop.id}
-                {...shared}
+                {...common}
+                trail={runTrail}
+                stop={stop}
                 me={me}
                 partner={partner}
                 runPartnerName={runPartnerName}
               />
             );
           }
-          return <ChallengeScreen key={stop.id} {...shared} meId={me.id} partnerName={runPartnerName} />;
+          // A stop with a known quest task shows it; runs started before quest tasks keep the plain prompt.
+          const task = questTaskFor(stop);
+          if (task) {
+            return (
+              <QuestTaskScreen
+                key={stop.id}
+                {...common}
+                task={task}
+                stopId={stop.id}
+                stopName={stop.name}
+                stopImage={stop.image || undefined}
+                quiet={stop.quiet}
+                stopNumber={index + 1}
+                stopCount={runTrail.stops.length}
+                meId={me.id}
+                partnerName={runPartnerName}
+                onSkipTask={() => completeAndMoveOn(stop.id, "skipped")}
+              />
+            );
+          }
+          return (
+            <ChallengeScreen
+              key={stop.id}
+              {...common}
+              trail={runTrail}
+              stop={stop}
+              meId={me.id}
+              partnerName={runPartnerName}
+            />
+          );
         })()}
 
       {route.name === "complete" &&

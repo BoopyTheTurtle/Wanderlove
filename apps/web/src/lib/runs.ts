@@ -4,6 +4,7 @@ import { generateRunKey } from "./crypto";
 import { buildRunKeyWraps, checkPartnerKey, type PartnerKeyCheck, type Recipient } from "./keys";
 import { setRunKey, type DeviceKeys } from "./keyStore";
 import { fromRunDetails, fromRunSnapshot, fromRunSummary, toRunDetails, toRunSummary } from "./runSnapshot";
+import { openTaskIds, sealTaskIds } from "./questTasks";
 import { openJson, sealJson } from "./sealed";
 import { supabase } from "./supabase";
 
@@ -59,7 +60,8 @@ export async function trailFromRow(row: TrailColumns, openKey: OpenRunKey): Prom
   if (!key) throw new Error("This trail's key is missing");
   if (row.details_ciphertext && row.details_nonce) {
     const sealed = { ciphertext: row.details_ciphertext, nonce: row.details_nonce };
-    return fromRunDetails(await openJson(sealed, key, row.id, "details"));
+    const details = await openJson(sealed, key, row.id, "details");
+    return openTaskIds(fromRunDetails(details), details);
   }
   if (row.summary_ciphertext && row.summary_nonce) {
     const sealed = { ciphertext: row.summary_ciphertext, nonce: row.summary_nonce };
@@ -137,9 +139,9 @@ export type StartedRun = { run: Run; plan: RunKeyPlan };
 export type QuestMode = "together" | "alone";
 
 // start_run's arguments for a private trail: its details and summary sealed with the run key and bound to the run ID.
-// The server gets no trail name, place, or stop ID, only how many stops there are.
+// The server gets no trail name, place, stop ID, or quest task, only how many stops there are.
 export async function sealedStartArgs(trail: Trail, runKey: CryptoKey, runId: string) {
-  const details = await sealJson(toRunDetails(trail), runKey, runId, "details");
+  const details = await sealJson(sealTaskIds(toRunDetails(trail), trail), runKey, runId, "details");
   const summary = await sealJson(toRunSummary(trail), runKey, runId, "summary");
   return {
     p_trail_id: "private",
