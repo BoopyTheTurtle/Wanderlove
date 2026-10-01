@@ -25,6 +25,10 @@ export type SettingsProps = {
   // Photos this user hid from their album; Show them again brings them all back. May reject.
   hiddenPhotoCount: number;
   onShowHiddenPhotos: () => Promise<void>;
+  // True when quests should leave out movement tasks; null while loading. Only this user sees it.
+  mobility: boolean | null;
+  // Saves the setting; may reject.
+  onMobilityChange: (mobility: boolean) => Promise<void>;
   // Makes a new key pair and code (lib/keys.ts, rotateAccountKeys); the new code then arrives as recoveryCode.
   onNewRecoveryCode: () => Promise<void>;
   // This phone's key ID and the partner's, for the emoji check; the partner's is null while loading or keyless.
@@ -55,6 +59,8 @@ export function Settings({
   recoveryViewedAt,
   hiddenPhotoCount,
   onShowHiddenPhotos,
+  mobility,
+  onMobilityChange,
   onNewRecoveryCode,
   myKeyId,
   partnerKeyId,
@@ -71,6 +77,21 @@ export function Settings({
   const [othersSignedOut, setOthersSignedOut] = useState(false);
   const [unhiding, setUnhiding] = useState(false);
   const [unhideFailed, setUnhideFailed] = useState(false);
+  const [savingMobility, setSavingMobility] = useState(false);
+  const [mobilityFailed, setMobilityFailed] = useState(false);
+
+  async function changeMobility(next: boolean) {
+    setSavingMobility(true);
+    setMobilityFailed(false);
+    try {
+      await onMobilityChange(next);
+    } catch (e) {
+      console.error("Couldn't save the mobility setting", e);
+      setMobilityFailed(true);
+    } finally {
+      setSavingMobility(false);
+    }
+  }
 
   async function showHidden() {
     setUnhiding(true);
@@ -133,6 +154,29 @@ export function Settings({
               Link a partner
             </button>
           </>
+        )}
+      </section>
+
+      <section className="card settings-card settings-devices" aria-labelledby="settings-quests-title">
+        <p className="card-kicker" id="settings-quests-title">
+          Your quests
+        </p>
+        <label className="consent">
+          <input
+            type="checkbox"
+            checked={mobility === true}
+            disabled={mobility === null || savingMobility}
+            onChange={(e) => void changeMobility(e.target.checked)}
+          />
+          <span>Fewer movement tasks</span>
+        </label>
+        <p className="settings-note">
+          Quests leave out tasks that ask you to move about, like posing or racing. Only you see this.
+        </p>
+        {mobilityFailed && (
+          <p className="field-error" role="alert">
+            Couldn&rsquo;t save that. Check your connection and try again.
+          </p>
         )}
       </section>
 
