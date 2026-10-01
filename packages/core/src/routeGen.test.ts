@@ -23,8 +23,8 @@ type StubOptions = {
   // Legs touching any of these points come back as ferry legs.
   ferryAt?: LatLng[];
   // Where the router puts each waypoint: a street name, metres moved north onto the path, and the snap distance.
-  // `call` counts router calls from 0.
-  snapTo?: (index: number, call: number) => { street?: string; north?: number; distance?: number };
+  // `at` puts the waypoint at that exact position instead. `call` counts router calls from 0.
+  snapTo?: (index: number, call: number) => { street?: string; north?: number; distance?: number; at?: LatLng };
   // How each Overpass server answers: "ok" (the default), an HTTP status such as 504, or "hang" until aborted.
   overpassServer?: (url: string) => "ok" | "hang" | number;
 };
@@ -70,8 +70,8 @@ function stubFetch({
     if (snapTo) {
       const call = routerCallTimes.length - 1;
       json.waypoints = json.waypoints!.map((_, i) => {
-        const { street, north = 0, distance = 0 } = snapTo(i, call);
-        const moved = offset(north, 0, pts[i]);
+        const { street, north = 0, distance = 0, at } = snapTo(i, call);
+        const moved = at ?? offset(north, 0, pts[i]);
         return { distance, location: [moved.lng, moved.lat], name: street };
       });
     }
@@ -442,6 +442,88 @@ describe("generateRoute", () => {
     }
     const { rejections } = await settle(generateRoute(START, false, { when: OCTOBER_DAY }));
     expect(rejections.some((r) => r.reason === "H10-dark-park")).toBe(false);
+  });
+
+  it("never picks a reported place, and records why (stage 11)", async () => {
+    // A report 10 m from Place 1, which sits 150 m east of the start.
+    stubFetch();
+    const { generateRoute } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail, rejections } = await settle(generateRoute(START, false, { avoid: [offset(10, 150)] }));
+      expect(trail.stops.map((s) => s.id)).not.toContain("osm-node-1");
+      expect(rejections.filter((r) => r.reason === "reported")).toEqual([{ stopId: "osm-node-1", reason: "reported" }]);
+    }
+  });
+
+  it("keeps a place 40 m from a report", async () => {
+    // Place 1 is the only named place, so every loop starts with it unless it drops out.
+    stubFetch({ overpass: { candidates: [placeAt(1)] } });
+    const { generateRoute } = await loadRouteGen();
+    const near = await settle(generateRoute(START, false, { avoid: [offset(0, 150)] }));
+    expect(near.trail.stops.map((s) => s.id)).not.toContain("osm-node-1");
+
+    const { trail, rejections } = await settle(generateRoute(START, false, { avoid: [offset(40, 150)] }));
+    expect(trail.stops.map((s) => s.id)).toContain("osm-node-1");
+    expect(rejections.some((r) => r.reason === "reported")).toBe(false);
+  });
+
+  it("scatters no street corner near a report", async () => {
+    // Reports every 15 m along the outer ring of corners (0.38 × 2000 / 1.5 ≈ 507 m out).
+    const avoid = Array.from({ length: 213 }, (_, i) => {
+      const angle = (i * 2 * Math.PI) / 213;
+      return offset(Math.cos(angle) * 507, Math.sin(angle) * 507);
+    });
+    stubFetch({ overpass: {} });
+    const { generateRoute, AVOID_METERS } = await loadRouteGen();
+    for (let run = 0; run < 5; run++) {
+      const { trail } = await settle(generateRoute(START, false, { avoid }));
+      expect(trail.stops).toHaveLength(5);
+      for (const s of trail.stops) {
+        for (const a of avoid) expect(haversineDistanceMeters(s, a)).toBeGreaterThanOrEqual(AVOID_METERS);
+      }
+    }
+  });
+
+  it("drops a street corner the router moves onto a report, and tries another", async () => {
+    // On the first call the router puts the first stop on the reported point, 100 m north of the start.
+    const report = offset(100, 0);
+    const snapTo = (i: number, call: number) => (call === 0 && i === 1 ? { at: report, distance: 20 } : {});
+    stubFetch({ overpass: {}, snapTo });
+    const { generateRoute, AVOID_METERS } = await loadRouteGen();
+    const { trail, rejections, routerCalls } = await settle(generateRoute(START, false, { avoid: [report] }));
+
+    expect(trail.stops).toHaveLength(5);
+    expect(rejections[0].reason).toBe("spot-off-path");
+    expect(routerCalls).toBeGreaterThan(1);
+    for (const s of trail.stops) expect(haversineDistanceMeters(s, report)).toBeGreaterThanOrEqual(AVOID_METERS);
+
+    // Without the report, the first loop keeps the corner where the router put it.
+    stubFetch({ overpass: {}, snapTo });
+    const fresh = await loadRouteGen();
+    const control = await settle(fresh.generateRoute(START, false));
+    expect(control.routerCalls).toBe(1);
+    expect(control.trail.stops.some((s) => haversineDistanceMeters(s, report) < 1)).toBe(true);
+  });
+
+  it("changes nothing when the report list is missing, empty, or far away", async () => {
+    stubFetch();
+    const { generateRoute } = await loadRouteGen();
+    // Fill the place cache first, so each run below draws the same random numbers.
+    await settle(generateRoute(START, false));
+    const far = Array.from({ length: 3000 }, (_, i) => offset(5000 + i, 5000));
+    const runs = [];
+    for (const avoid of [undefined, [], far]) {
+      let seed = 1;
+      const random = vi
+        .spyOn(Math, "random")
+        .mockImplementation(() => (seed = (seed * 16807) % 2147483647) / 2147483647);
+      const { trail, rejections, routerCalls } = await settle(generateRoute(START, false, { avoid }));
+      random.mockRestore();
+      runs.push({ stops: trail.stops.map((s) => s.id), rejections, routerCalls });
+    }
+    expect(runs[0].rejections.some((r) => r.reason === "reported")).toBe(false);
+    expect(runs[1]).toEqual(runs[0]);
+    expect(runs[2]).toEqual(runs[0]);
   });
 
   it("drops a stop whose route fails a check and reroutes", async () => {

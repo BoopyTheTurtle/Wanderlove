@@ -39,6 +39,9 @@ const SPOT_RINGS = [0.18, 0.28, 0.38];
 const SPOT_DIRECTIONS = 12;
 const SPOT_SNAP_METERS = 150;
 const SPOT_LABEL = "Street corner";
+// Stops users reported as unsafe or unpleasant drop out of new routes until reviewed (mvp-roadmap.md stage 11): any
+// candidate or street corner this close to a reported position.
+export const AVOID_METERS = 30;
 const FILL_ATTEMPTS = 30;
 // Walking distance ≈ straight line × this, for the first guess at a loop. The stage 2 simulation measured 1.56 as the
 // median (1.41 in Riga's Old Town, 1.72 on Ķīpsala); 1.3 made nearly every first loop too long.
@@ -121,6 +124,9 @@ export type RouteOptions = {
   // When the walk starts: the month decides the thin-ice rule (H4), civil dusk at the start the dark-park rule (H10).
   // Defaults to now.
   when?: Date;
+  // Positions of reported stops (mvp-roadmap.md stage 11). The whole list, not filtered by area; applied per call, like
+  // H4 and H10, so it never enters the place cache.
+  avoid?: LatLng[];
 };
 
 export type RouteRejection = { stopId: string; reason: string };
@@ -131,7 +137,8 @@ export type GeneratedRoute = {
   // Part of the loop follows roads faster than 50 km/h (route-safety.md H2); the app shows the rural-road note.
   rural: boolean;
   // For the simulation script: router calls used, and each stop dropped with its reason (an H-number or "length").
-  // Candidates dropped for the time of the walk (H4-ice, H10-dark-park) come first, before any router call.
+  // Candidates dropped for the time of the walk (H4-ice, H10-dark-park) or near a reported stop ("reported") come
+  // first, before any router call.
   routerCalls: number;
   rejections: RouteRejection[];
 };
@@ -391,14 +398,20 @@ function offsetMeters(p: LatLng, east: number, north: number): LatLng {
 }
 
 // Moves each street-corner stop to where the router put it and names it after that street. Returns the index of the
-// first stop that can't stay: too far from any path, on hazard land, or on top of another stop.
-function placeSpots(loop: Candidate[], routed: RoutedLoop, hazards: HazardIndex): number | null {
+// first stop that can't stay: too far from any path, on hazard land, near a reported stop, or on top of another stop.
+function placeSpots(
+  loop: Candidate[],
+  routed: RoutedLoop,
+  hazards: HazardIndex,
+  reported: (p: LatLng) => boolean,
+): number | null {
   for (let k = 0; k < loop.length; k++) {
     const cand = loop[k];
     if (!cand.spot) continue;
     const snap = routed.snapped[k + 1];
     if (!snap?.at || routed.snapMeters[k + 1] > SPOT_SNAP_METERS) return k;
     if (checkContainment(snap.at, hazards).hazard) return k;
+    if (reported(snap.at)) return k;
     if (loop.some((s, j) => j !== k && haversineDistanceMeters(s, snap.at!) < MIN_STOP_SPACING)) return k;
     const onSameStreet = snap.street && loop.some((s) => s.name === `On ${snap.street}`);
     const name = !snap.street ? "A quiet corner" : onSameStreet ? `Further along ${snap.street}` : `On ${snap.street}`;
@@ -451,8 +464,12 @@ export async function generateRoute(
   const when = options.when ?? new Date();
   const winter = seasonNote(when) === "winter";
   const dark = isAfterDusk(when, start);
+  // Reported stops (mvp-roadmap.md stage 11) drop out per call too. The list covers every area and may run to
+  // thousands, so keep only the reports a stop near this start could touch before testing candidates against them.
+  const avoid = (options.avoid ?? []).filter((p) => haversineDistanceMeters(start, p) <= SEARCH_RADIUS + AVOID_METERS);
+  const reported = (p: LatLng) => avoid.some((a) => haversineDistanceMeters(a, p) < AVOID_METERS);
   for (const c of [...data.named, ...data.generic]) {
-    const reason = winter && c.ice ? "H4-ice" : dark && c.darkPark ? "H10-dark-park" : null;
+    const reason = reported(c) ? "reported" : winter && c.ice ? "H4-ice" : dark && c.darkPark ? "H10-dark-park" : null;
     if (!reason || dropped.has(c.id)) continue;
     dropped.add(c.id);
     rejections.push({ stopId: c.id, reason });
@@ -473,7 +490,7 @@ export async function generateRoute(
     const named = data.named.filter(reachable);
     const generic = data.generic.filter(reachable);
     const spots = scatterSpots(start, budget, data.hazards)
-      .filter((c) => !dropped.has(c.id))
+      .filter((c) => !dropped.has(c.id) && !reported(c))
       .map((c) => ({ ...c, ice: c.ice && winter, darkPark: c.darkPark && dark }))
       .filter((c) => !c.ice && !c.darkPark);
     for (const stage of [0, 1, 2, 3]) {
@@ -500,7 +517,7 @@ export async function generateRoute(
 
     if (!routed) throw new Error(ROUTER_ERROR);
 
-    const misplaced = placeSpots(loop, routed, data.hazards);
+    const misplaced = placeSpots(loop, routed, data.hazards, reported);
     const verdict = checkRoute(routed, data.network, start, loop);
     let drop: number;
     if (misplaced !== null) {
