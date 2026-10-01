@@ -23,8 +23,9 @@ import type { OsrmResponse, RoadNetwork, RoutedLoop } from "./safety/routeChecks
 export const MAX_ROUTE_METERS = 2000;
 export const ROUTE_SLACK_METERS = 100;
 export const STOP_COUNT = 5;
-// The FOSSGIS router allows one request a second and forbids heavy use (route-safety.md §3).
-export const MAX_ROUTER_CALLS = 8;
+// The FOSSGIS router allows one request a second and forbids heavy use (route-safety.md §3). Twelve calls take about
+// 13 s at worst; the stage 2 simulation lost most failed starts to the earlier cap of eight.
+export const MAX_ROUTER_CALLS = 12;
 const ROUTER_INTERVAL_MS = 1000;
 
 const SEARCH_RADIUS = 900;
@@ -39,7 +40,9 @@ const SPOT_DIRECTIONS = 12;
 const SPOT_SNAP_METERS = 150;
 const SPOT_LABEL = "Street corner";
 const FILL_ATTEMPTS = 30;
-const WALK_FACTOR = 1.3; // walking distance ≈ straight line × this, used for pre-filtering
+// Walking distance ≈ straight line × this, for the first guess at a loop. The stage 2 simulation measured 1.56 as the
+// median (1.41 in Riga's Old Town, 1.72 on Ķīpsala); 1.3 made nearly every first loop too long.
+const WALK_FACTOR = 1.5;
 const WALK_METERS_PER_MIN = 75;
 const MINUTES_PER_STOP = 6;
 
@@ -400,7 +403,7 @@ function routeOnFoot(points: LatLng[], headers?: Record<string, string>): Promis
 
 // Builds a loop of exactly five stops, routes it, and checks the route. A failed check drops the offending stop,
 // tops the loop up with another candidate, and reroutes; a loop over the limit loses its costliest stop and the
-// search tightens. After eight router calls it gives up.
+// search tightens. After MAX_ROUTER_CALLS router calls it gives up.
 // When the router is unreachable it fails rather than hand out a loop whose crossings and paths nobody checked.
 export async function generateRoute(
   start: LatLng,

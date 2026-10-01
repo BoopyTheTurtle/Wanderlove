@@ -164,14 +164,16 @@ describe("sidewalk check (H2)", () => {
   const alongRoad: LegSpec[] = [{ path: [START, ...roadPoints, stop] }, { path: [stop, START] }];
   const road = (tags: Record<string, string>) => ({ roads: [way(roadPoints, tags)] });
 
-  it("rejects 600 m along a primary road with no sidewalk tag", () => {
+  it("flags 600 m along a primary road with no sidewalk tag and no limit as rural", () => {
     const verdict = check(alongRoad, [stop], road({ highway: "primary" }));
-    expect(verdict.issues.map((i) => i.reason)).toEqual(["H2-sidewalk"]);
+    expect(verdict).toMatchObject({ ok: true, rural: true });
   });
 
-  it("accepts it with a sidewalk tag or a 50 km/h limit", () => {
-    expect(check(alongRoad, [stop], road({ highway: "primary", sidewalk: "both" })).ok).toBe(true);
-    expect(check(alongRoad, [stop], road({ highway: "secondary", maxspeed: "50" })).ok).toBe(true);
+  it("doesn't call it rural with a sidewalk tag or a 50 km/h limit", () => {
+    const tagged = check(alongRoad, [stop], road({ highway: "primary", sidewalk: "both" }));
+    expect(tagged).toMatchObject({ ok: true, rural: false });
+    const slow = check(alongRoad, [stop], road({ highway: "secondary", maxspeed: "50" }));
+    expect(slow).toMatchObject({ ok: true, rural: false });
   });
 
   it("rejects a road tagged without a sidewalk", () => {
@@ -191,9 +193,14 @@ describe("sidewalk check (H2)", () => {
     expect(short).toMatchObject({ ok: true, rural: false });
   });
 
-  it("rejects a fast primary road without a sidewalk tag rather than calling it rural", () => {
+  it("allows a fast primary road without a sidewalk tag but flags the route as rural", () => {
     const verdict = check(alongRoad, [stop], road({ highway: "primary", maxspeed: "90" }));
-    expect(verdict.ok).toBe(false);
+    expect(verdict).toMatchObject({ ok: true, rural: true });
+  });
+
+  it("still rejects a primary road tagged without a sidewalk, whatever its limit", () => {
+    const verdict = check(alongRoad, [stop], road({ highway: "primary", maxspeed: "50", sidewalk: "no" }));
+    expect(verdict.issues.map((i) => i.reason)).toEqual(["H2-sidewalk"]);
   });
 });
 

@@ -41,7 +41,8 @@ Options for `run` and `report`:
 1. **Starts.** For each area it draws starts uniformly within 300 m of the area's point, from a random sequence seeded
    by `--seed` and the area, so the same seed gives the same starts. Each start is looked up with the router's
    `nearest` service; one more than 40 m from a walkable way is recorded as discarded and another is drawn, until the
-   area has 40 (at most 120 draws).
+   area has 40 (at most 120 draws). An accepted start moves onto that way, since a phone starts where its owner
+   stands: a point in the river within 40 m of the embankment would otherwise start the walk in the water.
 2. **Routes.** For each start it calls `clearPlaceCache()` and `generateRoute(start, false, { headers })` with the
    User-Agent `Wannadoo-route-sim/0.1 (admin@wannadoo.app)`. `Math.random` is seeded per start during the call, so on
    unchanged OSM data a rerun draws the same loops.

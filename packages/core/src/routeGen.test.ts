@@ -429,12 +429,12 @@ describe("generateRoute", () => {
     }
   });
 
-  it("gives up after eight router calls", async () => {
+  it("gives up after twelve router calls", async () => {
     const { routerCallTimes } = stubFetch({ ferryAt: [START] });
     const { generateRoute, MAX_ROUTER_CALLS } = await loadRouteGen();
     await expect(settle(generateRoute(START, false))).rejects.toThrow(/Couldn't find a safe loop here/);
-    expect(MAX_ROUTER_CALLS).toBe(8);
-    expect(routerCallTimes).toHaveLength(8);
+    expect(MAX_ROUTER_CALLS).toBe(12);
+    expect(routerCallTimes).toHaveLength(12);
   });
 
   it("calls the router at most once a second", async () => {

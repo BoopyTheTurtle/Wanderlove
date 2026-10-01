@@ -64,8 +64,11 @@ export type StartRecord = {
   pass: Pass;
   area: AreaId;
   draw: number;
+  // The jittered point, and the start the route was generated from: that point moved onto the nearest walkable way
+  // (the drawn point itself for a discarded start).
+  drawn?: LatLng;
   start: LatLng;
-  // Metres from the jittered start to the nearest walkable way, from the router's nearest service.
+  // Metres from the drawn point to the nearest walkable way, from the router's nearest service.
   snapMeters: number;
   status: "discarded" | "ok" | "failed";
   finishedAt: string;
