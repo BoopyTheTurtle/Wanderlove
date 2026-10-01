@@ -1,0 +1,144 @@
+/* The task screen at each stop of a random quest (screens/QuestTaskScreen.tsx). Builds on the challenge styles in
+   index.css: .challenge-hero, .challenge-sheet, .task-card, .prompt-box, .level-strip. */
+.quest-task-hero-plain {
+  height: 190px;
+}
+.quest-task-place {
+  position: absolute;
+  z-index: 3;
+  left: 20px;
+  right: 20px;
+  bottom: 50px;
+  color: var(--on-bg);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 6px #4a162466;
+  overflow-wrap: anywhere;
+}
+
+.quest-task-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.quest-task-eyebrow::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-mid);
+}
+.quest-task-silly .quest-task-eyebrow::before {
+  background: var(--coral);
+}
+.quest-task-deep .quest-task-eyebrow::before {
+  background: var(--brand-dark);
+}
+
+.quest-task-steps {
+  justify-self: stretch;
+  display: grid;
+  gap: 8px;
+}
+.quest-task-steps h3 {
+  font-size: 14px;
+  font-weight: 800;
+}
+.quest-task-steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: quest-step;
+  display: grid;
+  gap: 8px;
+}
+.quest-task-steps li {
+  counter-increment: quest-step;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.quest-task-steps li::before {
+  content: counter(quest-step);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.quest-task-note,
+.quest-task-partner {
+  justify-self: stretch;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--brand-wash);
+  color: var(--brand-dark);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quest-task-partner {
+  font-weight: 700;
+}
+
+.quest-task-photo-hint {
+  justify-self: stretch;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quest-task-photo-hint svg {
+  margin-top: 2px;
+  color: var(--brand);
+}
+.quest-task-photo-hint b {
+  color: var(--ink);
+}
+.quest-task .stop-photos {
+  justify-self: stretch;
+}
+
+.quest-task-skip {
+  justify-self: stretch;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.quest-task-skip > p:first-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* .text-button turns white for the gradient in index.css; this one sits on the white card. */
+.quest-task-skip .text-button {
+  color: var(--brand-dark);
+  font-size: 13px;
+}
+.quest-task-skip .text-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.quest-task .level-strip {
+  grid-template-columns: 1fr;
+}
