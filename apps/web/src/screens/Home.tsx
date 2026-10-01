@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Profile } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
@@ -6,7 +6,7 @@ import { BottomNav } from "../components/BottomNav";
 import { CoupleTotalsCard } from "../components/CoupleTotals";
 import { JourneyMap, journeySeenKey } from "../components/JourneyMap";
 import { BellIcon, CompassIcon, HeartIcon } from "../components/Icons";
-import { loadCoupleTotals, onForeground } from "../lib/coupleStats";
+import { useCoupleTotals } from "../lib/coupleStats";
 import type { QuestMode } from "../lib/runs";
 import "../home.css";
 
@@ -32,7 +32,8 @@ export function Home({
   onLinkPartner: () => void;
 }) {
   const [choosing, setChoosing] = useState(false);
-  const questsDone = useQuestsDone(partner?.id ?? null);
+  // One load for the totals card and the map.
+  const totals = useCoupleTotals(partner?.id ?? null);
 
   function handleQuestPoint() {
     if (partner && !openQuest) setChoosing((c) => !c);
@@ -72,13 +73,13 @@ export function Home({
 
       {invite}
 
-      {partner && <CoupleTotalsCard key={partner.id} />}
+      {partner && <CoupleTotalsCard key={partner.id} totals={totals} />}
 
       <JourneyMap
         key={`journey-${partner?.id ?? "solo"}`}
         me={me}
         partner={partner}
-        questsDone={questsDone}
+        questsDone={totals?.questsDone ?? null}
         seenKey={partner ? journeySeenKey(me.id, partner.id) : null}
       />
 
@@ -112,30 +113,4 @@ export function Home({
       <BottomNav active="explore" />
     </div>
   );
-}
-
-// The couple's finished quests, loaded on mount and on returning to the foreground; null while loading or solo.
-function useQuestsDone(partnerId: string | null): number | null {
-  const [loaded, setLoaded] = useState<{ partnerId: string; questsDone: number } | null>(null);
-
-  useEffect(() => {
-    if (!partnerId) return;
-    let live = true;
-    const load = () =>
-      loadCoupleTotals().then(
-        (totals) => {
-          if (live) setLoaded({ partnerId, questsDone: totals.questsDone });
-        },
-        // Keeps the last count; the next foreground tries again.
-        (e: unknown) => console.error("Couldn't load the couple's quests", e),
-      );
-    void load();
-    const off = onForeground(() => void load());
-    return () => {
-      live = false;
-      off();
-    };
-  }, [partnerId]);
-
-  return loaded && loaded.partnerId === partnerId ? loaded.questsDone : null;
 }
