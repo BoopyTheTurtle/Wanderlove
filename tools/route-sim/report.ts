@@ -12,7 +12,11 @@ import {
 import { MAX_QUIET_STOPS } from "../../packages/core/src/safety/quiet.ts";
 import { SNAP_LIMIT_METERS } from "../../packages/core/src/safety/routeChecks.ts";
 import type { AreaId, Pass, StartRecord } from "./lib.ts";
-import { AREAS, JANUARY_AREAS, rngFor, shuffled } from "./lib.ts";
+import { ALL_AREAS, JANUARY_AREAS, rngFor, shuffled } from "./lib.ts";
+import type { Area } from "./lib.ts";
+
+// The areas a results file covers: the Riga set, the abroad set, or both.
+const areasIn = (records: StartRecord[]): Area[] => ALL_AREAS.filter((a) => records.some((r) => r.area === a.id));
 
 export const QUIET_SLOTS = [1, 3, 5];
 export const REJECTION_ALARM = 0.5;
@@ -123,12 +127,13 @@ export function buildReport(records: StartRecord[], perArea: number): Report {
   const lines: string[] = [];
   const violations = records.map((r) => ({ key: r.key, problems: checkRecord(r) })).filter((v) => v.problems.length);
   const passes: [Pass, AreaId[]][] = [
-    ["main", AREAS.map((a) => a.id)],
-    ["january", JANUARY_AREAS],
+    ["main", areasIn(records).map((a) => a.id)],
+    ["january", JANUARY_AREAS.filter((id) => records.some((r) => r.area === id))],
   ];
   let allRouted = true;
   let complete = true;
   for (const [pass, areas] of passes) {
+    if (!areas.length) continue;
     lines.push(pass === "main" ? "Main pass" : "January pass (17:00, ice and darkness rules)");
     lines.push("area            starts  discarded  ok   failed  success  router calls  rejections  rate");
     for (const area of areas) {
@@ -191,7 +196,7 @@ const osmLink = ({ lat, lng }: { lat: number; lng: number }) =>
 export function pickAudit(records: StartRecord[], seed: string): StartRecord[] {
   const rng = rngFor(seed, "audit");
   const picks: StartRecord[] = [];
-  for (const area of AREAS) {
+  for (const area of areasIn(records)) {
     const pool = (pass: Pass) => records.filter((r) => r.status === "ok" && r.area === area.id && r.pass === pass);
     const january = JANUARY_AREAS.includes(area.id)
       ? shuffled(pool("january"), rng).slice(0, AUDIT_JANUARY_PER_AREA)
@@ -295,14 +300,14 @@ export async function writeAudit(records: StartRecord[], seed: string, dir: stri
       "passes at zero unsafe stops and zero unsafe crossings across all 30.",
     "",
   ];
-  for (const area of AREAS) {
+  for (const area of areasIn(records)) {
     const n = picks.filter((p) => p.area === area.id).length;
     if (n < AUDIT_PER_AREA) sections.push(`> ${area.name}: only ${n} successful routes to audit.\n`);
   }
   for (const [i, r] of picks.entries()) {
     const file = `${String(i + 1).padStart(2, "0")}-${r.key.replace(/:/g, "-")}.geojson`;
     await writePretty(join(dir, file), JSON.stringify(toGeoJson(r), null, 2));
-    const area = AREAS.find((a) => a.id === r.area)!;
+    const area = ALL_AREAS.find((a) => a.id === r.area)!;
     const stops = (r.stops ?? [])
       .map((s, j) => `  ${j + 1}. ${s.name} (${s.label}, \`${s.id}\`)${s.quiet ? " — quiet" : ""}`)
       .join("\n");

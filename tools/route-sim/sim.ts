@@ -7,8 +7,9 @@ import type { LatLng } from "../../packages/core/src/index.ts";
 import { ClosedStartError, NoSafeLoopError, clearPlaceCache, generateRoute } from "../../packages/core/src/index.ts";
 import { seasonNote, walkLight } from "../../packages/core/src/daylight.ts";
 import { SNAP_LIMIT_METERS } from "../../packages/core/src/safety/routeChecks.ts";
-import type { AreaId, Pass, StartRecord } from "./lib.ts";
+import type { Area, AreaId, Pass, StartRecord } from "./lib.ts";
 import {
+  ALL_AREAS,
   AREAS,
   JANUARY_AREAS,
   JANUARY_WHEN,
@@ -31,6 +32,8 @@ export type SimOptions = {
   resultsFile: string;
   seed: string;
   perArea: number;
+  // The areas to run; the five Riga areas by default.
+  areas?: Area[];
   startGapMs: number;
   base: FetchLike;
   // Logs one line per start; the self-check silences it.
@@ -77,7 +80,8 @@ async function simulate(pacer: Pacer, seed: string, draft: Draft): Promise<Start
   let record: StartRecord;
   try {
     // Each pass generates for its own date and time; in January the ice and after-dusk rules apply.
-    const when = new Date(draft.pass === "january" ? JANUARY_WHEN : MAIN_WHEN);
+    const local = ALL_AREAS.find((a) => a.id === draft.area)?.when ?? MAIN_WHEN;
+    const when = new Date(draft.pass === "january" ? JANUARY_WHEN : local);
     const route = await generateRoute(draft.start, false, { headers: { "User-Agent": USER_AGENT }, when });
     const { trail } = route;
     record = {
@@ -131,7 +135,7 @@ const describe = (r: StartRecord) =>
       : `failed: ${r.error}`;
 
 export async function runSimulation(options: SimOptions): Promise<{ added: number; pacer: Pacer }> {
-  const { resultsFile, seed, perArea, log = console.log } = options;
+  const { resultsFile, seed, perArea, areas = AREAS, log = console.log } = options;
   mkdirSync(dirname(resultsFile), { recursive: true });
   const done = new Map(readResults(resultsFile).map((r) => [r.key, r]));
   const pacer = createPacer(options.base, options.startGapMs);
@@ -150,7 +154,7 @@ export async function runSimulation(options: SimOptions): Promise<{ added: numbe
     // Main pass: draw jittered starts until the area has `perArea` on a public way. The draw sequence depends only
     // on the seed and the area, so skipped (already done) draws still advance it.
     const accepted = new Map<AreaId, Draft[]>();
-    for (const area of AREAS) {
+    for (const area of areas) {
       const rng = rngFor(seed, area.id);
       const list: Draft[] = [];
       for (let draw = 0; list.length < perArea && draw < MAX_DRAWS_PER_AREA; draw++) {
@@ -175,7 +179,7 @@ export async function runSimulation(options: SimOptions): Promise<{ added: numbe
     }
 
     // January pass: the same riverside and rural starts again.
-    for (const areaId of JANUARY_AREAS) {
+    for (const areaId of JANUARY_AREAS.filter((id) => areas.some((a) => a.id === id))) {
       for (const main of accepted.get(areaId) ?? []) {
         const key = `january:${areaId}:${main.draw}`;
         if (done.has(key)) continue;

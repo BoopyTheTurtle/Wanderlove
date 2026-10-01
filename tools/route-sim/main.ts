@@ -6,7 +6,8 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { STARTS_PER_AREA } from "./lib.ts";
+import { ABROAD_STARTS_PER_AREA, AREA_SETS, STARTS_PER_AREA } from "./lib.ts";
+import type { AreaSet } from "./lib.ts";
 import { fixtureFetch } from "./fixture.ts";
 import type { FetchLike } from "./pacer.ts";
 import { buildReport, writeAudit } from "./report.ts";
@@ -19,13 +20,14 @@ const USAGE = `Usage: npx vite-node tools/route-sim/main.ts -- <run|report|selfc
   --dry-run        answer Overpass and the router from the offline fixture (default output out/dry-run)
   --out <dir>      output folder (default tools/route-sim/out/live, or out/dry-run with --dry-run)
   --seed <text>    seed for the starts, the generator's choices, and the audit picks (default "stage2")
-  --per-area <n>   starts per area on a public way (default ${STARTS_PER_AREA})
+  --areas <set>    riga (the five stage 2 areas, default) or abroad (London, Seattle, Los Angeles, New York)
+  --per-area <n>   starts per area on a public way (default ${STARTS_PER_AREA}, or ${ABROAD_STARTS_PER_AREA} abroad)
   --gap <ms>       minimum time between starts (default 5000; 0 is allowed only with --dry-run)`;
 
 function parseArgs(argv: string[]) {
   const args = argv.filter((a) => a !== "--");
   const [command, ...rest] = args;
-  const opts = { dryRun: false, out: "", seed: "stage2", perArea: STARTS_PER_AREA, gap: 5000 };
+  const opts = { dryRun: false, out: "", seed: "stage2", perArea: 0, gap: 5000, areas: "riga" as AreaSet };
   for (let i = 0; i < rest.length; i++) {
     const flag = rest[i];
     const value = () => {
@@ -37,9 +39,14 @@ function parseArgs(argv: string[]) {
     else if (flag === "--out") opts.out = value();
     else if (flag === "--seed") opts.seed = value();
     else if (flag === "--per-area") opts.perArea = Number(value());
-    else if (flag === "--gap") opts.gap = Number(value());
+    else if (flag === "--areas") {
+      const set = value();
+      if (!(set in AREA_SETS)) throw new Error("--areas must be riga or abroad");
+      opts.areas = set as AreaSet;
+    } else if (flag === "--gap") opts.gap = Number(value());
     else throw new Error(`Unknown option ${flag}`);
   }
+  opts.perArea ||= opts.areas === "abroad" ? ABROAD_STARTS_PER_AREA : STARTS_PER_AREA;
   if (!Number.isInteger(opts.perArea) || opts.perArea < 1) throw new Error("--per-area must be a positive integer");
   if (!Number.isFinite(opts.gap) || opts.gap < 0) throw new Error("--gap must be a number of milliseconds");
   // One start every few seconds against the public services (route-safety.md §3).
@@ -80,6 +87,7 @@ async function main() {
       resultsFile: join(opts.out, "results.jsonl"),
       seed: opts.seed,
       perArea: opts.perArea,
+      areas: [...AREA_SETS[opts.areas]],
       startGapMs: opts.gap,
       base,
     });
