@@ -56,8 +56,9 @@ export function searchBox({ lat, lng }: LatLng, radiusMeters: number): string {
 // Each output block ends with `out count`, which prints one element of type "count"; those mark where each section
 // ends, since the JSON output is otherwise one flat list. Hazard areas are clipped to the box, or the Daugava's
 // relation alone returns kilometres of shoreline.
-// Railway tracks (H7) exclude trams, which run in the street. Service roads and tracks come only from within closed
-// land (H5), through Overpass's area index; a city has thousands elsewhere. The client checks containment again.
+// Railway tracks (H7) exclude trams, which run in the street. Service roads and tracks (H5) come for the whole box,
+// and the client keeps those inside closed land. Filtering them on the server needs Overpass's area index, which is
+// slow on the busy main server and missing on the fallback; the answer stays a few hundred kilobytes at most.
 export function overpassQuery(center: LatLng, radiusMeters: number): string {
   const bbox = searchBox(center, radiusMeters);
   return `[out:json][timeout:25][bbox:${bbox}];
@@ -129,12 +130,7 @@ way[railway~"^(rail|light_rail)$"]->.rails;
 node(w.rails)[railway~"^(crossing|level_crossing)$"]->.railX;
 .railX out skel;
 .railX out count;
-(
-  wr[landuse~"^(industrial|military|quarry|railway)$"];
-  wr[military];
-)->.closedLand;
-.closedLand map_to_area->.closedAreas;
-way[highway~"^(service|track)$"](area.closedAreas)->.closedService;
+way[highway~"^(service|track)$"]->.closedService;
 .closedService out tags geom;
 .closedService out count;`;
 }

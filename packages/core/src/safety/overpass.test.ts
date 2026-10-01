@@ -23,13 +23,14 @@ describe("overpassQuery", () => {
     }
   });
 
-  it("fetches parks, woods, railway tracks and crossings, and service roads on closed land", () => {
+  it("fetches parks, woods, railway tracks and crossings, and service roads without the area index", () => {
     expect(query).toContain("wr[leisure=park];");
     expect(query).toContain("wr[natural=wood];");
     expect(query).toContain('way[railway~"^(rail|light_rail)$"]->.rails;');
     expect(query).toContain('node(w.rails)[railway~"^(crossing|level_crossing)$"]->.railX;');
-    expect(query).toContain(".closedLand map_to_area->.closedAreas;");
-    expect(query).toContain('way[highway~"^(service|track)$"](area.closedAreas)->.closedService;');
+    expect(query).toContain('way[highway~"^(service|track)$"]->.closedService;');
+    // The fallback server has no area index, so the query must not need one.
+    expect(query).not.toMatch(/map_to_area|is_in|\(area[.:]/);
   });
 });
 
