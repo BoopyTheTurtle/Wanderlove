@@ -1,0 +1,99 @@
+/* The couple's totals on Home: a quiet glass strip on the gradient, so the quest point stays the main thing. */
+.couple-totals {
+  margin: 4px 20px 0;
+  padding: 10px 12px 12px;
+  border-radius: 18px;
+  background: #ffffff1f;
+  border: 1px solid #ffffff38;
+  color: var(--on-bg);
+  text-align: center;
+}
+.couple-totals-name {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.couple-totals dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.couple-totals dl > div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+}
+.couple-totals dl > div + div {
+  border-left: 1px solid #ffffff38;
+}
+.couple-totals dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.couple-totals dt {
+  color: var(--on-bg-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* The couple name in Settings */
+.couple-name .card-kicker {
+  margin-bottom: 12px;
+}
+.couple-name-current {
+  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.couple-name-waiting,
+.couple-name-proposal {
+  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.couple-name-proposal {
+  font-size: 17px;
+  font-weight: 800;
+}
+.couple-name-proposal span {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.couple-name-proposal + .settings-note {
+  margin: -6px 0 12px;
+}
+.couple-name-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.couple-name-actions .btn-primary {
+  height: 48px;
+}
+.couple-name-actions + .settings-note {
+  margin-top: 10px;
+}
+.couple-name-form {
+  display: grid;
+  gap: 12px;
+}
+.couple-name-form .couple-name-current {
+  margin-bottom: 0;
+}
+.couple-name-form .text-button {
+  justify-self: center;
+}
+.couple-name .couple-name-error {
+  margin: 0 0 12px;
+}
+.couple-name-form .couple-name-error {
+  margin: -4px 0 0;
+}
