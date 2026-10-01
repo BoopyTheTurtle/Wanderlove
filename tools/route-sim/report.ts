@@ -62,7 +62,7 @@ type AreaStats = {
 
 // Every router call ends in one routed loop that is either accepted or rejected, so the rejection rate is
 // rejections / router calls. A failed start's calls were all rejections, but the generator throws away the list,
-// so their reasons show as "unknown (start failed)". Candidates dropped for the time of the walk (H4, H10) go before
+// so in older records their reasons show as "unknown (start failed)". Candidates dropped for the time of the walk (H4, H10) go before
 // any router call, so they are counted apart and stay out of the rate.
 const TIMED = new Set(["H4-ice", "H10-dark-park"]);
 function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
@@ -104,7 +104,11 @@ function statsFor(records: StartRecord[], pass: Pass, area: AreaId): AreaStats {
       const calls = r.routerCallsObserved ?? 0;
       s.routerCalls += calls;
       s.rejections += calls;
-      if (calls) bump(s.reasons, "unknown (start failed)", calls);
+      // Runs since the generator kept its rejections on failure name each one; older records can't.
+      const routed = (r.rejections ?? []).filter((j) => !TIMED.has(j.reason));
+      for (const j of r.rejections ?? []) if (TIMED.has(j.reason)) bump(s.timed, j.reason);
+      if (routed.length) for (const j of routed) bump(s.reasons, `${j.reason} (failed start)`);
+      else if (calls) bump(s.reasons, "unknown (start failed)", calls);
       bump(s.errors, r.error ?? "unknown error");
     }
   }

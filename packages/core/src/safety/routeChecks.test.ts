@@ -198,6 +198,27 @@ describe("sidewalk check (H2)", () => {
     expect(verdict).toMatchObject({ ok: true, rural: true });
   });
 
+  it("lets a start on a road without a sidewalk walk off it, with the rural note", () => {
+    // The road runs east–west through the start, with vertices every 100 m.
+    const street = [-1, 0, 1, 2, 3, 4].map((k) => offset(0, k * 100));
+    const net = { roads: [way(street, { highway: "primary", sidewalk: "no" })] };
+    const stop = offset(300, 300);
+    const leaving = check([{ path: [START, ...street.slice(2, 5), stop] }, { path: [stop, START] }], [stop], net);
+    expect(leaving).toMatchObject({ ok: true, rural: true });
+  });
+
+  it("still rejects a road without a sidewalk that the walk returns to after leaving it", () => {
+    const street = [-1, 0, 1, 2, 3, 4].map((k) => offset(0, k * 100));
+    const net = { roads: [way(street, { highway: "primary", sidewalk: "no" })] };
+    const stop = offset(300, 300);
+    // Off the road at once, then back onto it for 100 m on the way to the stop.
+    const detour = [
+      { path: [START, offset(150, 0), offset(150, 300), street[4], street[5], stop] },
+      { path: [stop, offset(150, 100), START] },
+    ];
+    expect(check(detour, [stop], net).issues.map((i) => i.reason)).toEqual(["H2-sidewalk"]);
+  });
+
   it("still rejects a primary road tagged without a sidewalk, whatever its limit", () => {
     const verdict = check(alongRoad, [stop], road({ highway: "primary", maxspeed: "50", sidewalk: "no" }));
     expect(verdict.issues.map((i) => i.reason)).toEqual(["H2-sidewalk"]);

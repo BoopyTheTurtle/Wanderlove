@@ -93,8 +93,8 @@ The stage checks pass only when every area has its 40 starts, every start produc
 check. A start the generator could not route counts against the stage.
 
 The **rejection rate** is rejections divided by router calls: each router call routes one loop, which is either
-accepted or rejected for one reason. A failed start's router calls were all rejections, but the generator throws its
-list away, so their reasons show as `unknown (start failed)`. An area above 50% is flagged: the filters are too strict
+accepted or rejected for one reason. A failed start's router calls were all rejections; the generator hands its list
+over with the error, and the summary marks those reasons `(failed start)`. An area above 50% is flagged: the filters are too strict
 there, or the data too sparse. Candidates the ice and darkness rules drop before any router call are listed apart
 and stay out of the rate.
 
