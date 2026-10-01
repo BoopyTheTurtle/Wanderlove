@@ -4,6 +4,8 @@ import type { Completions } from "../lib/runs";
 import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
 import { StopPhotos } from "../components/StopPhotos";
+import { ReportStop } from "../components/ReportStopSheet";
+import type { ReportReason } from "../lib/stopReports";
 import { BackIcon, CameraIcon, ChatIcon, ClockIcon, HeartIcon } from "../components/Icons";
 import { QUIET_STOP_LINE } from "../lib/routeSafety";
 import "../route-safety.css";
@@ -41,6 +43,7 @@ export function QuestTaskScreen({
   onUpload,
   onSkip,
   onSkipTask,
+  onReport,
 }: {
   task: QuestTask;
   stopNumber: number; // 1 to stopCount
@@ -66,6 +69,8 @@ export function QuestTaskScreen({
   onSkip: () => Promise<void>;
   // Skip the task: the stop still counts, with no penalty.
   onSkipTask: () => Promise<void>;
+  // Reports this stop's position (lib/stopReports.ts); the walk goes on either way. Absent, the link stays hidden.
+  onReport?: (reason: ReportReason, note: string) => Promise<void>;
 }) {
   const completion = completions[stopId];
   const done = completion !== undefined;
@@ -180,6 +185,7 @@ export function QuestTaskScreen({
               )}
             </div>
           )}
+          {onReport && <ReportStop stopName={stopName} onReport={onReport} />}
         </section>
 
         <section className="level-strip" aria-label="Quest progress">

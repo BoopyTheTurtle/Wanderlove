@@ -3,6 +3,8 @@ import type { Completions } from "../lib/runs";
 import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
 import { StopPhotos } from "../components/StopPhotos";
+import { ReportStop } from "../components/ReportStopSheet";
+import type { ReportReason } from "../lib/stopReports";
 import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon } from "../components/Icons";
 import { QUIET_STOP_LINE } from "../lib/routeSafety";
 import "../route-safety.css";
@@ -21,6 +23,7 @@ export function ChallengeScreen({
   continueLabel,
   onUpload,
   onSkip,
+  onReport,
 }: {
   trail: Trail;
   stop: Stop;
@@ -37,6 +40,8 @@ export function ChallengeScreen({
   continueLabel: string;
   onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
   onSkip: () => Promise<void>;
+  // Reports this stop's position (lib/stopReports.ts); the walk goes on either way. Absent, the link stays hidden.
+  onReport?: (reason: ReportReason, note: string) => Promise<void>;
 }) {
   const stopIndex = trail.stops.indexOf(stop);
   const done = stop.id in completions;
@@ -98,6 +103,7 @@ export function ChallengeScreen({
             </button>
           )}
           {!done && <p className="hint">This unlocks the next stop on the map.</p>}
+          {onReport && <ReportStop stopName={stop.name} onReport={onReport} />}
         </section>
 
         <section className="level-strip">

@@ -1,0 +1,164 @@
+/* Reporting a stop (components/ReportStopSheet.tsx): the link under a stop's task and the sheet it opens. */
+.report-stop-link {
+  justify-self: center;
+  margin-top: 2px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.report-stop-done {
+  justify-self: stretch;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* The phone frame is the containing block for position: fixed, so the sheet covers the phone, not the window. */
+.report-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: #2a0e15b3;
+  backdrop-filter: blur(3px);
+}
+.report-sheet {
+  width: 100%;
+  max-height: 92%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 22px 20px 24px;
+  border-radius: 22px 22px 0 0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 -10px 40px #2e0d1655;
+}
+.report-sheet h2 {
+  font-size: 20px;
+  font-weight: 800;
+}
+.report-place {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.report-reasons {
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 8px;
+}
+.report-reasons legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.report-reason {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.report-reason.selected {
+  border-color: var(--brand);
+  background: var(--brand-wash);
+}
+.report-reason input {
+  margin: 3px 0 0;
+  accent-color: var(--brand);
+}
+.report-reason span {
+  display: grid;
+  gap: 2px;
+}
+.report-reason b {
+  font-size: 15px;
+}
+.report-reason small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.report-note {
+  margin-top: 14px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+/* The textarea shows its own focus ring, so the label's from index.css would double it. */
+.report-note:focus-within {
+  outline: none;
+}
+.report-note textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--card);
+  resize: none;
+}
+.report-note textarea:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.report-count {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+.report-privacy,
+.report-sent {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.report-sent {
+  font-size: 15px;
+}
+.report-sheet .report-error {
+  margin-top: 12px;
+}
+
+.report-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+.report-cancel {
+  height: 50px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.report-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

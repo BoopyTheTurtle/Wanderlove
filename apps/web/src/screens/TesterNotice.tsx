@@ -68,6 +68,10 @@ export function TesterNotice() {
               When the app builds a route, it sends your position to Overpass, FOSSGIS, and OpenStreetMap to find places
               and walking paths.
             </li>
+            <li>
+              When you report a stop as unsafe or unpleasant, the app sends that stop&rsquo;s position and your note to
+              Wannadoo for review. It doesn&rsquo;t send your start or your route.
+            </li>
           </ul>
 
           <h2>Deleting photos</h2>

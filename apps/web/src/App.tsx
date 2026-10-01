@@ -79,6 +79,8 @@ import {
 } from "./lib/routeSafety";
 import { SURPRISE_ROUTE_ENABLED } from "./features";
 import { getStartPosition } from "./lib/startPosition";
+import { clearReportedPlaces, reportStop, surpriseRouteOptions } from "./lib/stopReports";
+import type { ReportReason } from "./lib/stopReports";
 import { signOut, signOutOtherDevices, useAuth } from "./lib/auth";
 import { isOnboarded, loadMobility, loadOwnProfile, saveMobility, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
@@ -656,8 +658,9 @@ function SignedInApp({
     setStartError(null);
     setDraft({ status: "loading", maxMeters });
     try {
-      const start = await getStartPosition();
-      const result = await generateRoute(start.position, start.approximate, { maxMeters });
+      // Reported places never block the walk: options without them come back when the list fails to load.
+      const [start, options] = await Promise.all([getStartPosition(), surpriseRouteOptions(maxMeters)]);
+      const result = await generateRoute(start.position, start.approximate, options);
       if (id === requestId.current) {
         const { trail, approximateStart, rural } = result;
         setDraft({ status: "ready", trail, approximateStart, rural, maxMeters });
@@ -1228,10 +1231,12 @@ function SignedInApp({
   }
 
   // Stops in-flight loads first, so none writes the run back to this phone after sign-out cleared it.
-  // The place cache goes too: it shows roughly where the user started.
+  // The place cache goes too: it shows roughly where the user started. So do the reported places, which hold the
+  // stops this user reported.
   function stopForSignOut() {
     requestId.current++;
     clearPlaceCache();
+    clearReportedPlaces();
     runRequest.current++;
     runRef.current = null;
     setSimulatedPosition(null);
@@ -1532,6 +1537,8 @@ function SignedInApp({
                 />
               );
             }
+            // Sends this stop's position alone; the run carries on unchanged.
+            const onReport = (reason: ReportReason, note: string) => reportStop(stop, reason, note);
             // A stop with a known quest task shows it; runs started before quest tasks keep the plain prompt.
             const task = questTaskFor(stop);
             if (task) {
@@ -1549,6 +1556,7 @@ function SignedInApp({
                   meId={me.id}
                   partnerName={runPartnerName}
                   onSkipTask={() => completeAndMoveOn(stop.id, "skipped")}
+                  onReport={onReport}
                 />
               );
             }
@@ -1560,6 +1568,7 @@ function SignedInApp({
                 stop={stop}
                 meId={me.id}
                 partnerName={runPartnerName}
+                onReport={onReport}
               />
             );
           })()}
