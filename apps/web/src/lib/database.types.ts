@@ -322,6 +322,7 @@ export type Database = {
           created_at: string;
           display_name: string | null;
           id: string;
+          mobility: boolean;
           terms_accepted_at: string | null;
           terms_version: string | null;
           username: string | null;
@@ -332,6 +333,7 @@ export type Database = {
           created_at?: string;
           display_name?: string | null;
           id: string;
+          mobility?: boolean;
           terms_accepted_at?: string | null;
           terms_version?: string | null;
           username?: string | null;
@@ -342,6 +344,7 @@ export type Database = {
           created_at?: string;
           display_name?: string | null;
           id?: string;
+          mobility?: boolean;
           terms_accepted_at?: string | null;
           terms_version?: string | null;
           username?: string | null;
@@ -493,6 +496,62 @@ export type Database = {
             columns: ["run_id"];
             isOneToOne: false;
             referencedRelation: "trail_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_history: {
+        Row: {
+          at: string;
+          id: number;
+          outcome: string;
+          person_high: string;
+          person_low: string;
+          task_id: string;
+        };
+        Insert: {
+          at?: string;
+          id?: never;
+          outcome: string;
+          person_high: string;
+          person_low: string;
+          task_id: string;
+        };
+        Update: {
+          at?: string;
+          id?: never;
+          outcome?: string;
+          person_high?: string;
+          person_low?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_history_person_high_fkey";
+            columns: ["person_high"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_history_person_high_fkey";
+            columns: ["person_high"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_history_person_low_fkey";
+            columns: ["person_low"];
+            isOneToOne: false;
+            referencedRelation: "profile_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_history_person_low_fkey";
+            columns: ["person_low"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
