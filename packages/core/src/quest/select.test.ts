@@ -65,10 +65,12 @@ describe("selectQuestTasks", () => {
   });
 
   it("never picks a done task while others remain", () => {
-    const history = ["silly-001", "silly-002", "silly-003", "silly-004"].map((id) => entry(id, "done", 1));
+    const silly = ids(questTaskPool.filter((t) => t.category === "silly"));
+    const left = silly.slice(-2);
+    const history = silly.slice(0, -2).map((id) => entry(id, "done", 1));
     for (let seed = 1; seed <= 20; seed++) {
       const tasks = selectQuestTasks(questTaskPool, history, { random: seeded(seed) });
-      expect(ids(tasks.filter((t) => t.category === "silly")).sort()).toEqual(["silly-005", "silly-006"]);
+      expect(ids(tasks.filter((t) => t.category === "silly")).sort()).toEqual(left.sort());
     }
   });
 

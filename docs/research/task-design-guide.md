@@ -35,8 +35,11 @@ Every task stays inside these limits. The review checklist (section 6) repeats t
 
 - **Invite, never diagnose.** Tasks make no therapeutic claim and never score or judge the relationship.
 - **Skip is always allowed,** without comment, penalty, or a sad face. Skipping a task still counts the stop.
-- **No conflict topics in public.** Money, chores, sex, family tensions, exes, and past fights stay out. Deep tasks
-  touch "are you there for me?" through appreciation and wishes, never through grievances.
+- **Conflict topics stay out; the need beneath them may come in gently.** Money, chores, sex, family tensions, exes,
+  and past fights stay out of every task. Many recurring fights hide one question, "are you there for me?" (Johnson).
+  Deep tasks may touch that need, such as feeling supported, noticed, or given time, but only as appreciation or a
+  wish in positive form, never as a grievance or a request to change. Silly games answer the same question their own
+  way: a partner who plays along shows they are there, through tough and through goofy.
 - **Strangers stay out of it.** No task mocks, films, follows, or involves a stranger. Asking a passer-by anything is
   out of the pool for now.
 - **Nothing unsafe.** No task happens in or near the road, at the water's edge, on anything to climb, or with eyes
@@ -274,7 +277,8 @@ Apply every line to every task. A single "no" sends the task back for rewriting.
 
 **Safety and consent**
 
-- [ ] No conflict topics: money, chores, sex, family tensions, exes, or past fights.
+- [ ] No conflict topics: money, chores, sex, family tensions, exes, or past fights. A need beneath them (support,
+      attention, time) appears only as appreciation or a wish.
 - [ ] No strangers as audience, target, or participant; no filming of other people.
 - [ ] Nothing happens in or near the road, water, heights, or with eyes closed while moving.
 - [ ] A shy person can do a quiet version; nobody is forced to perform loudly.
