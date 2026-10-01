@@ -10,7 +10,7 @@ Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
 
 ## Progress
 
-Last updated September 30, 2026. Resume from **Next** below.
+Last updated October 1, 2026. Resume from **Next** below.
 
 **Done:**
 
@@ -94,22 +94,48 @@ Last updated September 30, 2026. Resume from **Next** below.
 safety batch, stage 1b (PRs 34 to 39): private trails, Just me, joining by choice with a waiting screen for the
 starter, quiet unlink, confirmed links, and Hide from my album. Stage 2's code is merged (PRs 40 to 44): five-stop loops
 of about 2 km with the A4 safety checks, daylight and season notes, the after-sunset warning with a shorter loop, quiet
-stops, and a simulation script. Surprise routes are on, but no route has run against the live Overpass and FOSSGIS
-services yet; the cloud agents' network blocks both.
+stops, and a simulation script.
+
+**October 1:**
+
+- **Live routes fixed (PR 50).** About half of surprise routes failed with "Couldn't reach the map service": the
+  fallback Overpass server (`overpass.private.coffee`) stopped answering, and `overpass-api.de` often answers 504 "too
+  busy". Queries now start on `overpass-api.de` or `overpass.openstreetmap.fr` at random, bring in the other after 4 s
+  or on failure, and retry once. The French server has no area index, so the query no longer uses `map_to_area`; the
+  phone already keeps only service roads inside closed land (H5).
+- **Stage 2 simulation, main pass.** 183 of 200 starts gave valid loops (Old Town 40/40, Purvciems 37/40,
+  Sarkandaugava 37/40, Ķīpsala 37/40, Līgatne 32/40), with no network failures. Twelve failures ran out of the eight
+  router calls, mostly in Līgatne, where `H2-sidewalk` rejects untagged rural roads although rural roads are allowed
+  with a warning; five ran out of candidate stops after 0–1 router calls. The January pass stopped 3 starts in, when
+  Overpass began refusing connections from this PC (16:57); results are in `tools/route-sim/out/live/`, and a rerun
+  of `run` resumes.
+- **Stage 3, the quest engine (PRs 47 to 49, 51).** Task model and selection in core, a per-pair task history
+  (relinking keeps it; Just me records under the player alone), a generic task screen, and the wiring: tasks travel
+  sealed in the trail, and a mobility toggle in Profile drops `move` tasks. Edgar checked that relinking keeps history.
+- **Stage 4, the task pool (PR 52).** 150 tasks, all signed off by Edgar: 30 introductory, 60 silly, 30 deep, 30
+  wrap-up ([docs/tasks/task-pool.md](tasks/task-pool.md)). Deep tasks may touch the need beneath a conflict, in
+  positive form only.
+- **Stage 5, the avatar creator (PRs 53 to 56).** Layered SVG avatars in the A5 style, Randomise, an optional
+  onboarding step (Skip saves a random avatar), Edit avatar in Profile, and avatars on Home and the partner screens.
+  Only the owner and the current partner can read an appearance. Painterly raster layers from GPT failed a test:
+  the image model redraws the head on every edit, so parts don't stack. The renderer accepts raster layers, so an
+  illustrator's or Recraft's parts can replace the SVG later.
 
 **Next:**
 
-1. **[You]** Run the stage 2 simulation from your PC (`tools/route-sim/README.md`), or allow `overpass-api.de`,
-   `overpass.openstreetmap.fr`, and `routing.openstreetmap.de` in the cloud environment so an agent can. The first live
-   request shows whether the Overpass query works; then audit the 30 picked routes (route-safety.md, section 5).
-2. **[You]** On your phone: start a quest from Home and check the safety note, the after-sunset card, and a real
-   surprise route; start Together and watch the waiting screen move on when the partner joins.
-3. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
+1. **[Agent]** Rerun the stage 2 simulation once Overpass answers again, then fix the generator failures: let `H2`
+   flag untagged rural roads with the rural warning instead of rejecting them, and widen the candidate pool where
+   starts run dry. Edgar decides whether a start inside the freeport may fail with a clear message.
+2. **[You]** Audit the 30 routes in `tools/route-sim/out/live/audit/checklist.md` (route-safety.md, section 5).
+3. **[You]** On two phones: start a Together quest and check both phones show the same tasks, edit an avatar and
+   watch it update on the other phone, and skip the avatar step with a new account.
+4. **[You]** On your phone: the safety note, the after-sunset card, and the "Skip photo" and "Skip this task" buttons,
+   which sit close together.
+5. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
    once; check the camera scanner under the new security headers.
-4. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
-5. **[Agent]** Stage 3, the quest engine (MVP roadmap), once the live route check passes.
-6. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers: message them with the URL and the
-   notice, and start a deletion log.
+6. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
+7. **[Agent]** Stage 6, the journey map home, next on the MVP roadmap.
+8. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers.
 
 **Lessons from phase 2:**
 
