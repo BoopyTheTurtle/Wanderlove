@@ -19,15 +19,20 @@ Run everything from the repository root; npm workspaces route each script to the
 ## Architecture
 
 - `packages/core` exports platform-neutral logic from `src/index.ts`: the `Trail`/`Stop` model, the curated trail, test
-  profiles, geo maths, and `generateRoute`. It ships as TypeScript source with no build step; the web app imports it as
+  profiles, geo maths, `generateRoute`, the quest engine (`quest/`: task pool, selection, special quests), and the avatar
+  model (`avatar/`). It ships as TypeScript source with no build step; the web app imports it as
   `@wannadoo/core`. Keep React, DOM, and storage code out of it.
 - `apps/web/src/App.tsx` owns routing and state: the auth session, the partner, the active trail run, and the draft route
   (never saved, regenerated on every visit to the map). Runs, stop completions, and photos live in Supabase; the phone
   keeps only small per-device state such as the solo choice and each run's walking path.
 - `apps/web/src/lib` holds the browser-only pieces. Only `lib/*` imports supabase-js: `auth`, `profile`, `couples`,
-  `runs`, and `photos` wrap the backend; the rest covers device storage, live GPS, and the one-shot start position.
+  `runs`, `photos`, `taskHistory`, and `avatar` wrap the backend; the rest covers device storage, live GPS, and the one-shot start position.
 - Route generation queries Overpass for places, builds a loop with cheapest insertion, and trims it to about 2 km against
-  the FOSSGIS foot router. Both services rate-limit, so reuse the place cache and avoid request loops.
+  the FOSSGIS foot router. Each Overpass query starts on one of two public servers and brings in the other when the
+  first is slow or busy; the fallback has no area index, so queries must not use areas. Both services rate-limit, so
+  reuse the place cache and avoid request loops. `tools/route-sim` tests the generator live.
+- Avatars are layered SVG in a fixed 512 px frame (`apps/web/src/components/avatar/README.md`); raster layers can
+  replace parts without touching the creator.
 
 ## Conventions
 

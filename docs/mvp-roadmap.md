@@ -1,6 +1,6 @@
 # MVP roadmap: the random quest, the journey map, and play
 
-Status: draft, September 30, 2026. Owner: Edgar. Follows the [internal build](internal-build.md), which delivered
+Status: in progress, October 1, 2026: stages 1 and 1b, 3, 4, and 5 are merged; stage 2 awaits its simulation. Owner: Edgar. Follows the [internal build](internal-build.md), which delivered
 accounts, linking, trails, encrypted photos, and saving.
 
 The MVP turns Wannadoo into one repeatable ritual. A couple opens the app, taps the next point on an illustrated
@@ -100,6 +100,10 @@ accepted the gap for now.
 (section 1). A5 runs on the OpenAI API route: `tools/images/generate.mjs` with prompts in `docs/design/prompts/`; the
 avatar sheet's style is approved and the journey map is on its third concept. A6 is drafted too, and Edgar has decided its questions (section 1).
 
+**Status, October 1:** A1 is in use: the 150-task pool written to it is signed off. A5 changed course for avatars:
+painterly parts from the image model failed a layering test (the model redraws the head on every edit, so parts
+don't stack), and Edgar approved hand-written SVG parts instead. The journey map concept still waits for a decision.
+
 **Stage 1 merged September 30** (PRs 31 to 33): home and Activity, and the one-month photo deletion, which runs daily
 from `main` because GitHub schedules only the default branch.
 
@@ -142,6 +146,8 @@ stay unencrypted until the wipe.
 shows on the partner's phone, an unlink raises no alert on the other phone, a link needs both confirmations, and the
 server holds no readable place or stop ID for a new trail.
 
+**Status, October 1:** merged (PRs 34 to 39). The two-phone checks of linking and the recovery code are open.
+
 ### 2. Route generator v2
 
 Adapt `generateRoute`: exactly five stops, a loop of at most about 2 km by the foot router (the return included),
@@ -153,6 +159,12 @@ industrial areas, and stops across major roads without a crossing; flag a start 
 the UK and the US where testers live, all produce five-stop loops within the limit,
 and a manual audit of 30 of them finds no unsafe stop.
 
+**Status, October 1:** code merged (PRs 40 to 44, 50). PR 50 fixed live failures: one of the two Overpass servers
+died, and the other is often too busy. The main simulation pass gave 183 valid loops from 200 starts with no network
+failures. Twelve failures ran out of router calls, mostly where `H2-sidewalk` rejects untagged rural roads; five ran
+out of candidate stops. The January pass and the UK and US starts are open, as are the fixes and Edgar's audit of 30
+routes ([internal-build.md](internal-build.md), Progress).
+
 ### 3. Quest engine
 
 The task data model in code (id, category, text, needs-photo, tags), a server-side history of tasks done keyed on the
@@ -161,6 +173,10 @@ two people rather than on the link (so a relink keeps it and a new partner reset
 filters out tasks tagged `move`. A generic quest screen per category replaces the Sherlock-specific flow for
 random quests. Special quests move into a registry, with Sherlock as the first entry and a trigger field left empty
 for later. The stage ships with about five tasks per category, enough to test the mechanics.
+
+**Status, October 1:** merged (PRs 47 to 49, 51). Tasks travel sealed inside the trail, history keys on the pair of
+people, and a "Just me" quest records under its player alone. Edgar checked that relinking keeps history; the
+two-phone check of consecutive quests is open.
 
 **Done when:** two consecutive quests for one pair share no task; a relinked pair still avoids its old tasks; a new
 pair with one of the same people can get them; Sherlock still runs as a special quest.
@@ -172,6 +188,9 @@ Written from A1 and A2: 30 to 50 tasks per category, each reviewed by Edgar for 
 **Done when:** Edgar signs off every task, and a test couple walks three quests without a task feeling awkward in
 public.
 
+**Status, October 1:** 150 tasks signed off and merged (PR 52, [task-pool.md](tasks/task-pool.md)). The guide now
+lets a deep task touch the need beneath a conflict, in positive form only. The three test walks are open.
+
 ### 5. Avatar creator
 
 Layered SVG parts in the A5 style: body from male-ish to female-ish and younger to older, skin, eyes, hair, clothes,
@@ -180,6 +199,11 @@ Profile for later edits. The profile stores only the chosen parts, a small appea
 
 **Done when:** every part combination renders cleanly at every size the app uses, a skipped step leaves a random
 avatar, and edits sync to the partner's phone.
+
+**Status, October 1:** merged (PRs 53 to 56). Only the owner and the current partner can read an appearance; an ex
+can't. The local stack passed all three checks; the two-phone check is open. The renderer also accepts raster layers
+in the same 512 px frame, so an illustrator's parts can replace the SVG later
+([components/avatar/README.md](../apps/web/src/components/avatar/README.md)).
 
 ### 6. Journey map home
 
@@ -268,3 +292,8 @@ directly from the chosen style.
 
 1. **Special-quest triggers:** holidays are certain; season, place, milestone, or a date the couple sets remain open.
 2. **Point amounts** and further point sources, from A3.
+3. **Rural roads in the generator:** the decision allows rural roads with a warning, but `H2-sidewalk` still rejects
+   untagged major roads, so rural starts often fail. Proposed: untagged fast roads set the rural warning instead of
+   rejecting the loop, while roads tagged without a sidewalk in town stay rejected.
+4. **Starts in closed land:** a start inside the freeport or a rail yard may fail with a clear message rather than
+   count against stage 2's done-when, since a safe loop may not exist there.

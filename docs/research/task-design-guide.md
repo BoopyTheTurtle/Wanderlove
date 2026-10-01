@@ -1,6 +1,6 @@
 # Task design guide
 
-Status: draft for Edgar's review, September 30, 2026. Deliverable A1 of the [MVP roadmap](../mvp-roadmap.md); feeds
+Status: in use, October 1, 2026. Edgar signed off the 150-task pool written to it ([task-pool.md](../tasks/task-pool.md)). Deliverable A1 of the [MVP roadmap](../mvp-roadmap.md); feeds
 stage 3 (the task data model) and stage 4 (the task pool).
 
 Every quest has five stops and one task at each, in a fixed arc: **1 introductory, 2 silly game, 3 deep task, 4 silly

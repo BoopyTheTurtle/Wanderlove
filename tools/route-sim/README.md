@@ -46,8 +46,8 @@ Options for `run` and `report`:
    User-Agent `Wannadoo-route-sim/0.1 (admin@wannadoo.app)`. `Math.random` is seeded per start during the call, so on
    unchanged OSM data a rerun draws the same loops.
 3. **January pass.** The accepted Ķīpsala and Līgatne starts run again, and each records `walkLight` and `seasonNote`
-   for 15 January 2027, 17:00 Riga time. The generator takes no date yet, so the route itself is not date-aware; when
-   `RouteOptions` gains a date, pass it in `simulate()` in `sim.ts`.
+   for 15 January 2027, 17:00 Riga time. The date goes to the generator as `RouteOptions.when`, so the thin-ice (H4)
+   and dark-park (H10) rules apply to the route itself.
 4. **Report.** The summary goes to the terminal and `summary.txt`, the audit pack to `audit/`.
 
 ## Pacing
@@ -55,8 +55,8 @@ Options for `run` and `report`:
 `pacer.ts` wraps `fetch` for the whole run (route-safety.md §3):
 
 - router requests, the script's `nearest` lookups included, start at least 1.1 s apart;
-- Overpass queries start at least 3 s apart, and every other start swaps the order of the two Overpass endpoints the
-  generator tries, so the load spreads across both;
+- Overpass queries start at least 3 s apart. The generator starts each query on one of its two servers at random and
+  brings in the other when the first is slow or fails; every other start also swaps which URL counts as first;
 - starts begin at least `--gap` apart (5 s by default);
 - every request carries the User-Agent.
 
