@@ -9,6 +9,8 @@ import { CompleteScreen } from "./screens/CompleteScreen";
 import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { Home } from "./screens/Home";
+import { Feed } from "./screens/Feed";
+import { loadUnreadCount } from "./lib/feed";
 import { Activity } from "./screens/Activity";
 import { Leaderboard } from "./screens/Leaderboard";
 import { NavContext } from "./components/nav";
@@ -539,6 +541,8 @@ function LoadingScreen({
 
 type Route =
   | { name: "home" }
+  // The feed behind the bell on Home.
+  | { name: "feed" }
   | { name: "activity" }
   | { name: "league" }
   // A past run's album, opened from Activity.
@@ -614,6 +618,9 @@ function SignedInApp({
   // The partner's invitation to their Together quest; this phone joins only when the user says so.
   const [runInvite, setRunInvite] = useState<{ runId: string } | null>(null);
   const inviteRequest = useRef(0);
+  // Unread items in the feed, for the bell on Home.
+  const [feedUnread, setFeedUnread] = useState(0);
+  const feedRequest = useRef(0);
   // Who the next quest is for, chosen on Home while linked.
   const [questMode, setQuestMode] = useState<QuestMode>("together");
   const [starting, setStarting] = useState(false);
@@ -742,6 +749,17 @@ function SignedInApp({
     }
   }, []);
 
+  // How many feed items are unread. A failure keeps the last count.
+  const refreshFeedUnread = useCallback(async () => {
+    const id = ++feedRequest.current;
+    try {
+      const next = await loadUnreadCount();
+      if (id === feedRequest.current) setFeedUnread(next);
+    } catch (e) {
+      console.error("Couldn't check the feed", e);
+    }
+  }, []);
+
   // Loads the open run, which may be one the partner started. When the run this phone followed is no longer open,
   // its fate decides what happens: finished keeps it for the album, abandoned drops it with a notice and goes home.
   const refreshRun = useCallback(async (): Promise<void> => {
@@ -847,11 +865,13 @@ function SignedInApp({
     void refreshPartner();
     void refreshRun();
     void refreshInvite();
+    void refreshFeedUnread();
     function onVisible() {
       if (document.visibilityState !== "visible") return;
       void refreshPartner();
       void refreshRun();
       void refreshInvite();
+      void refreshFeedUnread();
     }
     window.addEventListener("focus", onVisible);
     document.addEventListener("visibilitychange", onVisible);
@@ -859,18 +879,19 @@ function SignedInApp({
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refreshPartner, refreshRun, refreshInvite]);
+  }, [refreshPartner, refreshRun, refreshInvite, refreshFeedUnread]);
 
-  // While the app is in view, check now and then for the partner, the trail, open or not, and an invitation.
+  // While the app is in view, check now and then for the partner, the trail, open or not, an invitation, and the feed.
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void refreshPartner();
       void refreshRun();
       void refreshInvite();
+      void refreshFeedUnread();
     }, SYNC_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [refreshPartner, refreshRun, refreshInvite]);
+  }, [refreshPartner, refreshRun, refreshInvite, refreshFeedUnread]);
 
   // Entering the map or a stop shows the latest progress.
   const trailScreen = route?.name === "map" ? "map" : route?.name === "challenge" ? `stop:${route.stopId}` : null;
@@ -1365,8 +1386,18 @@ function SignedInApp({
             partner={partner}
             openQuest={run && isRunActive(run) ? run.trail.name : null}
             invite={inviteCard}
+            feedUnread={feedUnread}
             onStartQuest={handleStartQuest}
             onLinkPartner={() => setRoute({ name: "partner" })}
+            onOpenFeed={() => setRoute({ name: "feed" })}
+          />
+        )}
+
+        {route.name === "feed" && (
+          <Feed
+            partnerName={partner?.name ?? null}
+            onBack={() => setRoute({ name: "home" })}
+            onRead={() => void refreshFeedUnread()}
           />
         )}
 
