@@ -212,6 +212,11 @@ point and move one point per finished quest; the next point opens a quest. The s
 
 **Done when:** progress survives a relink, matches on both phones, and the map reads well at 390 px.
 
+**Status, October 1:** merged (PR 65). Edgar picked the third concept (rich detail, markers set into the path). The art
+has nine markers; the couple stands on marker `quests_done mod 9` and a fresh copy of the scene follows every nine
+quests, until tiling art replaces the copy. Open: unlinking clears the totals (stage 7), so progress does not yet
+survive a relink.
+
 ### 7. Couple name, stats, and points
 
 The couple chooses a name, checked against a word filter. The server keeps lifetime totals per couple:
@@ -228,6 +233,11 @@ one tap withdraws; points for sharing must never pressure a partner into being p
 
 **Done when:** the totals match the history on both phones, survive the photo deletion, and can't be raised from the
 client beyond the share cap.
+
+**Status, October 1:** merged without sharing (PRs 60, 61, 63). Totals, the couple name (both partners agree, either
+clears it, a server-side word filter with a starter list Edgar reviewed), and points from A3's table: 10 per stop and
+5 per photo (5 of each per quest), 100 per finished quest, 30 for the week's first. Only Together runs count. Share
+points wait for the share flow; special-quest points wait for a way to confirm a sealed special quest.
 
 ### 8. Weekly leaderboard
 
@@ -250,6 +260,9 @@ by A2 and A3.
 ### 11. Safety v2
 
 Users can report a stop as unsafe or unpleasant; reported stops drop out of new routes until reviewed.
+
+**Status, October 1:** merged (PRs 59, 60, 62). A report sends that stop's position, a reason, and an optional note;
+phones download every open or confirmed report and drop places within 30 m. Edgar reviews reports in the dashboard.
 
 ## 5. Later: place-aware tasks
 
@@ -290,7 +303,7 @@ directly from the chosen style.
 ## 7. Open questions
 
 1. **Special-quest triggers:** holidays are certain; season, place, milestone, or a date the couple sets remain open.
-2. **Point amounts** and further point sources, from A3.
+2. **Point amounts:** decided October 1: A3's table (section 4.1 of gamification.md). Further sources stay open.
 3. **Rural roads in the generator:** decided October 1. Untagged fast roads give the rural warning instead of
    rejecting the loop; roads tagged without a sidewalk stay rejected, except the stretch a walk needs to leave its start.
 4. **Starts in closed land:** decided October 1. A start on industrial, military, private, railway, quarry, or

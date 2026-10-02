@@ -115,6 +115,12 @@ stops, and a simulation script.
   marked crossing, two Ķīpsala starts on a bridge (both passes), two Līgatne starts whose every loop walks along
   Brīvības iela (tagged `sidewalk=no`), and three Līgatne starts that run out of stops. Results and the new audit
   pack are in `tools/route-sim/out/live4/`.
+- **UK and US starts (PR 64).** `--areas abroad` runs 10 starts each in Islington, Capitol Hill, Silver Lake, and Park
+  Slope at local midday: 38 of 40 valid. Silver Lake loses two to H1 (few mapped crossings); one London start sat on
+  a footway cut off from the network, 51 m from where the route began. Audit pack in `tools/route-sim/out/abroad/`.
+- **Stages 6, 7, and 11, built in three waves of parallel agents (PRs 59 to 63, 65).** Couple totals and name with a
+  word filter, server-side points, stop reports that new routes avoid, and the journey map Home on Edgar's chosen
+  concept. All verified in Chromium at 390 px against the local stack; the two-phone checks are Edgar's.
 - **Stage 3, the quest engine (PRs 47 to 49, 51).** Task model and selection in core, a per-pair task history
   (relinking keeps it; Just me records under the player alone), a generic task screen, and the wiring: tasks travel
   sealed in the trail, and a mobility toggle in Profile drops `move` tasks. Edgar checked that relinking keeps history.
@@ -129,18 +135,20 @@ stops, and a simulation script.
 
 **Next:**
 
-1. **[You]** Audit the 30 routes in `tools/route-sim/out/live4/audit/checklist.md` (route-safety.md, section 5), and
-   say whether Līgatne's Brīvības iela really lacks a pavement: two starts fail on it.
-2. **[You]** Name the UK and US places where testers live; the agent adds a few starts there to finish stage 2.
-3. **[You]** On two phones: start a Together quest and check both phones show the same tasks, edit an avatar and
-   watch it update on the other phone, and skip the avatar step with a new account.
-4. **[You]** On your phone: the safety note, the after-sunset card, and the "Skip photo" and "Skip this task" buttons,
-   which sit close together.
-5. **[You]** On two phones after a reload: link with a fresh invite and compare the four emoji; view the recovery code
-   once; check the camera scanner under the new security headers.
-6. **[You]** On an iPhone: **Save**, **Save all photos**, and **Save album** reach the photo library (task 5.4).
-7. **[Agent]** Stage 6, the journey map home, next on the MVP roadmap.
-8. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers.
+1. **[Agent]** Wave 4 is building: the weekly leaderboard's database (stage 8) and points on the totals card and the
+   complete screen. Wave 5: the leaderboard screen, its opt-in in Settings, and the tester-notice paragraph.
+2. **[You]** Decide whether couple totals and map progress survive a relink with the same partner (stage 6 says yes,
+   stage 7 clears them on unlink).
+3. **[You]** Audit the 30 routes in `tools/route-sim/out/live4/audit/checklist.md` and the 24 in
+   `tools/route-sim/out/abroad/audit/`, and say whether Līgatne's Brīvības iela really lacks a pavement.
+4. **[You]** On two phones: a Together quest shows the same tasks on both; a couple name suggested on one is agreed on
+   the other; the journey map and totals match; an avatar edit shows on the other phone; a new account that skips the
+   avatar step gets one.
+5. **[You]** On one phone: report a stop, then dismiss the report in the dashboard (online reports affect testers'
+   routes); the safety note, the after-sunset card, and the close "Skip photo" and "Skip this task" buttons.
+6. **[You]** Still open: the link emoji, viewing the recovery code once, the scanner under the security headers, and
+   iPhone **Save**, **Save all photos**, and **Save album** (task 5.4).
+7. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers.
 
 **Lessons from phase 2:**
 
