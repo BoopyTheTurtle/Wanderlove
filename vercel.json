@@ -1,5 +1,24 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "apps/web/dist",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "rewrites": [{ "source": "/((?!version\\.json).*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://picsum.photos https://fastly.picsum.photos https://zejhqogkxcyyeoalrjff.supabase.co; connect-src 'self' blob: https://zejhqogkxcyyeoalrjff.supabase.co wss://zejhqogkxcyyeoalrjff.supabase.co https://overpass-api.de https://overpass.openstreetmap.fr https://routing.openstreetmap.de; media-src 'self' blob:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), geolocation=(self), microphone=()" }
+      ]
+    },
+    {
+      "source": "/version.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    }
+  ]
 }

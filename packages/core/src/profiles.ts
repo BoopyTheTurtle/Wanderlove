@@ -9,7 +9,7 @@ export type Profile = {
   avatar?: string;
 };
 
-// TEST PROFILES — placeholders until real accounts and the avatar creator exist.
+// TEST PROFILES — the users seeded in the local Supabase stack, with their illustrated avatars.
 export const PROFILES: Profile[] = [
   {
     id: "daniel",
@@ -30,22 +30,3 @@ export const PROFILES: Profile[] = [
     avatar: "/avatar-emma.png",
   },
 ];
-
-export function getProfile(id: string | null | undefined): Profile | null {
-  return PROFILES.find((p) => p.id === id) ?? null;
-}
-
-export function findProfile(query: string, by: "username" | "email"): Profile | null {
-  const q = query.trim().toLowerCase().replace(/^@/, "");
-  if (!q) return null;
-  return PROFILES.find((p) => p[by].toLowerCase() === q) ?? null;
-}
-
-export function qrPayload(profile: Profile): string {
-  return `wannadoo://link/${profile.username}`;
-}
-
-export function profileFromQr(payload: string): Profile | null {
-  const match = payload.match(/^wannadoo:\/\/link\/(.+)$/);
-  return match ? findProfile(match[1], "username") : null;
-}

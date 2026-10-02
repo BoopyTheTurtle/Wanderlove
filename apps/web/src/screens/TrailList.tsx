@@ -75,7 +75,7 @@ export function TrailList({
               <p className="eyebrow">From where you are</p>
               <h3>Surprise Route</h3>
               <p className="trail-desc">
-                A random walking loop of 4–6 spots near you. Don&rsquo;t like it? Roll a new one before you start.
+                A random walking loop of five spots near you. Don&rsquo;t like it? Roll a new one before you start.
               </p>
               <div className="meta-row">
                 <span className="meta-pill">

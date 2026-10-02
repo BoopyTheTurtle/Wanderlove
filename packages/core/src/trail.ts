@@ -7,6 +7,10 @@ export type Stop = {
   eyebrow: string;
   prompt: string;
   image: string;
+  // A place of remembrance or worship (route-safety.md H14): calm tasks only, and a respect line on the stop card.
+  quiet?: boolean;
+  // The quest task assigned to this stop (QuestTask.id); stored inside the sealed trail.
+  taskId?: string;
 };
 
 export type Trail = {

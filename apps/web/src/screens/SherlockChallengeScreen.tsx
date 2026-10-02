@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Profile, Trail, Stop } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import type { Completions } from "../lib/runs";
+import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
-import { BackIcon, CameraIcon } from "../components/Icons";
+import { StopPhotos } from "../components/StopPhotos";
+import { BackIcon } from "../components/Icons";
 import { ComplimentExchange } from "./ComplimentExchange";
 
 type Clue = {
@@ -15,13 +17,15 @@ type Clue = {
   task?: "compliments" | "done";
 };
 
-const CLUE_DATA: Record<string, Clue> = {
-  "spikeri-promenade-clue1": { word: "TRUE", num: 1, answer: "19", answerType: "number" },
-  "spikeri-warehouses-clue2": { word: "LOVE", num: 2, task: "compliments" },
-  "spikeri-square-clue3": { word: "IS BUILT", num: 3, task: "done" },
-  "spikeri-creative-quarter-clue4": { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
-  "daugava-bench-clue5": { word: "SMALL MOMENTS", num: 5, task: "done" },
-};
+// One clue per stop, in trail order. A private run renames its stops "s1".."s5" (lib/runSnapshot.ts), so clues go by
+// position rather than by stop ID.
+const CLUES: Clue[] = [
+  { word: "TRUE", num: 1, answer: "19", answerType: "number" },
+  { word: "LOVE", num: 2, task: "compliments" },
+  { word: "IS BUILT", num: 3, task: "done" },
+  { word: "FROM", num: 4, answer: "I LOVE YOU", answerType: "text" },
+  { word: "SMALL MOMENTS", num: 5, task: "done" },
+];
 
 // Case and extra spaces don't count against an answer.
 function normalise(text: string) {
@@ -31,33 +35,51 @@ function normalise(text: string) {
 export function SherlockChallengeScreen({
   trail,
   stop,
-  progress,
+  runId,
+  canAddPhotos,
+  completions,
+  syncTick,
   me,
   partner,
+  runPartnerName,
   onBack,
-  onCapture,
+  onContinue,
+  continueLabel,
+  onUpload,
+  onSkip,
 }: {
   trail: Trail;
   stop: Stop;
-  progress: Progress;
-  me: Profile | null;
+  runId: string;
+  // Open run, or finished within the grace window: the server still takes photos.
+  canAddPhotos: boolean;
+  completions: Completions;
+  syncTick: number;
+  me: Profile;
   partner: Profile | null;
+  // The partner who shares this run, or null on a solo run.
+  runPartnerName: string | null;
   onBack: () => void;
-  onCapture: (stopId: string, photoDataUrl: string) => void;
+  // Once the stop is done (by either of you): on to the next stop, or the album after the last one.
+  onContinue: () => void;
+  continueLabel: string;
+  onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
+  onSkip: () => Promise<void>;
 }) {
   const [guess, setGuess] = useState("");
   // Bumped on every wrong guess so the popup replays each time.
   const [nope, setNope] = useState(0);
-  const clue = CLUE_DATA[stop.id];
+  const clue = CLUES[trail.stops.findIndex((s) => s.id === stop.id)];
   const [taskDone, setTaskDone] = useState(false);
   const isText = clue?.answerType === "text";
-  const solved = clue?.answer ? normalise(guess) === normalise(clue.answer) : clue?.task ? taskDone : true;
+  const done = stop.id in completions;
+  // A stop either of you completed counts as solved, so its clue shows and its photos can grow.
+  const solved = done || (clue?.answer ? normalise(guess) === normalise(clue.answer) : clue?.task ? taskDone : true);
   const wrong = !solved && (isText ? nope > 0 : guess.length >= (clue?.answer?.length ?? 0));
-  const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+  const completedCount = trail.stops.filter((s) => s.id in completions).length;
   // Words from solved clues, plus this clue's once it is revealed, in trail order.
   const collected = trail.stops
-    .filter((s) => progress[s.id] || (s.id === stop.id && solved))
-    .map((s) => CLUE_DATA[s.id]?.word)
+    .flatMap((s, i) => (s.id in completions || (s.id === stop.id && solved) ? [CLUES[i]?.word] : []))
     .filter((w): w is string => !!w);
 
   useEffect(() => {
@@ -82,11 +104,6 @@ export function SherlockChallengeScreen({
   function handleCheck(e: React.FormEvent) {
     e.preventDefault();
     if (!solved && guess.trim()) setNope((n) => n + 1);
-  }
-
-  // Test build: photo upload is off, so submitting completes the stop without a photo.
-  function handleSubmit() {
-    onCapture(stop.id, "");
   }
 
   return (
@@ -115,7 +132,7 @@ export function SherlockChallengeScreen({
           <span className="sh-eyebrow-label">The Challenge</span>
           <p className="sh-challenge-text">{stop.prompt}</p>
 
-          {clue?.answer && (
+          {clue?.answer && !done && (
             <form className="sh-answer" onSubmit={handleCheck}>
               <label className="sh-answer-label" htmlFor="sh-answer-input">
                 Your answer
@@ -150,13 +167,13 @@ export function SherlockChallengeScreen({
             </form>
           )}
 
-          {clue?.task === "done" && !taskDone && (
+          {clue?.task === "done" && !solved && (
             <button type="button" className="sh-btn-done" onClick={() => setTaskDone(true)}>
               Done
             </button>
           )}
 
-          {clue?.task === "compliments" && (
+          {clue?.task === "compliments" && !done && (
             <ComplimentExchange me={me} partner={partner} onDone={() => setTaskDone(true)} />
           )}
 
@@ -167,22 +184,32 @@ export function SherlockChallengeScreen({
             </div>
           )}
 
-          <button
-            type="button"
-            className={solved ? "sh-btn-primary" : "sh-btn-primary disabled"}
-            onClick={handleSubmit}
-            disabled={!solved}
-          >
-            <CameraIcon size={18} />
-            Capture the moment
-          </button>
-          <p className="sh-hint">
-            {solved
-              ? "This seals the clue and unlocks the next stop."
-              : clue?.answer
-                ? "Solve the code to unlock the camera."
-                : "Finish the task to unlock the camera."}
-          </p>
+          <StopPhotos
+            runId={runId}
+            stopId={stop.id}
+            syncTick={syncTick}
+            done={done}
+            canAdd={canAddPhotos}
+            locked={!solved}
+            meId={me.id}
+            partnerName={runPartnerName}
+            onUpload={onUpload}
+            onSkip={onSkip}
+          />
+          {done && (
+            <button type="button" className="sh-btn-done stop-continue" onClick={onContinue}>
+              {continueLabel}
+            </button>
+          )}
+          {!done && (
+            <p className="sh-hint">
+              {solved
+                ? "This seals the clue and unlocks the next stop."
+                : clue?.answer
+                  ? "Solve the code to unlock the camera."
+                  : "Finish the task to unlock the camera."}
+            </p>
+          )}
         </section>
 
         {/* Mini stamp progress */}
@@ -190,7 +217,7 @@ export function SherlockChallengeScreen({
           {trail.stops.map((s, i) => (
             <div
               key={s.id}
-              className={`sh-mini-stamp ${progress[s.id] ? "sh-mini-stamp--done" : s.id === stop.id ? "sh-mini-stamp--current" : "sh-mini-stamp--todo"}`}
+              className={`sh-mini-stamp ${s.id in completions ? "sh-mini-stamp--done" : s.id === stop.id ? "sh-mini-stamp--current" : "sh-mini-stamp--todo"}`}
             >
               <span>0{i + 1}</span>
             </div>

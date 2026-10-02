@@ -7,6 +7,7 @@ coverage
 .env
 .env.*
 !.env.example
+!apps/web/.env.localdb
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
@@ -16,3 +17,8 @@ coverage
 
 .vite
 .claude/settings.local.json
+
+.claude/worktrees/
+
+# Raw image-generation output; chosen assets move into the app or docs/design/mockups
+docs/design/incoming/

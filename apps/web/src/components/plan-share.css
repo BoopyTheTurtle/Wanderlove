@@ -1,0 +1,139 @@
+/* Plan the next walk and Share a photo, on the complete screen: glass panels on the wine gradient, text in --on-bg. */
+.plan-share-card {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1.5px solid #ffffff40;
+  border-radius: 18px;
+  background: #ffffff1a;
+  color: var(--on-bg);
+  text-align: left;
+}
+.plan-share-kicker {
+  color: var(--on-bg-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.plan-share-lead {
+  font-size: 17px;
+  font-weight: 700;
+}
+.plan-share-note {
+  color: var(--on-bg-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.plan-share-warning {
+  color: var(--on-bg);
+}
+.plan-share-error {
+  color: var(--on-bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+.plan-share-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.plan-share-solid,
+.plan-share-outline {
+  height: 46px;
+  padding: 0 10px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-share-solid {
+  border: 0;
+  background: #fff;
+  color: var(--brand-dark);
+}
+.plan-share-outline {
+  border: 1.5px solid #ffffffaa;
+  background: transparent;
+  color: var(--on-bg);
+}
+.plan-share-solid:disabled,
+.plan-share-outline:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Day and time chips. The fourteen days scroll sideways inside the card. */
+.plan-days,
+.plan-slots {
+  display: flex;
+  gap: 6px;
+}
+.plan-days {
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 2px 16px;
+  scrollbar-width: none;
+}
+.plan-days::-webkit-scrollbar {
+  display: none;
+}
+.plan-slots .plan-chip {
+  flex: 1;
+}
+.plan-chip {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border: 1.5px solid #ffffff80;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--on-bg);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.plan-chip[aria-pressed="true"] {
+  border-color: #fff;
+  background: #fff;
+  color: var(--brand-dark);
+}
+
+/* The photo picker: square thumbnails, three to a row. */
+.share-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.share-photo {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff26;
+  cursor: pointer;
+}
+.share-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.share-photo[aria-checked="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--brand-dark) inset;
+}
+
+/* Standing consent in Profile, on a white settings card. */
+.share-consent .card-kicker {
+  margin-bottom: 12px;
+}

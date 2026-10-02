@@ -1,29 +1,52 @@
 import type { Trail, Stop } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import type { Completions } from "../lib/runs";
+import type { PreparedPhoto, RunPhoto } from "../lib/photos";
 import { StatusBar } from "../components/PhoneFrame";
-import { BackIcon, CameraIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon, QuestionIcon } from "../components/Icons";
+import { StopPhotos } from "../components/StopPhotos";
+import { ReportStop } from "../components/ReportStopSheet";
+import type { ReportReason } from "../lib/stopReports";
+import { BackIcon, ChatIcon, FlagIcon, HeartIcon, PinIcon } from "../components/Icons";
+import { QUIET_STOP_LINE } from "../lib/routeSafety";
+import "../route-safety.css";
 
 export function ChallengeScreen({
   trail,
   stop,
-  progress,
+  runId,
+  canAddPhotos,
+  completions,
+  syncTick,
+  meId,
+  partnerName,
   onBack,
-  onCapture,
+  onContinue,
+  continueLabel,
+  onUpload,
+  onSkip,
+  onReport,
 }: {
   trail: Trail;
   stop: Stop;
-  progress: Progress;
+  runId: string;
+  // Open run, or finished within the grace window: the server still takes photos.
+  canAddPhotos: boolean;
+  completions: Completions;
+  syncTick: number;
+  meId: string;
+  partnerName: string | null;
   onBack: () => void;
-  onCapture: (stopId: string, photoDataUrl: string) => void;
+  // Once the stop is done (by either of you): on to the next stop, or the album after the last one.
+  onContinue: () => void;
+  continueLabel: string;
+  onUpload: (prepared: PreparedPhoto) => Promise<RunPhoto>;
+  onSkip: () => Promise<void>;
+  // Reports this stop's position (lib/stopReports.ts); the walk goes on either way. Absent, the link stays hidden.
+  onReport?: (reason: ReportReason, note: string) => Promise<void>;
 }) {
   const stopIndex = trail.stops.indexOf(stop);
-  const completedCount = trail.stops.filter((s) => progress[s.id]).length;
+  const done = stop.id in completions;
+  const completedCount = trail.stops.filter((s) => s.id in completions).length;
   const pct = Math.round((completedCount / trail.stops.length) * 100);
-
-  // Test build: photo upload is off, so submitting completes the stop without a photo.
-  function handleSubmit() {
-    onCapture(stop.id, "");
-  }
 
   return (
     <div className="screen challenge-screen">
@@ -49,6 +72,7 @@ export function ChallengeScreen({
           </span>
           <h2>{stop.name}</h2>
           <p className="task-desc">Answer the prompt together, out loud, then take a photo of the two of you.</p>
+          {stop.quiet && <p className="quiet-note">{QUIET_STOP_LINE}</p>}
 
           <div className="prompt-box">
             <ChatIcon size={18} />
@@ -62,33 +86,24 @@ export function ChallengeScreen({
             <span className="meta-pill">{stop.eyebrow.replace(/^Stop \d+\s*—?\s*/, "") || "Challenge"}</span>
           </div>
 
-          <button type="button" className="btn-primary" onClick={handleSubmit}>
-            <CameraIcon size={18} />
-            Capture the moment
-          </button>
-          <p className="hint">This unlocks the next stop on the map.</p>
-        </section>
-
-        <section className="card quiz-card" aria-disabled="true">
-          <div>
-            <span className="tag-pill quiz">
-              <QuestionIcon size={12} /> Quiz
-            </span>
-            <h3>Couple Quiz</h3>
-            <p>Test how well you know each other.</p>
-          </div>
-          <div className="quiz-art" aria-hidden="true">
-            <span>
-              <HeartIcon size={16} filled />
-            </span>
-            <span>?</span>
-            <span>
-              <HeartIcon size={12} filled />
-            </span>
-          </div>
-          <button type="button" className="btn-soft" disabled>
-            Coming soon
-          </button>
+          <StopPhotos
+            runId={runId}
+            stopId={stop.id}
+            syncTick={syncTick}
+            done={done}
+            canAdd={canAddPhotos}
+            meId={meId}
+            partnerName={partnerName}
+            onUpload={onUpload}
+            onSkip={onSkip}
+          />
+          {done && (
+            <button type="button" className="btn-primary stop-continue" onClick={onContinue}>
+              {continueLabel}
+            </button>
+          )}
+          {!done && <p className="hint">This unlocks the next stop on the map.</p>}
+          {onReport && <ReportStop stopName={stop.name} onReport={onReport} />}
         </section>
 
         <section className="level-strip">

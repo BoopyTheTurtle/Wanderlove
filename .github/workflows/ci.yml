@@ -24,3 +24,14 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.118.0
+      - run: supabase db start
+      - run: supabase db lint --fail-on error
+      - run: supabase test db

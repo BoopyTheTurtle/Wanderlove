@@ -1,0 +1,154 @@
+/* The journey on Home: the painted scene fills the screen behind everything, its foot on the bottom edge. Above the
+   art, its own top colour carries the sky on, so Home covers the phone's shared gradient. The couple stands on the
+   path in the lower third. */
+.journey-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #740e2a;
+}
+.journey-scene-art {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* The art is 2:3, portrait. */
+  aspect-ratio: 2 / 3;
+}
+.journey-scene-art img {
+  width: 100%;
+  height: 100%;
+  animation: journey-scene-in 0.6s ease both;
+}
+@keyframes journey-scene-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The couple's feet rest on the spot. */
+.journey-couple {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.journey-couple::before {
+  /* A soft shadow on the path under their feet. */
+  content: "";
+  position: absolute;
+  left: -54px;
+  top: -10px;
+  width: 108px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #4a162499, transparent);
+}
+.journey-couple-pair {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  translate: -50% 0;
+  display: flex;
+  align-items: flex-end;
+  animation: journey-couple-bob 3.2s ease-in-out infinite;
+}
+.journey-couple-pair .profile-avatar {
+  flex: none;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 8px 18px #2e0d1666;
+}
+/* Their joined hands: a small heart between the two. */
+.journey-couple-hands {
+  z-index: 1;
+  margin: 0 -9px 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--coral);
+  box-shadow: 0 3px 8px #2e0d1659;
+}
+@keyframes journey-couple-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-scene * {
+    animation: none !important;
+  }
+}
+
+/* Home over the scene: header, a frosted totals card, the quest point in the open sky, and the lower part of the
+   screen left to the path and the couple. */
+.journey-home {
+  /* The art's lower half: from the town line (just under 0.48 of its height) down to the bottom edge, nav included. */
+  padding-bottom: 78%;
+}
+.journey-home > :not(.journey-scene, .bottom-nav) {
+  position: relative;
+  z-index: 1;
+}
+.journey-home .couple-totals {
+  padding: 8px 10px 9px;
+  border-radius: 18px;
+  background: #ffffff26;
+  border-color: #ffffff47;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 26px #2e0d1633;
+}
+.journey-home .couple-totals-name {
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.journey-home .couple-totals dd {
+  font-size: 18px;
+}
+.journey-home .couple-totals dt {
+  font-size: 10.5px;
+}
+.journey-home .journey-point {
+  margin: auto 20px;
+  padding: 16px 0;
+  gap: 10px;
+}
+.journey-home .quest-point {
+  grid-template-columns: auto 1fr;
+  justify-items: start;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 0;
+  text-align: left;
+}
+.journey-home .quest-point-dot {
+  grid-row: span 2;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  box-shadow:
+    0 0 0 6px #ffffff2e,
+    0 0 0 12px #ffffff14,
+    0 10px 22px #2e0d1655;
+}
+.journey-home .quest-point-dot svg {
+  width: 24px;
+  height: 24px;
+}
+.journey-home .quest-point strong {
+  font-size: 19px;
+  align-self: end;
+}
+.journey-home .quest-point small {
+  align-self: start;
+}
+.journey-home .quest-choice {
+  width: 100%;
+  max-width: 330px;
+}

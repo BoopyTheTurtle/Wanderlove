@@ -1,0 +1,29 @@
+name: Deploy migrations
+
+# Pushes new migrations to the one Supabase project (wannadoo-staging) for the internal build.
+# Connects straight to Postgres through the session pooler, so it needs no Supabase access token.
+# Skips quietly until the SUPABASE_DB_URL secret exists.
+on:
+  push:
+    branches: [chore/repo-structure]
+    paths: [supabase/migrations/**, .github/workflows/db-deploy.yml]
+  workflow_dispatch:
+
+concurrency:
+  group: db-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.SUPABASE_DB_URL != ''
+      - uses: supabase/setup-cli@v1
+        if: env.SUPABASE_DB_URL != ''
+        with:
+          version: 2.118.0
+      - if: env.SUPABASE_DB_URL != ''
+        run: supabase db push --db-url "$SUPABASE_DB_URL"

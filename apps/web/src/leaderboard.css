@@ -1,0 +1,129 @@
+/* The League tab: this week's league on the gradient, the board on one white card. */
+.league-note {
+  margin: 18px 26px 0;
+  color: var(--on-bg-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+.league-note .inline-link {
+  color: var(--on-bg);
+}
+.league-card {
+  margin: 0 16px;
+  padding: 18px 18px 20px;
+  display: grid;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.league-small {
+  color: var(--muted);
+  font-size: 14px;
+}
+.league-cta {
+  margin-top: 6px;
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.league-cta:hover {
+  background: var(--brand-dark);
+}
+
+/* The collective line sits above the board, so the league reads as a group before it reads as a ranking. */
+.league-collective {
+  margin: 0 24px 6px;
+  color: var(--on-bg);
+  font-size: 15px;
+  font-weight: 700;
+}
+.league-band {
+  margin: 0 24px 14px;
+  color: var(--on-bg-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.league-list {
+  list-style: none;
+  margin: 0 16px;
+  padding: 6px 0;
+  color: var(--ink);
+}
+.league-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+}
+.league-row + .league-row {
+  border-top: 1px solid var(--line);
+}
+.league-row.mine {
+  margin: 0 6px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: var(--brand-wash);
+  box-shadow: inset 0 0 0 1.5px var(--brand-soft);
+}
+/* The highlight replaces the dividers around it. */
+.league-row.mine,
+.league-row.mine + .league-row {
+  border-top-color: transparent;
+}
+.league-name {
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.league-row.mine .league-name {
+  color: var(--brand);
+  font-weight: 800;
+}
+.league-you {
+  color: var(--muted);
+  font-weight: 600;
+}
+.league-points {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.league-points small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The opt-in in Profile */
+.league-settings .card-kicker {
+  margin-bottom: 12px;
+}
+.league-settings-status {
+  font-size: 17px;
+  font-weight: 700;
+}
+.league-settings .settings-note {
+  margin: 4px 0 12px;
+}
+.league-settings .settings-note:last-child {
+  margin-bottom: 0;
+}
+.league-settings .settings-note + .settings-outline,
+.league-settings .settings-note + .btn-primary {
+  margin-top: 2px;
+}
+.league-settings-error {
+  margin-bottom: 12px;
+}
+.league-settings .settings-outline + .settings-note {
+  margin-top: 10px;
+}

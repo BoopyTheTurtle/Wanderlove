@@ -1,22 +1,71 @@
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
-import { CompassIcon, ShareIcon } from "../components/Icons";
-import type { Trail } from "@wannadoo/core";
-import type { Progress } from "../lib/progress";
+import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
+import { BackIcon, CompassIcon, ShareIcon } from "../components/Icons";
+import { AddStopPhoto } from "../components/AddStopPhoto";
+import { AlbumActions } from "../components/AlbumActions";
+import { PlanNextWalk } from "../components/PlanNextWalk";
+import { ShareProposal } from "../components/ShareProposal";
+import { QuestBadges } from "../components/BadgeEarnedNote";
+import { QuestComment } from "../tester/QuestComment";
+import { stopFilePrefix } from "../lib/album";
+import { canAddPhotos, completedCount, journeyDay, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
+import { useRun } from "../lib/useRun";
+import { useRunPhotos } from "../lib/useRunPhotos";
+import { loadQuestPointsSoon, pointsBreakdown } from "../lib/coupleStats";
+import type { QuestPoints } from "../lib/coupleStats";
+import "../components/couple.css";
 
 export function CompleteScreen({
-  trail,
-  progress,
-  onViewMap,
+  runId,
+  meId,
+  partnerName,
+  syncTick,
+  notice,
+  past = false,
+  onLeave,
 }: {
-  trail: Trail;
-  progress: Progress;
-  onViewMap: () => void;
+  runId: string;
+  meId: string;
+  // The partner who shared this run, or null on a solo run.
+  partnerName: string | null;
+  syncTick: number;
+  // A one-time note from the app, such as the recovery code hint; shown below the main buttons.
+  notice?: ReactNode;
+  // Opened from Activity rather than at the end of the walk: a quieter header, and the main button goes back there.
+  past?: boolean;
+  // Back to the map, or to Activity for a past run.
+  onLeave: () => void;
 }) {
-  const photos = trail.stops.map((s) => progress[s.id]?.photoDataUrl).filter(Boolean) as string[];
-  const [left, main, right] = [photos[0], photos[photos.length - 1] ?? photos[0], photos[1] ?? photos[0]];
+  const loaded = useRun(runId, syncTick);
+  const album = useRunPhotos(runId, syncTick);
+  const run = loaded.status === "ready" ? loaded.run : null;
+  const trail = run?.trail ?? null;
+  const leftEarly = run?.abandonedAt != null;
+  const endedAt = run ? runEndedAt(run) : null;
+  const photosOpen = run !== null && canAddPhotos(run);
+  const photos = album.photos;
+  const removed = album.status === "ready" && photosRemoved(endedAt, photos.length);
+  // The stack shows only photos this phone can display; encrypted ones join as they decrypt.
+  const shown = photos.filter((p) => p.src !== null);
+  const [left, main, right] = [shown[0], shown[shown.length - 1] ?? shown[0], shown[1] ?? shown[0]];
+  // A confirmed share earns points after the walk, so it loads them again too.
+  const [shareTick, setShareTick] = useState(0);
+  // Only a couple's run earns points; a Just me or solo run has no couple and shows nothing about them.
+  const points = useQuestPoints(
+    runId,
+    run?.coupleId != null,
+    run?.completedAt != null,
+    album.status === "ready" ? photos.length : null,
+    shareTick,
+  );
+  // The partner on a Together quest, while still linked: planning and sharing need both of them.
+  const together = run?.coupleId != null ? partnerName : null;
 
   async function handleShare() {
+    if (!trail) return;
     const shareData = { title: trail.name, text: `We finished the ${trail.name} trail on Wannadoo.` };
     if (navigator.share) {
       try {
@@ -27,31 +76,68 @@ export function CompleteScreen({
     }
   }
 
+  if (!run || !trail) {
+    return (
+      <div className="screen complete-screen">
+        <StatusBar light />
+        <div className="album-state">
+          {loaded.status === "error" ? (
+            <>
+              <p>Couldn&rsquo;t load your album. Check your connection and try again.</p>
+              <button type="button" className="btn-primary light" onClick={loaded.retry}>
+                Try again
+              </button>
+              <button type="button" className="btn-outline-light" onClick={onLeave}>
+                {past ? <BackIcon size={16} /> : <CompassIcon size={16} />}{" "}
+                {past ? "Back to your journeys" : "Back to the map"}
+              </button>
+            </>
+          ) : (
+            <p>Loading your album…</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="screen complete-screen">
-      <div className="confetti">
-        {Array.from({ length: 20 }).map((_, i) => (
-          <i key={i} />
-        ))}
-      </div>
+      {!past && (
+        <div className="confetti">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <i key={i} />
+          ))}
+        </div>
+      )}
       <StatusBar light />
 
       <div className="complete-avatar">
         <CoupleAvatar size={64} />
       </div>
-      <p className="eyebrow">Trail complete</p>
-      <h2>You made it, together.</h2>
+      <p className="eyebrow">
+        {past && endedAt ? journeyDay(endedAt) : "Trail complete"}
+        {leftEarly && " · Left early"}
+      </p>
+      <h2>{leftEarly ? "Part of the way, together." : "You made it, together."}</h2>
       <p className="complete-wit">
-        {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the same way
-        again.
+        {leftEarly ? (
+          <>
+            {completedCount(run)} of {trail.stopCount} stops on {trail.name}.
+          </>
+        ) : (
+          <>
+            {trail.stopCount} stops, {trail.durationMinutes} minutes, and a city you&rsquo;ll never walk past the same
+            way again.
+          </>
+        )}
       </p>
 
       <div className="album-stack">
-        {left && <img className="album-back left" src={left} alt="" />}
-        {right && <img className="album-back right" src={right} alt="" />}
-        {main && (
+        {left?.src && <img className="album-back left" src={left.src} alt="" />}
+        {right?.src && <img className="album-back right" src={right.src} alt="" />}
+        {main?.src && (
           <div className="album-main">
-            <img src={main} alt="" />
+            <img src={main.src} alt="" />
             <span>{trail.name}</span>
           </div>
         )}
@@ -59,7 +145,7 @@ export function CompleteScreen({
 
       <div className="complete-stats">
         <div>
-          <strong>{trail.stopCount}</strong>
+          <strong>{completedCount(run)}</strong>
           <span>Stops</span>
         </div>
         <div>
@@ -72,12 +158,136 @@ export function CompleteScreen({
         </div>
       </div>
 
-      <button type="button" className="btn-primary light" onClick={onViewMap}>
-        <CompassIcon size={18} /> View your map
+      <QuestPointsNote points={points} />
+
+      <QuestBadges run={past ? null : run} meId={meId} />
+
+      <button type="button" className="btn-primary light" onClick={onLeave}>
+        {past ? (
+          <>
+            <BackIcon size={18} /> Back to your journeys
+          </>
+        ) : (
+          <>
+            <CompassIcon size={18} /> View your map
+          </>
+        )}
       </button>
-      <button type="button" className="btn-outline-light" onClick={handleShare}>
-        <ShareIcon size={16} /> Share the trail
-      </button>
+      {!leftEarly && (
+        <button type="button" className="btn-outline-light" onClick={handleShare}>
+          <ShareIcon size={16} /> Share the trail
+        </button>
+      )}
+
+      {notice}
+
+      {together && !past && <PlanNextWalk partnerName={together} syncTick={syncTick} />}
+      {together && run.completedAt != null && (
+        <ShareProposal
+          runId={runId}
+          trailName={trail.name}
+          partnerName={together}
+          photos={photos}
+          syncTick={syncTick}
+          onPointsEarned={() => setShareTick((n) => n + 1)}
+        />
+      )}
+
+      <QuestComment
+        runId={runId}
+        userId={meId}
+        mode={run.coupleId ? "together" : "solo"}
+        tasksDone={Object.keys(run.completions).length}
+      />
+
+      {!removed && (
+        <AlbumActions
+          runId={runId}
+          trailName={trail.name}
+          stops={trail.stops}
+          date={endedAt ?? run.startedAt}
+          photoCount={album.status === "ready" ? photos.length : 0}
+          theme="default"
+        />
+      )}
+
+      <section className="album-by-stop" aria-label="Photos by stop">
+        {album.status === "loading" && <p className="album-note">Loading photos…</p>}
+        {album.status === "error" && (
+          <p className="album-note">
+            Couldn&rsquo;t load the photos.{" "}
+            <button type="button" className="inline-link" onClick={album.retry}>
+              Try again
+            </button>
+          </p>
+        )}
+        {removed && <p className="album-note">{PHOTOS_REMOVED_NOTE}</p>}
+        {album.locked && <LockedPhotosNote partnerName={partnerName} className="album-note" />}
+        {album.status === "ready" && photosOpen && (
+          <p className="album-note">You can add photos for a day after finishing.</p>
+        )}
+        {album.status === "ready" &&
+          trail.stops.map((stop, i) => {
+            const here = photos.filter((p) => p.stopId === stop.id);
+            if (here.length === 0 && !photosOpen) return null;
+            return (
+              <div key={stop.id} className="album-stop">
+                <h3>{stop.name}</h3>
+                {here.length > 0 && (
+                  <PhotoGrid
+                    photos={here}
+                    meId={meId}
+                    partnerName={partnerName}
+                    onDelete={album.remove}
+                    onHide={album.hide}
+                    fileNamePrefix={stopFilePrefix(i + 1, stop.name)}
+                  />
+                )}
+                {photosOpen && <AddStopPhoto runId={runId} stopId={stop.id} onAdded={album.add} />}
+              </div>
+            );
+          })}
+      </section>
     </div>
+  );
+}
+
+// The points a couple's run earned, loaded once the run is known to be theirs; null while loading, for any other run,
+// or when none came. A new photo count or a confirmed share loads them again, since both earn points after the walk.
+function useQuestPoints(
+  runId: string,
+  couple: boolean,
+  finished: boolean,
+  photoCount: number | null,
+  shareTick: number,
+): QuestPoints | null {
+  const [loaded, setLoaded] = useState<{ runId: string; points: QuestPoints | null } | null>(null);
+
+  useEffect(() => {
+    if (!couple) return;
+    let live = true;
+    void loadQuestPointsSoon(runId, finished).then((points) => {
+      // A failed reload keeps what the screen already shows.
+      if (live) setLoaded((old) => (points || old?.runId !== runId ? { runId, points } : old));
+    });
+    return () => {
+      live = false;
+    };
+  }, [runId, couple, finished, photoCount, shareTick]);
+
+  return couple && loaded?.runId === runId ? loaded.points : null;
+}
+
+// Shown after the walk only: what the couple earned together, and a small breakdown. Nothing when there are no points.
+export function QuestPointsNote({ points }: { points: QuestPoints | null }) {
+  if (!points || points.total <= 0) return null;
+  return (
+    <section className="quest-points" aria-label="Points earned">
+      <p className="quest-points-total">
+        You earned <strong>{points.total.toLocaleString("en-GB")}</strong> {points.total === 1 ? "point" : "points"}{" "}
+        together
+      </p>
+      <p className="quest-points-parts">{pointsBreakdown(points).join(" · ")}</p>
+    </section>
   );
 }

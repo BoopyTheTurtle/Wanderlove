@@ -1,0 +1,87 @@
+/* Home: the journey scene (components/JourneyMap.css), and in its sky the quest point that opens the next quest. */
+.journey-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.journey-point {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.quest-point {
+  border: 0;
+  background: transparent;
+  color: var(--on-bg);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.quest-point:active {
+  transform: scale(0.96);
+}
+.quest-point-dot {
+  width: 92px;
+  height: 92px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 10px #ffffff2e,
+    0 0 0 22px #ffffff14,
+    0 14px 30px #2e0d1655;
+}
+.quest-point strong {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.quest-point small {
+  max-width: 260px;
+  color: var(--on-bg-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Together or Just me, under the quest point while linked. */
+.quest-choice {
+  width: 290px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.quest-choice-option {
+  border: 0;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  padding: 12px 10px;
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.quest-choice-option:active {
+  transform: scale(0.97);
+}
+.quest-choice-option strong {
+  color: var(--brand);
+  font-size: 15px;
+  font-weight: 800;
+}
+.quest-choice-option small {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}

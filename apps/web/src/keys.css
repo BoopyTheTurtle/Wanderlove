@@ -1,0 +1,145 @@
+/* Photo keys: the recovery code, unlocking a new phone, and trusting the partner's new keys */
+.keys-screen {
+  padding-bottom: 24px;
+}
+.keys-screen .onboarding-head h1 {
+  font-size: 26px;
+}
+.recovery-code {
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: var(--brand-wash);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.keys-screen .btn-soft {
+  color: var(--brand-dark);
+  cursor: pointer;
+}
+.keys-screen .btn-soft:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.keys-note {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.keys-screen .field-input input {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.keys-screen .field-input input::placeholder {
+  text-transform: none;
+}
+.keys-fresh {
+  margin-top: 14px;
+}
+
+/* The app stays mounted behind the partner-key question */
+.key-gate-app {
+  display: contents;
+}
+.key-gate-app[hidden] {
+  display: none;
+}
+
+/* The emoji check: four emoji from both partners' key IDs */
+.key-emoji {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: var(--brand-wash);
+  border: 1.5px solid var(--line);
+  font-size: 30px;
+  line-height: 1.1;
+}
+.key-emoji-wait {
+  color: var(--muted);
+  font-size: 20px;
+  letter-spacing: 0.2em;
+}
+.key-check-lead {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.key-check-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.key-check-card {
+  margin-bottom: 18px;
+  text-align: center;
+}
+/* The inviter's question when someone used their invite */
+.link-request {
+  gap: 12px;
+}
+.link-request-body {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.link-request-keys {
+  display: grid;
+  gap: 6px;
+}
+.link-request .btn-soft {
+  color: var(--brand-dark);
+  cursor: pointer;
+}
+.invite-card .key-check-lead {
+  text-align: center;
+}
+.settings-key-check {
+  display: grid;
+  gap: 6px;
+  margin: -6px 0 16px;
+}
+.settings-key-check .key-emoji {
+  font-size: 24px;
+  padding: 8px;
+}
+
+/* The one-time hint after a finished trail, while the recovery code waits unseen */
+.recovery-hint {
+  margin: 18px 0 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--on-bg) 30%, transparent);
+  color: var(--on-bg);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+.recovery-hint-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 6px;
+}
+.recovery-hint .inline-link {
+  color: var(--on-bg);
+  text-decoration: underline;
+}
+.theme-sherlock .recovery-hint {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.theme-sherlock .recovery-hint .inline-link {
+  color: var(--brand-dark);
+}

@@ -1,5 +1,9 @@
 # Wanderclue — Friday Demo Spec
 
+> **Archived.** This spec describes the first hackathon demo and no longer matches the app: the name, palette, prompts,
+> and storage have all changed. [internal-build.md](internal-build.md) and [accounts-roadmap.md](accounts-roadmap.md)
+> hold the current plan.
+
 ## Scope
 
 One trail, one flow, no backend. "Rediscover Riga" — Established Couples mode,

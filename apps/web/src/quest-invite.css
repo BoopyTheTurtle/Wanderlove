@@ -1,0 +1,47 @@
+/* The partner's invitation to their quest: a white card on the gradient, no alarm. */
+.quest-invite {
+  margin: 4px 20px 0;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+}
+.quest-invite-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--brand-wash);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+.quest-invite-text {
+  display: grid;
+  gap: 2px;
+}
+.quest-invite-text strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+.quest-invite-text small {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.quest-invite-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.quest-invite-error {
+  grid-column: 1 / -1;
+  color: var(--brand);
+  font-size: 12.5px;
+  font-weight: 600;
+}

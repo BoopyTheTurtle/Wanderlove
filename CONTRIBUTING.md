@@ -33,5 +33,7 @@ VS Code extensions apply both on save. Match the surrounding code for naming and
 
 ## Test data
 
-The app runs without a backend. Two test profiles live in `packages/core/src/profiles.ts`, and everything a session
-creates stays in the browser's `localStorage`. The **Reset** pill on the map clears it.
+Develop against the local Supabase stack: `npm run db:start`, then `npm run dev:local`. `supabase/seed.sql` creates
+three users, Daniel, Emma, and a stranger, and the **Test mode** button on the sign-in screen signs in as any of them.
+`npm run db:reset` rebuilds the database from the migrations and the seed. Never test against the online project with
+throwaway accounts; it holds real testers.

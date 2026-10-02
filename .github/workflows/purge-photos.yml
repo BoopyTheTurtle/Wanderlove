@@ -3,8 +3,7 @@ name: Purge expired photos
 # Deletes the photos of trails that ended more than a month ago, files and rows alike
 # (scripts/purge-expired-photos.mjs; migration 20260930120000_photo_retention.sql).
 # Needs the SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY secrets, and fails until both exist.
-# GitHub runs scheduled workflows from the default branch only, so this copy lives on main and checks out the
-# integration branch, where the script and the migration it relies on live, until the build reaches main.
+# GitHub runs scheduled workflows from the default branch only.
 on:
   schedule:
     - cron: "17 3 * * *" # daily, 03:17 UTC
@@ -39,8 +38,6 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v4
-        with:
-          ref: chore/repo-structure
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
