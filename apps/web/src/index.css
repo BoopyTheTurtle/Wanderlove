@@ -28,6 +28,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #c46a78;
 }
 button {
@@ -56,6 +57,7 @@ img {
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   background: linear-gradient(160deg, #e7a3a0 0%, #9e3a52 100%);
@@ -63,6 +65,7 @@ img {
 .phone {
   width: min(390px, 100vw);
   height: min(844px, 100vh);
+  height: min(844px, 100dvh);
   background: var(--bg);
   overflow: hidden;
   position: relative;
@@ -1693,6 +1696,7 @@ img.profile-avatar {
 @media (max-height: 760px) {
   .phone {
     height: 100vh;
+    height: 100dvh;
   }
   .map-card {
     height: 210px;
