@@ -18,8 +18,11 @@ export function Home({
   partner,
   openQuest,
   invite,
+  cards,
+  feedUnread = 0,
   onStartQuest,
   onLinkPartner,
+  onOpenFeed,
 }: {
   me: Profile;
   partner: Profile | null;
@@ -27,9 +30,14 @@ export function Home({
   openQuest: string | null;
   // The partner's invitation to their quest, shown above the path.
   invite?: ReactNode;
+  // Cards shown under the couple's totals, such as the weekly rhythm or a planned walk.
+  cards?: ReactNode;
+  // Unread feed items; any lights a quiet dot on the bell, with no number.
+  feedUnread?: number;
   // mode is absent when continuing, or when walking solo.
   onStartQuest: (mode?: QuestMode) => void;
   onLinkPartner: () => void;
+  onOpenFeed?: () => void;
 }) {
   const [choosing, setChoosing] = useState(false);
   // One load for the totals card and the scene's label.
@@ -63,17 +71,19 @@ export function Home({
         <button
           type="button"
           className="icon-button bare"
-          aria-label="Notifications"
-          title="Notifications — coming soon"
+          aria-label={feedUnread > 0 ? "Notifications, something new" : "Notifications"}
+          onClick={onOpenFeed}
         >
           <BellIcon size={21} />
-          <span className="notif-dot" />
+          {feedUnread > 0 && <span className="notif-dot" />}
         </button>
       </header>
 
       {invite}
 
       {partner && <CoupleTotalsCard key={partner.id} totals={totals} />}
+
+      {cards}
 
       <JourneyMap me={me} partner={partner} questsDone={totals?.questsDone ?? null} />
 
