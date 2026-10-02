@@ -11,7 +11,7 @@ import type { QuestMode } from "../lib/runs";
 import "../home.css";
 
 // Where the couple rests between quests: the journey scene (docs/mvp-roadmap.md, stage 6) behind the screen, with the
-// pair on the path, and in its sky the quest point that opens a quest. While linked, a new quest asks who it is for:
+// pair on the path, and just above them the quest point that opens a quest. While linked, a new quest asks who it is for:
 // Together invites the partner, Just me stays off their phone (abuse threat model, section 6, decisions 1 and 2).
 export function Home({
   me,
@@ -75,34 +75,41 @@ export function Home({
 
       {partner && <CoupleTotalsCard key={partner.id} totals={totals} />}
 
-      <JourneyMap me={me} partner={partner} questsDone={totals?.questsDone ?? null} />
-
-      <div className="journey-point">
-        <button
-          type="button"
-          className="quest-point"
-          onClick={handleQuestPoint}
-          aria-expanded={partner && !openQuest ? choosing : undefined}
-        >
-          <span className="quest-point-dot" aria-hidden="true">
-            <CompassIcon size={30} />
-          </span>
-          <strong>{openQuest ? "Continue your quest" : "Start a quest"}</strong>
-          <small>{openQuest ?? "A fresh walk from where you are"}</small>
-        </button>
-        {partner && !openQuest && choosing && (
-          <div className="quest-choice" role="group" aria-label="Who is this quest for?">
-            <button type="button" className="quest-choice-option" onClick={() => onStartQuest("together")}>
-              <strong>Together</strong>
-              <small>{partner.name} gets an invitation to join</small>
+      <JourneyMap
+        me={me}
+        partner={partner}
+        questsDone={totals?.questsDone ?? null}
+        action={
+          <div className="journey-point">
+            <button
+              type="button"
+              className="quest-point"
+              onClick={handleQuestPoint}
+              aria-expanded={partner && !openQuest ? choosing : undefined}
+            >
+              <span className="quest-point-dot" aria-hidden="true">
+                <CompassIcon size={30} />
+              </span>
+              <span className="quest-point-text">
+                <strong>{openQuest ? "Continue your quest" : "Start a quest"}</strong>
+                <small>{openQuest ?? "A fresh walk from where you are"}</small>
+              </span>
             </button>
-            <button type="button" className="quest-choice-option" onClick={() => onStartQuest("alone")}>
-              <strong>Just me</strong>
-              <small>Only you see this quest</small>
-            </button>
+            {partner && !openQuest && choosing && (
+              <div className="quest-choice" role="group" aria-label="Who is this quest for?">
+                <button type="button" className="quest-choice-option" onClick={() => onStartQuest("together")}>
+                  <strong>Together</strong>
+                  <small>{partner.name} gets an invitation to join</small>
+                </button>
+                <button type="button" className="quest-choice-option" onClick={() => onStartQuest("alone")}>
+                  <strong>Just me</strong>
+                  <small>Only you see this quest</small>
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        }
+      />
 
       <BottomNav active="explore" />
     </div>

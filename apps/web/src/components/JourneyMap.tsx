@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- the label sits beside the scene so its tests stay with it */
+import type { ReactNode } from "react";
 import type { Profile } from "@wannadoo/core";
 import { HeartIcon } from "./Icons";
 import { ProfileAvatar } from "./ProfileAvatar";
@@ -22,33 +23,48 @@ export function journeyLabel(questsDone: number | null, linked: boolean): string
   return `Your journey: ${questsDone} ${questsDone === 1 ? "quest" : "quests"} walked together`;
 }
 
-// The scene. questsDone is null while loading and only feeds the label; a solo user stands alone.
+// The scene. questsDone is null while loading and only feeds the label; a solo user stands alone. action, the quest
+// point, stands on the path just above the couple, outside the picture so it stays a control.
 export function JourneyMap({
   me,
   partner,
   questsDone,
+  action,
 }: {
   me: Profile;
   partner: Profile | null;
   questsDone: number | null;
+  action?: ReactNode;
 }) {
+  const spot = { left: `${COUPLE_SPOT.x * 100}%`, top: `${COUPLE_SPOT.y * 100}%` };
   return (
-    <div className="journey-scene" role="img" aria-label={journeyLabel(partner ? questsDone : null, partner !== null)}>
-      <div className="journey-scene-art" aria-hidden="true">
-        <img src={JOURNEY_ART} alt="" decoding="async" />
-        <div className="journey-couple" style={{ left: `${COUPLE_SPOT.x * 100}%`, top: `${COUPLE_SPOT.y * 100}%` }}>
-          <span className="journey-couple-pair">
-            <ProfileAvatar profile={me} size={AVATAR_SIZE} />
-            {partner && (
-              <>
-                <span className="journey-couple-hands">
-                  <HeartIcon size={12} filled />
-                </span>
-                <ProfileAvatar profile={partner} size={AVATAR_SIZE} />
-              </>
-            )}
-          </span>
+    <div className="journey-scene">
+      <div className="journey-scene-art">
+        <div
+          className="journey-scene-picture"
+          role="img"
+          aria-label={journeyLabel(partner ? questsDone : null, partner !== null)}
+        >
+          <img src={JOURNEY_ART} alt="" decoding="async" />
+          <div className="journey-couple" style={spot}>
+            <span className="journey-couple-pair">
+              <ProfileAvatar profile={me} size={AVATAR_SIZE} />
+              {partner && (
+                <>
+                  <span className="journey-couple-hands">
+                    <HeartIcon size={12} filled />
+                  </span>
+                  <ProfileAvatar profile={partner} size={AVATAR_SIZE} />
+                </>
+              )}
+            </span>
+          </div>
         </div>
+        {action && (
+          <div className="journey-scene-action" style={spot}>
+            {action}
+          </div>
+        )}
       </div>
     </div>
   );

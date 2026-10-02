@@ -42,4 +42,14 @@ describe("JourneyMap", () => {
     expect(COUPLE_SPOT.y).toBeGreaterThan(2 / 3);
     expect(COUPLE_SPOT.y).toBeLessThan(1);
   });
+
+  it("puts the quest point beside the picture, not inside it", () => {
+    const html = renderToStaticMarkup(
+      <JourneyMap me={me} partner={partner} questsDone={3} action={<button type="button">Start a quest</button>} />,
+    );
+    const picture = html.slice(html.indexOf('role="img"'), html.indexOf("journey-scene-action"));
+    expect(picture).not.toContain("<button");
+    expect(html).toContain('<div class="journey-scene-action"');
+    expect(html).toContain(">Start a quest</button>");
+  });
 });
