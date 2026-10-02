@@ -39,6 +39,7 @@ export function ShareProposal({
   const [error, setError] = useState<string | null>(null);
   const [earned, setEarned] = useState<number | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const file = useRef<{ photoId: string; file: File } | null>(null);
   const alive = useRef(true);
 
@@ -120,7 +121,9 @@ export function ShareProposal({
       if (!ready) throw new Error("The photo isn't ready to share yet");
       const outcome = await sharePhotoFile(ready);
       setNeedsTap(outcome === "needs-tap");
-      if (outcome === "cancelled" || outcome === "needs-tap") return;
+      // A download is not a share: points come only when a phone's share sheet completes (Edgar, October 2).
+      setDownloaded(outcome === "downloaded");
+      if (outcome !== "shared") return;
       const points = await confirmShare(shareId);
       if (alive.current) setEarned(points);
       if (points > 0) onPointsEarned();
@@ -137,6 +140,7 @@ export function ShareProposal({
       error={error}
       earned={earned}
       needsTap={needsTap}
+      downloaded={downloaded}
       photoReady={approvedPhoto !== null}
       onPick={setPicked}
       onPropose={propose}
@@ -163,6 +167,7 @@ export function ShareProposalView({
   error,
   earned,
   needsTap,
+  downloaded = false,
   photoReady,
   onPick,
   onPropose,
@@ -181,6 +186,8 @@ export function ShareProposalView({
   // Points the confirmation on this screen just returned.
   earned: number | null;
   needsTap: boolean;
+  // The photo saved to a computer with no share sheet; no points for that.
+  downloaded?: boolean;
   // The approved photo has opened on this phone.
   photoReady: boolean;
   onPick: (photoId: string) => void;
@@ -269,7 +276,11 @@ export function ShareProposalView({
               {stage.auto ? `${partnerName} lets you share` : `${partnerName} said yes`}
             </p>
             <p className="plan-share-note">
-              {needsTap ? "Ready. Tap once more to open the share sheet." : "Share it wherever you like."}
+              {needsTap
+                ? "Ready. Tap once more to open the share sheet."
+                : downloaded
+                  ? "Saved to this computer. Points come when you share from a phone."
+                  : "Share it wherever you like."}
             </p>
             {errorLine}
             <button

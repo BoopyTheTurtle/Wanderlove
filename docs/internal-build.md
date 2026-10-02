@@ -1,6 +1,6 @@
 # Internal build: sign-in, linking, and photos
 
-Status: in progress since September 28, 2026; phases 0 to 5 built, hand-out next (see [Progress](#progress)). Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
+Status: in progress since September 28, 2026; phases 0 to 5 and the MVP built, two-phone checks and hand-out next (see [Progress](#progress)). Owner: Edgar. Companion to [accounts-roadmap.md](accounts-roadmap.md).
 
 This build puts real accounts in front of the team and a few friendly testers before the full MVP. Testers sign in with
 an emailed code, link to a partner, upload photos at each stop, and save the photos and a generated album to their
@@ -96,6 +96,18 @@ starter, quiet unlink, confirmed links, and Hide from my album. Stage 2's code i
 of about 2 km with the A4 safety checks, daylight and season notes, the after-sunset warning with a shorter loop, quiet
 stops, and a simulation script.
 
+**October 2, afternoon: the rest of the MVP, in two waves of parallel agents (PRs 77 to 85, and this one).**
+
+- **Wave 1:** badge and weekly-rhythm logic in core (PR 77), the push spec (PR 78), the tester feedback components
+  behind `TESTER_FEEDBACK_ENABLED` (PR 79), and one backend piece (PR 80): seven migrations for the feed, rhythm,
+  badges, planned walks, photo shares, relink, and tester feedback, with pgTAP tests and lib wrappers. Deployed online.
+- **Wave 2:** the feed behind the bell (PR 81), the rhythm card and badges (PR 82), tester feedback wired in with
+  `npm run feedback:report` (PR 83), and plan-the-next-walk and photo sharing (PR 84). PR 85 placed the cards and
+  clears their device keys on **Leave this phone clean**.
+- **Decisions:** the rain badge exists but stays off until live weather; the feed never reports a partner starting or
+  finishing a quest (threat model X1); a share earns points only through a phone's share sheet, not a desktop
+  download. The tester feedback spec is [tester-feedback.md](tester-feedback.md).
+
 **October 1:**
 
 - **Live routes fixed (PR 50).** About half of surprise routes failed with "Couldn't reach the map service": the
@@ -142,12 +154,13 @@ stops, and a simulation script.
 
 **Next:**
 
-1. **[Agent]** Existing testers accepted `tester-v1`, and nothing asks them to accept `tester-v2`: the app checks only
-   that a tester accepted some version. A small gate should show the updated notice once to anyone on an older
-   version. A flaky route test ("street corners named after their streets") is being fixed on
-   `fix/routegen-flaky-corner-test`.
-2. **[You]** Pick the next stage: 9 (further gamification) or 10 (notifications); full-body avatars wait until the
-   other MVP basics are done.
+1. **[You] [Legal]** Tester feedback is live, but the tester notice doesn't mention it yet. Sign off the paragraph in
+   [tester-feedback.md](tester-feedback.md) section 5; the agent then bumps the notice to `tester-v3`, which the update
+   gate shows every current tester. Also answer the spec's three open questions.
+2. **[You]** On two phones, the new MVP pieces: the rhythm card and a goal set on one shows on the other; a finished
+   quest claims its badges once and shows them in Activity; a planned walk appears in the partner's feed and either
+   can cancel it; a photo share is approved, declined, and auto-approved under standing consent, and the real share
+   sheet awards 20 points on iPhone and Android; task votes, the quest comment, and the Profile review send.
 3. **[You]** Audit the 30 routes in `tools/route-sim/out/live4/audit/checklist.md` and the 24 in
    `tools/route-sim/out/abroad/audit/`, and say whether Līgatne's Brīvības iela really lacks a pavement.
 4. **[You]** On two phones: a Together quest shows the same tasks on both; a couple name suggested on one is agreed on
@@ -157,7 +170,8 @@ stops, and a simulation script.
    routes); the safety note, the after-sunset card, and the close "Skip photo" and "Skip this task" buttons.
 6. **[You]** Still open: the link emoji, viewing the recovery code once, the scanner under the security headers, and
    iPhone **Save**, **Save all photos**, and **Save album** (task 5.4).
-7. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers.
+7. **[You]** Hand-out (tasks 6.2 and 6.3), once the MVP is ready for more testers, after moving the live site to `main`
+   (merge into `main`, point `db-deploy.yml` at it, and switch `www.wannadoo.app` to Production in Vercel).
 
 **Lessons from phase 2:**
 

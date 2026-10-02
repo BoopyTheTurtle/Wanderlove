@@ -31,7 +31,10 @@ const photo = (id: string, src: string | null = `blob:${id}`): ShownPhoto => ({
   view: src ? "shown" : "opening",
 });
 
-function share(stage: ShareStage | "failed" | null, over: { earned?: number | null; error?: string | null } = {}) {
+function share(
+  stage: ShareStage | "failed" | null,
+  over: { earned?: number | null; error?: string | null; downloaded?: boolean } = {},
+) {
   return text(
     renderToStaticMarkup(
       <ShareProposalView
@@ -43,6 +46,7 @@ function share(stage: ShareStage | "failed" | null, over: { earned?: number | nu
         error={over.error ?? null}
         earned={over.earned ?? null}
         needsTap={false}
+        downloaded={over.downloaded}
         photoReady
         onPick={noop}
         onPropose={noop}
@@ -85,6 +89,12 @@ describe("ShareProposalView", () => {
     const t = share({ kind: "waiting", shareId: "sh1" });
     expect(t).toBe(
       "Share a photo Waiting for Ilze They’ll answer when they’re ready. Nothing is shared until then. Withdraw",
+    );
+  });
+
+  it("says a download on a computer earns no points", () => {
+    expect(share({ kind: "approved", shareId: "sh1", photoId: "p1", auto: false }, { downloaded: true })).toContain(
+      "Saved to this computer. Points come when you share from a phone.",
     );
   });
 
