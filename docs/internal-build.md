@@ -242,13 +242,19 @@ enough that one notice covers both, with the ICO named for UK testers. A one-pag
 the privacy policy for this build. It states:
 
 - **Who:** you, by name, and a contact address.
-- **What:** email, display name, the stops you complete, and your photos. GPS stays on the phone; photos lose their
-  location data before upload.
+- **What:** email, display name, the stops you complete, your photos, and, once linked, the couple name and points. GPS
+  stays on the phone; photos lose their location data before upload.
 - **Why:** to test the app. Lawful basis: legitimate interests, since you share the URL only with people you ask to test.
 - **Who sees it:** your linked partner sees the trails you walk together and their photos. Supabase (Frankfurt), Vercel,
   and the email provider process the data for you. Overpass, FOSSGIS, and OpenStreetMap receive your position when the
   app builds a route.
+- **Weekly leaderboard:** opt-in; the couple joins when both partners say yes, and either partner alone takes it off at
+  once. Leagues of about 30 couples, drawn at random each week, see only the couple name and this week's points (the
+  best three finished quests). No rank, display names, avatars, locations, or photos; an unnamed couple stays off.
 - **After unlinking:** each of you keeps the photos from trails you walked together. You can delete your own photos.
+  The couple leaves the leaderboard at once. The server keeps the couple name, points, and totals for 90 days, then
+  deletes them; if the same two people link again within 90 days, these move to the new couple, and the leaderboard
+  needs both yeses again.
 - **How long:** until the test ends. All test data gets deleted before public launch.
 - **Your rights:** email you to see or delete your data; you answer within one month.
 - **Complaints:** testers can complain to the DVI; UK testers can also go to the ICO.
