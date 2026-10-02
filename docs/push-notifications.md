@@ -67,19 +67,17 @@ The compliment nudge and the small reminders have separate switches, so a person
 
 ## 3. In-app feed kinds and push
 
-The in-app feed, built now, records eight kinds of event. **No push fires because of something the partner did.** The
+The in-app feed, built now, records six kinds of event, none of them partner activity: following the threat model (X1), it never says that a partner started or finished a quest. **No push fires because of something the partner did.** The
 feed keeps every kind; push takes none of them directly.
 
-| Feed kind                | Push                                                                  | Why                                                                                    |
-| ------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `partner_started_quest`  | Never                                                                 | Pushed, a start becomes a location alert (X1)                                          |
-| `partner_finished_quest` | Never                                                                 | Tells one partner when the other walked, and where they likely are (X1)                |
-| `badge_earned`           | Never                                                                 | A reward pushed to pull someone back is a lure; the feed shows it at the next open     |
-| `league_week_started`    | Never                                                                 | Gamification research allows one feed item per week and no pushes about the league     |
-| `walk_planned`           | No push of its own; schedules the planned-walk reminder (section 2.1) | The couple set the time together; the reminder is the only push it earns               |
-| `walk_plan_cancelled`    | Never; silently removes the reminder from both phones                 | A cancelled plan needs no announcement, and a pushed cancellation invites blame        |
-| `share_requested`        | Never                                                                 | A pushed request turns a question into pressure (X2); a share waits without a deadline |
-| `share_answered`         | Never                                                                 | A pushed "no" invites the requester to press again; a "yes" needs no alert             |
+| Feed kind             | Push                                                                  | Why                                                                                    |
+| --------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `badge_earned`        | Never                                                                 | A reward pushed to pull someone back is a lure; the feed shows it at the next open     |
+| `league_week_started` | Never                                                                 | Gamification research allows one feed item per week and no pushes about the league     |
+| `walk_planned`        | No push of its own; schedules the planned-walk reminder (section 2.1) | The couple set the time together; the reminder is the only push it earns               |
+| `walk_plan_cancelled` | Never; silently removes the reminder from both phones                 | A cancelled plan needs no announcement, and a pushed cancellation invites blame        |
+| `share_requested`     | Never                                                                 | A pushed request turns a question into pressure (X2); a share waits without a deadline |
+| `share_answered`      | Never                                                                 | A pushed "no" invites the requester to press again; a "yes" needs no alert             |
 
 ## 4. Consent
 
