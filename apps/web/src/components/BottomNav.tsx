@@ -1,11 +1,11 @@
 import { useContext } from "react";
-import { ChatIcon, CompassIcon, HeartIcon, UserIcon } from "./Icons";
+import { CompassIcon, HeartIcon, LeagueIcon, UserIcon } from "./Icons";
 import { NavContext, type NavTab } from "./nav";
 
 const ITEMS = [
   { id: "explore", label: "Explore", Icon: CompassIcon },
   { id: "activity", label: "Activity", Icon: HeartIcon },
-  { id: "messages", label: "Messages", Icon: ChatIcon },
+  { id: "league", label: "League", Icon: LeagueIcon },
   { id: "profile", label: "Profile", Icon: UserIcon },
 ] as const;
 
@@ -27,7 +27,7 @@ export function BottomNav({
     <nav className="bottom-nav" aria-label="Main">
       {ITEMS.map(({ id, label, Icon }) => {
         const current = id === active;
-        const onClick = own[id] ?? (current || id === "messages" ? undefined : nav[id]);
+        const onClick = own[id] ?? (current ? undefined : nav[id]);
         const enabled = current || onClick !== undefined;
         return (
           <button

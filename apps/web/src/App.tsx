@@ -10,6 +10,7 @@ import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { Home } from "./screens/Home";
 import { Activity } from "./screens/Activity";
+import { Leaderboard } from "./screens/Leaderboard";
 import { NavContext } from "./components/nav";
 import type { NavHandlers } from "./components/nav";
 import { WhoAmI } from "./screens/WhoAmI";
@@ -526,6 +527,7 @@ function LoadingScreen({
 type Route =
   | { name: "home" }
   | { name: "activity" }
+  | { name: "league" }
   // A past run's album, opened from Activity.
   | { name: "album"; runId: string; trailId: string }
   | { name: "partner" }
@@ -1211,6 +1213,7 @@ function SignedInApp({
     () => ({
       explore: () => setRoute({ name: "home" }),
       activity: () => setRoute({ name: "activity" }),
+      league: () => setRoute({ name: "league" }),
       profile: () => setRoute({ name: "settings" }),
     }),
     [],
@@ -1358,6 +1361,14 @@ function SignedInApp({
           <Activity
             refreshKey={syncTick}
             onOpen={(past) => setRoute({ name: "album", runId: past.id, trailId: past.trailId })}
+          />
+        )}
+
+        {route.name === "league" && (
+          <Leaderboard
+            key={partner?.id ?? "solo"}
+            partnerName={partner?.name ?? null}
+            onOpenProfile={() => setRoute({ name: "settings" })}
           />
         )}
 

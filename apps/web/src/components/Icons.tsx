@@ -62,6 +62,16 @@ export const ChatIcon = (p: IconProps) => (
   </Icon>
 );
 
+// A podium: the weekly league.
+export const LeagueIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 21V9h6v12" />
+    <path d="M3 21v-7h6" />
+    <path d="M15 21v-4h6v4" />
+    <path d="M2 21h20" />
+  </Icon>
+);
+
 export const UserIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="12" cy="8" r="4" />
