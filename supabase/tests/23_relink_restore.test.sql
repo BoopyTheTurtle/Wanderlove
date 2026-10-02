@@ -2,7 +2,7 @@ begin;
 select * from no_plan();
 
 -- Fixtures: A and B are a couple with totals, a quest this week, a name, both leaderboard yeses, and a seat. C later
--- links with A. E and F, G and H, and X and Y are further couples for the 90-day, other-week, and account cases. S is a
+-- links with A. E and F, G and H, and X and Y are further couples for the 90-day, 89-day, and account cases. S is a
 -- stranger, not linked to anyone.
 insert into auth.users (id, email) values
   ('23232323-0000-0000-0000-00000000000a', 'a@test.local'),
@@ -115,22 +115,21 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- 2. Relinking the same week restores everything, the seat included
+-- 2. Relinking restores totals, quests, and name, but the leaderboard needs both yeses again
 -- ---------------------------------------------------------------------------
 
 select pg_temp.link('ab2', 'b', 'a');
 select pg_temp.login(pg_temp.u('a'));
-select is(pg_temp.seen(), '3/4/7/300|1|Wild Ones|t,t,t', 'A sees the totals, quest, name, and opt-in again');
+select is(pg_temp.seen(), '3/4/7/300|1|Wild Ones|f,f,f', 'A sees the totals, quest, and name again, but no opt-in');
 select pg_temp.login(pg_temp.u('b'));
-select is(pg_temp.seen(), '3/4/7/300|1|Wild Ones|t,t,t', 'so does B');
+select is(pg_temp.seen(), '3/4/7/300|1|Wild Ones|f,f,f', 'so does B');
 reset role;
-select is(pg_temp.seats('ab2'), 1, 'the new couple has the old seat');
-select is(
-  (select league from private.league_seats where couple_id = pg_temp.u('ab2')),
-  0, 'in the same league'
-);
+select is(pg_temp.seats('ab2'), 0, 'the new couple has no seat');
 select is(pg_temp.archives(), 0, 'and the archive is gone');
 select pg_temp.login(pg_temp.u('a'));
+select is(public.join_leaderboard(), 'waiting', 'A says yes again');
+select pg_temp.login(pg_temp.u('b'));
+select is(public.join_leaderboard(), 'joined', 'B says yes again');
 select is((select format('%s:%s', couple_name, weekly_points) from public.my_league() where is_me), 'Wild Ones:200',
   'the board shows the couple with this week''s quest');
 
@@ -164,7 +163,7 @@ select is(
 select is(pg_temp.archives(), 1, 'and kept the fresh one of A and C');
 
 -- ---------------------------------------------------------------------------
--- 4. A relink in another week restores all but the seat
+-- 4. A relink weeks later still restores within 90 days
 -- ---------------------------------------------------------------------------
 
 select pg_temp.link('d1d', '1', '2');
@@ -173,17 +172,15 @@ select pg_temp.login(pg_temp.u('1'));
 select is(public.join_leaderboard(), 'waiting', 'G says yes');
 select pg_temp.login(pg_temp.u('2'));
 select is(public.join_leaderboard(), 'joined', 'H says yes');
-select is((select couple_name from public.my_league() where is_me), 'Night Owls', 'G and H take a seat');
 select lives_ok($$ select public.unlink() $$, 'H unlinks');
 reset role;
--- The unlink happened last week.
-update private.couple_archives set unlinked_at = now() - interval '7 days', seat_week = seat_week - 7
+update private.couple_archives set unlinked_at = now() - interval '89 days'
 where user_lo = pg_temp.u('1') and user_hi = pg_temp.u('2');
 select pg_temp.link('d2d', '1', '2');
 select pg_temp.login(pg_temp.u('1'));
-select is(pg_temp.seen(), '3/4/7/300|1|Night Owls|t,t,t', 'G and H get their totals, quest, name, and opt-in back');
+select is(pg_temp.seen(), '3/4/7/300|1|Night Owls|f,f,f', 'G and H get their totals, quest, and name back at 89 days');
 reset role;
-select is(pg_temp.seats('d2d'), 0, 'but not last week''s seat');
+select is(pg_temp.seats('d2d'), 0, 'but no seat');
 
 -- ---------------------------------------------------------------------------
 -- 5. After 90 days nothing comes back

@@ -222,9 +222,10 @@ The couple chooses a name, checked against a word filter. The server keeps lifet
 quests done, photos taken, challenges completed, and points scored. The totals live in their own table, because the
 photos themselves go after a month and the counts must outlive them; the journey map's position reads from them.
 
-Unlinking hides the couple's totals, points, quest points, name, and leaderboard opt-in in an archive keyed by the two
-people, which nobody can read, the two included. If the same two people link again within 90 days, the new couple gets
-it all back, and this week's league seat too when the relink falls in the same week; the archive then goes. A partner
+Unlinking hides the couple's totals, points, quest points, and name in an archive keyed by the two people, which nobody
+can read, the two included. If the same two people link again within 90 days, the new couple gets it all back and the
+archive goes. The leaderboard opt-in never comes back: both partners say yes again, so a forced relink (threat N2)
+never puts a couple back on the board. A partner
 who links with someone else gets nothing from it. After 90 days the archive is deleted: each link and unlink purges
 expired archives, since nothing runs on a schedule in the database, and a restore never takes an expired one. Deleting
 either account deletes it at once. Migration `20261002120000_relink_restore.sql` holds the rules.
