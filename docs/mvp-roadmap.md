@@ -204,6 +204,10 @@ can't. The local stack passed all three checks; the two-phone check is open. The
 in the same 512 px frame, so an illustrator's parts can replace the SVG later
 ([components/avatar/README.md](../apps/web/src/components/avatar/README.md)).
 
+**Later, after the other MVP basics:** full-body avatars. Home shows the couple as two round portraits joined by a heart,
+where the light-trail mockup has them walking hand in hand. Extending the SVG parts below the shoulders (torso, arms,
+legs, shoes, held hands) in the same frame system should let them stand on the path.
+
 ### 6. Journey map home
 
 The illustrated map from A5, where village, countryside, and city meet, with a path of points that never ends: the
@@ -214,7 +218,13 @@ point and move one point per finished quest; the next point opens a quest. The s
 
 **Status, October 1:** merged (PR 65). Edgar picked the third concept (rich detail, markers set into the path). The art
 has nine markers; the couple stands on marker `quests_done mod 9` and a fresh copy of the scene follows every nine
-quests, until tiling art replaces the copy. Progress survives a relink within 90 days (see stage 7).
+quests, until tiling art replaces the copy.
+
+**Status, October 2:** Edgar asked for less detail and no markers, and picked the "light trail" art
+([prompt](design/prompts/home-light-trail.md)): one painted scene behind Home, the couple standing on the path in the
+lower third, and a glow running ahead of them to the horizon. The markers, the repeating scenes, and the walk animation
+are gone; quests done feeds only the scene's screen-reader label for now. Progress survives a relink within 90 days
+(PR 69, stage 7).
 
 ### 7. Couple name, stats, and points
 
@@ -225,10 +235,9 @@ photos themselves go after a month and the counts must outlive them; the journey
 Unlinking hides the couple's totals, points, quest points, and name in an archive keyed by the two people, which nobody
 can read, the two included. If the same two people link again within 90 days, the new couple gets it all back and the
 archive goes. The leaderboard opt-in never comes back: both partners say yes again, so a forced relink (threat N2)
-never puts a couple back on the board. A partner
-who links with someone else gets nothing from it. After 90 days the archive is deleted: each link and unlink purges
-expired archives, since nothing runs on a schedule in the database, and a restore never takes an expired one. Deleting
-either account deletes it at once. Migration `20261002120000_relink_restore.sql` holds the rules.
+never puts a couple back on the board. A partner who links with someone else gets nothing from it. After 90 days the
+archive is deleted: each link and unlink purges expired archives, since nothing runs on a schedule in the database, and
+a restore never takes an expired one. Deleting either account deletes it at once. Migration `20261002120000_relink_restore.sql` holds the rules.
 
 Points come from finished quests, uploaded photos, and, weighted heavily, photos shared to social media; A3 sets the
 amounts and adds further sources later. The server awards points only for what it can confirm: a finished quest and a

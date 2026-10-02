@@ -4,14 +4,14 @@ import type { Profile } from "@wannadoo/core";
 import { BrandMark, StatusBar } from "../components/PhoneFrame";
 import { BottomNav } from "../components/BottomNav";
 import { CoupleTotalsCard } from "../components/CoupleTotals";
-import { JourneyMap, journeySeenKey } from "../components/JourneyMap";
+import { JourneyMap } from "../components/JourneyMap";
 import { BellIcon, CompassIcon, HeartIcon } from "../components/Icons";
 import { useCoupleTotals } from "../lib/coupleStats";
 import type { QuestMode } from "../lib/runs";
 import "../home.css";
 
-// Where the couple rests between quests: the journey map (docs/mvp-roadmap.md, stage 6), with the pair on the marker
-// for their finished quests, and under it the quest point that opens a quest. While linked, a new quest asks who it is for:
+// Where the couple rests between quests: the journey scene (docs/mvp-roadmap.md, stage 6) behind the screen, with the
+// pair on the path, and in its sky the quest point that opens a quest. While linked, a new quest asks who it is for:
 // Together invites the partner, Just me stays off their phone (abuse threat model, section 6, decisions 1 and 2).
 export function Home({
   me,
@@ -32,7 +32,7 @@ export function Home({
   onLinkPartner: () => void;
 }) {
   const [choosing, setChoosing] = useState(false);
-  // One load for the totals card and the map.
+  // One load for the totals card and the scene's label.
   const totals = useCoupleTotals(partner?.id ?? null);
 
   function handleQuestPoint() {
@@ -75,13 +75,7 @@ export function Home({
 
       {partner && <CoupleTotalsCard key={partner.id} totals={totals} />}
 
-      <JourneyMap
-        key={`journey-${partner?.id ?? "solo"}`}
-        me={me}
-        partner={partner}
-        questsDone={totals?.questsDone ?? null}
-        seenKey={partner ? journeySeenKey(me.id, partner.id) : null}
-      />
+      <JourneyMap me={me} partner={partner} questsDone={totals?.questsDone ?? null} />
 
       <div className="journey-point">
         <button
