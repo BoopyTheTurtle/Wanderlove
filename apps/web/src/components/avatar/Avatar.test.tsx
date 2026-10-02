@@ -48,24 +48,39 @@ describe("Avatar", () => {
     });
   });
 
+  // The full product of parts runs to 1,620 renders and timed out under a loaded suite. Face and age drive the
+  // geometry, so this walks every face, age and hair together and cycles the other parts through them: every top and
+  // facial hair still meets every face, age and hair, and every hair renders with and without accessories.
   it("renders every part combination without a broken value", () => {
     const { hair, top, facialHair, face, age } = avatarCatalog;
     const all = avatarCatalog.accessories.map((a) => a.id);
-    for (const h of hair)
-      for (const t of top)
-        for (const f of facialHair)
-          for (const fc of face)
-            for (const ag of age) {
-              const html = render({
-                ...DEFAULT_APPEARANCE,
-                hair: h.id,
-                top: t.id,
-                facialHair: f.id,
-                face: fc.id,
-                age: ag.id,
-                accessories: (fc.id + ag.id) % 2 === 0 ? all : [],
-              });
-              expect(html).not.toMatch(/NaN|undefined|null|Infinity/);
-            }
+    const seen = new Set<string>();
+    for (const fc of face)
+      for (const ag of age)
+        hair.forEach((h, i) => {
+          const t = top[(i + fc.id * age.length + ag.id) % top.length];
+          const f = facialHair[(i + fc.id + ag.id) % facialHair.length];
+          const withAccessories = (i + fc.id + ag.id) % 2 === 0;
+          const html = render({
+            ...DEFAULT_APPEARANCE,
+            hair: h.id,
+            top: t.id,
+            facialHair: f.id,
+            face: fc.id,
+            age: ag.id,
+            accessories: withAccessories ? all : [],
+          });
+          expect(html).not.toMatch(/NaN|undefined|null|Infinity/);
+          const fa = `${fc.id}/${ag.id}`;
+          for (const pair of [`top ${t.id} ${fa}`, `top ${t.id} ${h.id}`, `fh ${f.id} ${fa}`, `fh ${f.id} ${h.id}`])
+            seen.add(pair);
+          seen.add(`acc ${withAccessories} ${h.id}`);
+        });
+    // Guards the cycling above against a catalog change that would leave a pairing unrendered.
+    const faceAges = face.flatMap((fc) => age.map((ag) => `${fc.id}/${ag.id}`));
+    const others = [...faceAges, ...hair.map((h) => h.id)];
+    for (const t of top) for (const o of others) expect(seen).toContain(`top ${t.id} ${o}`);
+    for (const f of facialHair) for (const o of others) expect(seen).toContain(`fh ${f.id} ${o}`);
+    for (const h of hair) for (const on of [true, false]) expect(seen).toContain(`acc ${on} ${h.id}`);
   });
 });
