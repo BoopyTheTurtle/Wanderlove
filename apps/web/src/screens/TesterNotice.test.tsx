@@ -20,6 +20,13 @@ describe("TesterNotice", () => {
     expect(notice).toContain("A couple without a name stays off the board");
   });
 
+  it("describes tester feedback: what is stored, what never is, and deletion", () => {
+    expect(notice).toContain("Version tester-v3");
+    expect(notice).toContain("never the trail, place, or partner");
+    expect(notice).toContain("votes stay hidden until three testers have voted");
+    expect(notice).toContain("Deleting your account deletes your feedback");
+  });
+
   it("states what happens to couple data on unlink", () => {
     expect(notice).toContain("Unlinking takes your couple off the leaderboard at once");
     expect(notice).toContain("for 90 days after the unlink, then deletes them");
