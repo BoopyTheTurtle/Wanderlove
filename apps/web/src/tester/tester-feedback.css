@@ -1,0 +1,138 @@
+/* Tester feedback (docs/tester-feedback.md): the task votes, the quest comment card, and the app review card.
+   Delete with the folder. */
+
+/* Task votes: the first child of .task-card, pinned to its top right corner and centred on the eyebrow line. */
+.task-card:has(> .tester-vote) {
+  position: relative;
+}
+.task-card > .tester-vote {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.task-card:has(> .tester-vote) .quest-task-eyebrow {
+  padding-right: 72px;
+}
+.tester-vote {
+  display: flex;
+}
+.tester-vote-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.tester-vote-button .tester-thumb-fill {
+  fill: transparent;
+  transition: fill 0.15s;
+}
+.tester-vote-button[aria-pressed="true"] {
+  opacity: 1;
+}
+.tester-vote-button.up[aria-pressed="true"] .tester-thumb-fill {
+  fill: var(--brand-soft);
+}
+.tester-vote-button.down[aria-pressed="true"] .tester-thumb-fill {
+  fill: color-mix(in srgb, var(--coral) 45%, transparent);
+}
+
+/* Shared by both cards. The comment card sits on the complete screen, which centres white text; a card resets both. */
+.tester-card {
+  display: grid;
+  gap: 10px;
+  color: var(--ink);
+  text-align: left;
+}
+.tester-comment {
+  margin-top: 18px;
+  padding: 18px;
+}
+.tester-title {
+  font-size: 17px;
+  font-weight: 800;
+}
+.tester-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--card);
+  resize: none;
+}
+.tester-textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+.tester-textarea:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.tester-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -4px;
+}
+.tester-link {
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.tester-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+.tester-thanks {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.tester-quiet {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.tester-send {
+  margin-top: 2px;
+}
+
+/* App review: a Profile card, with each field's label above its text area. */
+.tester-field {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+/* The text area shows its own focus ring, so the label's from index.css would double it. */
+.tester-field:focus-within {
+  outline: none;
+}
+.tester-review .settings-note.tester-email {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+}
+.tester-email a {
+  color: var(--brand);
+  font-weight: 700;
+}
