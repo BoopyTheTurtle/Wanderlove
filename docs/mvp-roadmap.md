@@ -1,6 +1,6 @@
 # MVP roadmap: the random quest, the journey map, and play
 
-Status: in progress, October 1, 2026: stages 1 and 1b, 3, 4, and 5 are merged; stage 2 awaits its simulation. Owner: Edgar. Follows the [internal build](internal-build.md), which delivered
+Status: built, October 2, 2026: every stage's code is merged; Edgar's two-phone checks remain. Owner: Edgar. Follows the [internal build](internal-build.md), which delivered
 accounts, linking, trails, encrypted photos, and saving.
 
 The MVP turns Wannadoo into one repeatable ritual. A couple opens the app, taps the next point on an illustrated
@@ -254,6 +254,11 @@ clears it, a server-side word filter with a starter list Edgar reviewed), and po
 5 per photo (5 of each per quest), 100 per finished quest, 30 for the week's first. Only Together runs count. Share
 points wait for the share flow; special-quest points wait for a way to confirm a sealed special quest.
 
+**Status, October 2:** sharing merged (PRs 80, 84, 85). Either partner proposes one photo of a finished Together
+quest; the partner approves it on their own phone, or a standing consent in Profile approves it at once and one tap
+withdraws it. Twenty points arrive only after the phone's share sheet completes, capped at one per quest and three a
+week; a computer without a share sheet saves the photo and earns nothing (Edgar).
+
 ### 8. Weekly leaderboard
 
 Opt-in weekly leagues of about 30 randomly drawn couples, showing couple names and a band ("top third") rather than a
@@ -270,11 +275,21 @@ tests cover the stranger's view and the instant opt-out; the two-phone check is 
 
 The features from A3's shortlist that survive its synthesis, one at a time.
 
+**Status, October 2:** merged (PRs 77, 80, 82, 84, 85). A weekly rhythm card on Home (filled weeks, a count-up for the
+season, an optional goal either partner can set or pause); memory badges (first walk, after dark, each season's first
+walk, a special quest), claimed once per quest at the finish and shown in Activity, with no points and no list of
+locked badges; the rain badge exists but the server refuses it until the app has live weather (Edgar); and **Plan the
+next walk** on the complete screen, with no follow-up on a missed plan.
+
 ### 10. Notifications
 
 The bell becomes an in-app feed now: partner activity, a new week on the leaderboard, a gentle nudge. A separate spec
 covers push notifications for the native app, with reminders to go for a stroll or to compliment a partner, informed
 by A2 and A3.
+
+**Status, October 2:** merged (PRs 78, 80, 81). The bell opens a feed of badges, a new league week, planned walks, and
+share requests and answers. Following threat model X1, the feed never reports that a partner started or finished a
+quest. [push-notifications.md](push-notifications.md) specifies push for the native app.
 
 ### 11. Safety v2
 
