@@ -8,6 +8,8 @@ import { CoupleNameSection } from "../components/CoupleNameSection";
 import { LeagueSettingsSection } from "./Leaderboard";
 import { formatRecoveryCode } from "../lib/crypto";
 import { PairEmoji } from "./PartnerKeyConfirm";
+import { AppReviewCard } from "../tester/AppReviewCard";
+import { sendTesterReview } from "../tester/appReview";
 import "../keys.css";
 import "../settings.css";
 
@@ -191,6 +193,8 @@ export function Settings({
           </p>
         )}
       </section>
+
+      <AppReviewCard onSend={sendTesterReview} />
 
       {hiddenPhotoCount > 0 && (
         <section className="card settings-card settings-devices" aria-labelledby="settings-hidden-title">

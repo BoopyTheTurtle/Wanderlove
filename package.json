@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tools/feedback-report"
   ],
   "engines": {
     "node": ">=22"
@@ -25,7 +26,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "db:types": "supabase gen types typescript --local > apps/web/src/lib/database.types.ts && prettier --write apps/web/src/lib/database.types.ts"
+    "db:types": "supabase gen types typescript --local > apps/web/src/lib/database.types.ts && prettier --write apps/web/src/lib/database.types.ts",
+    "feedback:report": "vite-node tools/feedback-report/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
