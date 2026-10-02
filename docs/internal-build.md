@@ -154,9 +154,8 @@ stops, and a simulation script.
 
 **Next:**
 
-1. **[You] [Legal]** Tester feedback is live, but the tester notice doesn't mention it yet. Sign off the paragraph in
-   [tester-feedback.md](tester-feedback.md) section 5; the agent then bumps the notice to `tester-v3`, which the update
-   gate shows every current tester. Also answer the spec's three open questions.
+1. **[You]** Answer the three open questions in [tester-feedback.md](tester-feedback.md). The notice paragraph is
+   signed off and live as `tester-v3`.
 2. **[You]** On two phones, the new MVP pieces: the rhythm card and a goal set on one shows on the other; a finished
    quest claims its badges once and shows them in Activity; a planned walk appears in the partner's feed and either
    can cancel it; a photo share is approved, declined, and auto-approved under standing consent, and the real share

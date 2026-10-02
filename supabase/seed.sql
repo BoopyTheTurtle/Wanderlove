@@ -26,7 +26,7 @@ where email like '%@wannadoo.test';
 
 -- The sign-up trigger created the profiles; finish onboarding for them.
 update public.profiles p
-set display_name = v.name, age_confirmed_at = now(), terms_version = 'tester-v2', terms_accepted_at = now()
+set display_name = v.name, age_confirmed_at = now(), terms_version = 'tester-v3', terms_accepted_at = now()
 from (values
   ('00000000-0000-0000-0000-00000000000a'::uuid, 'Daniel'),
   ('00000000-0000-0000-0000-00000000000b'::uuid, 'Emma'),

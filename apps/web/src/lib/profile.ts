@@ -6,7 +6,7 @@ import { supabase } from "./supabase";
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 // The tester notice version the onboarding tick box accepts.
-export const TERMS_VERSION = "tester-v2";
+export const TERMS_VERSION = "tester-v3";
 
 const COLORS = ["#8b2e45", "#ff7a8a", "#e9a23b", "#5b8def", "#9b6bd6", "#3fae6b"];
 

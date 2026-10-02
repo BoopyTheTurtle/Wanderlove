@@ -17,7 +17,7 @@ export function TesterNotice() {
             <BrandMark /> Wannadoo
           </p>
           <h1>Tester notice</h1>
-          <p className="tester-notice-version">Version tester-v2 · October 2, 2026</p>
+          <p className="tester-notice-version">Version tester-v3 · October 2, 2026</p>
         </header>
 
         <article className="card tester-notice-body">
@@ -39,6 +39,7 @@ export function TesterNotice() {
             <li>The stops you complete</li>
             <li>Your photos</li>
             <li>Your couple name and points, once you link with a partner</li>
+            <li>Your task votes and feedback, if you give any</li>
           </ul>
           <p>
             Your GPS position stays on your phone, except as described under &ldquo;Who sees your data&rdquo;. The app
@@ -89,6 +90,14 @@ export function TesterNotice() {
             things about you: your couple name and this week&rsquo;s points, which add up your three best quests
             finished this week. They see no rank, display names, avatars, locations, or photos, and nothing on the board
             links anywhere. A couple without a name stays off the board.
+          </p>
+
+          <h2>Feedback</h2>
+          <p>
+            If you vote on a task or write to me, I store your vote or words with your account, the app version, and the
+            day, but never the trail, place, or partner. I read feedback without names, and a task&rsquo;s votes stay
+            hidden until three testers have voted on it. Deleting your account deletes your feedback. I delete all
+            feedback when testing ends.
           </p>
 
           <h2>Deleting photos</h2>

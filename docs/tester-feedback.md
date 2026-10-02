@@ -158,13 +158,11 @@ Five rules keep the feature separate:
 
 ## 5. Tester notice [Legal]
 
-Collecting feedback is new processing, so the notice needs a paragraph and a version bump to `tester-v3`, which the
-update gate from PR 76 shows to every current tester. Proposed text:
-
-> **Feedback.** If you vote on a task or write to us, we store your vote or words with your account, the app version,
-> and the day, but never the trail, place, or partner. We read feedback without names, and a task's votes stay hidden
-> until three testers have voted on it. Deleting your account deletes your feedback. We delete all feedback when
-> testing ends.
+Edgar signed off the notice paragraph on October 2, and the notice moved to `tester-v3`, which the update gate shows to
+every current tester. The notice speaks in Edgar's first person, so its **Feedback** section reads: "If you vote on a
+task or write to me, I store your vote or words with your account, the app version, and the day, but never the trail,
+place, or partner. I read feedback without names, and a task's votes stay hidden until three testers have voted on
+it. Deleting your account deletes your feedback. I delete all feedback when testing ends."
 
 ## 6. Tests
 
