@@ -395,6 +395,7 @@ export type Database = {
           finish_points: number;
           photo_points: number;
           run_id: string;
+          share_points: number;
           stop_points: number;
           total: number | null;
           updated_at: string;
@@ -406,6 +407,7 @@ export type Database = {
           finish_points?: number;
           photo_points?: number;
           run_id: string;
+          share_points?: number;
           stop_points?: number;
           total?: never;
           updated_at?: string;
@@ -417,6 +419,7 @@ export type Database = {
           finish_points?: number;
           photo_points?: number;
           run_id?: string;
+          share_points?: number;
           stop_points?: number;
           total?: never;
           updated_at?: string;
@@ -869,9 +872,14 @@ export type Database = {
     Functions: {
       accept_run: { Args: { p_run_id: string }; Returns: string };
       accept_terms: { Args: { p_version: string }; Returns: undefined };
+      answer_share: { Args: { p_approve: boolean; p_share_id: string }; Returns: string };
+      cancel_planned_walk: { Args: Record<PropertyKey, never>; Returns: boolean };
+      cancel_share: { Args: { p_share_id: string }; Returns: undefined };
+      claim_badges: { Args: { p_badges?: string[]; p_run: string }; Returns: string[] };
       clear_couple_name: { Args: Record<PropertyKey, never>; Returns: undefined };
       confirm_couple_name: { Args: { p_name?: string }; Returns: string };
       confirm_link: { Args: { p_request: string }; Returns: string };
+      confirm_share: { Args: { p_share_id: string }; Returns: number };
       couple_name: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -891,6 +899,7 @@ export type Database = {
           storage_path: string;
         }[];
       };
+      feed_unread_count: { Args: Record<PropertyKey, never>; Returns: number };
       join_leaderboard: { Args: Record<PropertyKey, never>; Returns: string };
       leaderboard_status: {
         Args: Record<PropertyKey, never>;
@@ -902,7 +911,26 @@ export type Database = {
         }[];
       };
       leave_leaderboard: { Args: Record<PropertyKey, never>; Returns: undefined };
+      mark_feed_read: { Args: { p_ids?: number[] }; Returns: number };
       mark_recovery_viewed: { Args: Record<PropertyKey, never>; Returns: string };
+      my_badges: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          badge: string;
+          earned_on: string;
+          scope: string;
+        }[];
+      };
+      my_feed: {
+        Args: { p_limit?: number };
+        Returns: {
+          created_at: string;
+          id: number;
+          kind: string;
+          payload: Json;
+          read_at: string;
+        }[];
+      };
       my_league: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -913,7 +941,39 @@ export type Database = {
           weekly_points: number;
         }[];
       };
+      my_planned_walk: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          day: string;
+          planned_by_me: boolean;
+          slot: string;
+        }[];
+      };
+      my_rhythm: {
+        Args: { p_weeks?: number };
+        Returns: {
+          day: string;
+          quests: number;
+        }[];
+      };
+      pause_rhythm_goal: { Args: { p_paused: boolean }; Returns: undefined };
       peek_invite: { Args: { p_code: string }; Returns: Json };
+      pending_share_requests: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          photo_id: string;
+          run_id: string;
+          share_id: string;
+        }[];
+      };
+      plan_walk: { Args: { p_day: string; p_slot: string }; Returns: undefined };
+      propose_share: {
+        Args: { p_photo_id: string };
+        Returns: {
+          share_id: string;
+          status: string;
+        }[];
+      };
       purge_photos: {
         Args: { p_photo_ids: string[] };
         Returns: {
@@ -930,7 +990,28 @@ export type Database = {
           lng: number;
         }[];
       };
+      rhythm_goal: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          goal: string;
+          paused: boolean;
+        }[];
+      };
+      run_share: {
+        Args: { p_run_id: string };
+        Returns: {
+          auto: boolean;
+          photo_id: string;
+          points: number;
+          proposed_by_me: boolean;
+          share_id: string;
+          status: string;
+        }[];
+      };
       set_couple_name: { Args: { p_name: string }; Returns: string };
+      set_rhythm_goal: { Args: { p_goal: string }; Returns: undefined };
+      set_share_consent: { Args: { p_on: boolean }; Returns: undefined };
+      share_consent: { Args: Record<PropertyKey, never>; Returns: boolean };
       share_run_keys: { Args: { p_keys: Json }; Returns: undefined };
       start_run: {
         Args: {
@@ -947,6 +1028,29 @@ export type Database = {
         };
         Returns: string;
       };
+      tester_my_task_votes: {
+        Args: { p_task_ids: string[] };
+        Returns: {
+          task_id: string;
+          vote: number;
+        }[];
+      };
+      tester_send_app_review: {
+        Args: { p_app_version?: string; p_likes?: string; p_overall?: string; p_wishes?: string };
+        Returns: undefined;
+      };
+      tester_send_quest_comment: {
+        Args: {
+          p_app_version?: string;
+          p_body: string;
+          p_mode?: string;
+          p_quest_ref: string;
+          p_question?: string;
+          p_tasks_done?: number;
+        };
+        Returns: undefined;
+      };
+      tester_vote_task: { Args: { p_task_id: string; p_vote: number }; Returns: undefined };
       unlink: { Args: Record<PropertyKey, never>; Returns: undefined };
     };
     Enums: {
