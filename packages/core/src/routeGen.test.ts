@@ -23,8 +23,13 @@ type StubOptions = {
   // Legs touching any of these points come back as ferry legs.
   ferryAt?: LatLng[];
   // Where the router puts each waypoint: a street name, metres moved north onto the path, and the snap distance.
-  // `at` puts the waypoint at that exact position instead. `call` counts router calls from 0.
-  snapTo?: (index: number, call: number) => { street?: string; north?: number; distance?: number; at?: LatLng };
+  // `at` puts the waypoint at that exact position instead. `call` counts router calls from 0; `sent` is the waypoint
+  // as requested.
+  snapTo?: (
+    index: number,
+    call: number,
+    sent: LatLng,
+  ) => { street?: string; north?: number; distance?: number; at?: LatLng };
   // How each Overpass server answers: "ok" (the default), an HTTP status such as 504, or "hang" until aborted.
   overpassServer?: (url: string) => "ok" | "hang" | number;
 };
@@ -70,7 +75,7 @@ function stubFetch({
     if (snapTo) {
       const call = routerCallTimes.length - 1;
       json.waypoints = json.waypoints!.map((_, i) => {
-        const { street, north = 0, distance = 0, at } = snapTo(i, call);
+        const { street, north = 0, distance = 0, at } = snapTo(i, call, pts[i]);
         const moved = at ?? offset(north, 0, pts[i]);
         return { distance, location: [moved.lng, moved.lat], name: street };
       });
@@ -272,9 +277,17 @@ describe("generateRoute", () => {
   });
 
   it("fills a quiet area with street corners named after their streets", async () => {
+    // Each corner gets its own street, kept across router calls: a corner rejected on the first call and replaced on
+    // the next must not inherit a street that an earlier corner already took.
+    const streets = new Map<string, number>();
+    const streetAt = (p: LatLng) => {
+      const key = `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
+      if (!streets.has(key)) streets.set(key, streets.size + 1);
+      return `Street ${streets.get(key)}`;
+    };
     stubFetch({
       overpass: { candidates: places().slice(0, 2) },
-      snapTo: (i) => ({ street: `Street ${i}`, north: 20, distance: 20 }),
+      snapTo: (_, __, sent) => ({ street: streetAt(sent), north: 20, distance: 20 }),
     });
     const { generateRoute } = await loadRouteGen();
     const { trail } = await settle(generateRoute(START, false));
@@ -282,7 +295,8 @@ describe("generateRoute", () => {
     expect(trail.stops).toHaveLength(5);
     const corners = trail.stops.filter((s) => s.eyebrow.endsWith("Street corner"));
     expect(corners.length).toBe(3);
-    for (const s of corners) expect(s.name).toMatch(/^On Street \d$/);
+    for (const s of corners) expect(s.name).toMatch(/^On Street \d+$/);
+    expect(new Set(corners.map((s) => s.name)).size).toBe(3);
     expect(trail.stops.filter((s) => s.name.startsWith("Place")).length).toBe(2);
   });
 
