@@ -1,4 +1,4 @@
-/* Home: the journey map (components/JourneyMap.css), and under it the quest point that opens the next quest. */
+/* Home: the journey scene (components/JourneyMap.css), and in its sky the quest point that opens the next quest. */
 .journey-screen {
   display: flex;
   flex-direction: column;
