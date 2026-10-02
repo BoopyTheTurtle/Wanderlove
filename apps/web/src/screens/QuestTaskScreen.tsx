@@ -8,6 +8,7 @@ import { ReportStop } from "../components/ReportStopSheet";
 import type { ReportReason } from "../lib/stopReports";
 import { BackIcon, CameraIcon, ChatIcon, ClockIcon, HeartIcon } from "../components/Icons";
 import { QUIET_STOP_LINE } from "../lib/routeSafety";
+import { TaskVote } from "../tester/TaskVote";
 import "../route-safety.css";
 import "../quest-task.css";
 
@@ -112,6 +113,7 @@ export function QuestTaskScreen({
 
       <div className="challenge-sheet">
         <section className="card task-card" aria-labelledby={headingId}>
+          <TaskVote taskId={task.id} />
           <p className="quest-task-eyebrow">
             Stop {stopNumber} · {category.label}
           </p>

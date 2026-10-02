@@ -1,0 +1,15 @@
+{
+  "name": "@wannadoo/feedback-report",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Writes the tester feedback report (docs/tester-feedback.md, section 3.3). Removed with the feature.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wannadoo/core": "*",
+    "postgres": "^3.4.9"
+  }
+}

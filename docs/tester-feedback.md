@@ -150,7 +150,7 @@ Five rules keep the feature separate:
 
 1. Export the last report with `npm run feedback:report`.
 2. Set the switch off, delete `apps/web/src/tester/`, `lib/testerFeedback.ts`, the three mount lines, and
-   `tools/feedback-report`.
+   `tools/feedback-report`, then drop that folder from the root `workspaces` and the `feedback:report` script.
 3. Add a migration that drops schema `tester_feedback` with `cascade` and the four `tester_` functions, and delete the
    matching pgTAP file.
 4. Remove the feedback paragraph from the tester notice and bump its version.
