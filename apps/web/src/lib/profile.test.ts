@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { needsTermsUpdate, TERMS_VERSION } from "./profile";
 import type { ProfileRow } from "./profile";
+
+vi.mock("./supabase", () => ({ supabase: {} }));
 
 const row = (over: Partial<ProfileRow>) =>
   ({

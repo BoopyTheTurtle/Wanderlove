@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TermsUpdate } from "./TermsUpdate";
+
+vi.mock("../lib/supabase", () => ({ supabase: {} }));
 
 describe("TermsUpdate", () => {
   const html = renderToStaticMarkup(<TermsUpdate userId="u" onDone={() => {}} onSignOut={() => {}} />);
