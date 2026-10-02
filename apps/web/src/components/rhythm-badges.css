@@ -1,0 +1,229 @@
+/* The weekly rhythm card, the badge shelf on Activity, and the badge note at quest finish. White cards on the
+   gradient. An empty week is plain, never red: only the brand colour marks a walk. */
+.rhythm-card,
+.badge-shelf,
+.badge-note {
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 8px 24px #2e0d1633;
+}
+
+.rhythm-card {
+  margin: 0 20px;
+  padding: 14px 16px 16px;
+}
+.rhythm-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rhythm-kicker,
+.badge-shelf-kicker {
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.rhythm-link {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.rhythm-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rhythm-weeks {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.rhythm-week {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.rhythm-mark {
+  width: 100%;
+  max-width: 52px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--line);
+}
+.rhythm-week.filled .rhythm-mark {
+  background: linear-gradient(135deg, var(--brand-mid), var(--brand));
+}
+.rhythm-week.current .rhythm-mark {
+  box-shadow:
+    0 0 0 2px var(--card),
+    0 0 0 4px var(--brand-soft);
+}
+.rhythm-week.upcoming .rhythm-mark {
+  background: var(--brand-wash);
+}
+.rhythm-week small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rhythm-week.current small {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.rhythm-line {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.rhythm-goal {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.rhythm-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+.rhythm-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--brand-soft);
+}
+.rhythm-dot.done {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.rhythm-paused {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-wash);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rhythm-goal-edit {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+.rhythm-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rhythm-choice {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rhythm-choice.chosen {
+  border-color: var(--brand);
+  background: var(--brand-wash);
+  color: var(--brand-dark);
+}
+.rhythm-choice:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.rhythm-edit-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rhythm-error {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Badges */
+.badge-glyph {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+
+.badge-shelf {
+  margin: 0 20px 14px;
+  padding: 14px 16px 6px;
+}
+.badge-shelf ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.badge-shelf li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.badge-shelf li + li {
+  border-top: 1px solid var(--line);
+}
+.badge-shelf-copy,
+.badge-note-row > span:last-child {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.badge-shelf-copy strong,
+.badge-note-row strong {
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.badge-shelf-copy span,
+.badge-note-row strong + span {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.badge-shelf small {
+  flex: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.badge-note {
+  padding: 10px 14px;
+  display: grid;
+  gap: 8px;
+}
+.badge-note-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

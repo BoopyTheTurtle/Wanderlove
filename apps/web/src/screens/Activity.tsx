@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { BottomNav } from "../components/BottomNav";
+import { BadgeShelf } from "../components/BadgeShelf";
 import { CameraIcon, ChevronIcon, FlagIcon } from "../components/Icons";
 import { useRunKeyLoader } from "../lib/photoKeys";
 import { journeyDay, listPastRuns, photosRemoved, type PastRun } from "../lib/runs";
@@ -12,7 +13,7 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-// Past journeys, newest first; each opens its album. `refreshKey` reloads the list, keeping it on screen meanwhile.
+// Earned memory badges, then past journeys, newest first; each opens its album. `refreshKey` reloads the list, keeping it on screen meanwhile.
 export function Activity({ refreshKey, onOpen }: { refreshKey: number; onOpen: (run: PastRun) => void }) {
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -41,6 +42,8 @@ export function Activity({ refreshKey, onOpen }: { refreshKey: number; onOpen: (
           <h2>Your journeys</h2>
         </div>
       </div>
+
+      <BadgeShelf refreshKey={refreshKey} />
 
       {loaded.status === "loading" && <p className="activity-note">Loading your journeys…</p>}
       {loaded.status === "error" && (
