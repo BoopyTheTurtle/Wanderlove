@@ -11,6 +11,8 @@
 //     wannadoo_invite_key      { user: keyId }          keys        checked, clean
 //     wannadoo_recovery_hint_done  [user]               keyStore    clean
 //     wannadoo_safety_note     { user: { quests, hidden } }  routeSafety  clean
+//     wannadoo_badge_claims    { user: runId[] }        useQuestBadges  clean
+//     wannadoo_tester_commented  [hashed quest refs]   tester/commentSender  clean (whole; removed with tester feedback)
 //     sb-<project>-auth-token  the Supabase session     supabase-js sign-out, clean
 //   IndexedDB wannadoo-keys    { user: device keys }    keyStore    clean (the database goes once empty)
 //   Memory                     run keys, place cache    keyStore, core   place cache: sign-out; clean reloads the page
@@ -26,6 +28,11 @@ import { clearPendingInvite, forgetLinkState, forgetOpenInvite, forgetPartner } 
 // Owned by lib/keys.ts, which keeps them private.
 const PINS_KEY = "wannadoo_partner_keys";
 const EXPECTED_KEY = "wannadoo_invite_key";
+// Owned by lib/useQuestBadges.ts.
+const BADGE_CLAIMS_KEY = "wannadoo_badge_claims";
+// Owned by tester/commentSender.ts. Its entries are hashes, not per user, so clean drops the list whole. Delete this
+// line with the tester feedback (docs/tester-feedback.md, section 4).
+const TESTER_COMMENTED_KEY = "wannadoo_tester_commented";
 
 // Removes one user's entry from a { [userId]: ... } map, and the map once it is empty.
 function forgetUserEntry(key: string, userId: string) {
@@ -61,5 +68,11 @@ export async function clearAllForUser(userId: string): Promise<void> {
   forgetUserEntry(EXPECTED_KEY, userId);
   forgetRecoveryHint(userId);
   forgetSafetyNote(userId);
+  forgetUserEntry(BADGE_CLAIMS_KEY, userId);
+  try {
+    localStorage.removeItem(TESTER_COMMENTED_KEY);
+  } catch {
+    // Storage blocked: nothing is stored either.
+  }
   await forgetDeviceKeys(userId);
 }

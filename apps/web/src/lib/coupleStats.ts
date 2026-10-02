@@ -72,13 +72,21 @@ export function useCoupleTotals(partnerId: string | null): CoupleTotals | null {
 
 // What one couple quest earned (gamification.md, 4.1). The server caps each part; total is their sum. The app shows it
 // after the walk, never during one.
-export type QuestPoints = { total: number; stops: number; photos: number; finish: number; weekBonus: number };
+export type QuestPoints = {
+  total: number;
+  stops: number;
+  photos: number;
+  finish: number;
+  weekBonus: number;
+  share: number;
+};
 
 type QuestPointsRow = {
   stop_points: number | null;
   photo_points: number | null;
   finish_points: number | null;
   week_bonus: number | null;
+  share_points?: number | null;
   total: number | null;
 };
 
@@ -88,14 +96,15 @@ export function questPointsFromRow(row: QuestPointsRow | null | undefined): Ques
   const photos = row.photo_points ?? 0;
   const finish = row.finish_points ?? 0;
   const weekBonus = row.week_bonus ?? 0;
-  return { total: row.total ?? stops + photos + finish + weekBonus, stops, photos, finish, weekBonus };
+  const share = row.share_points ?? 0;
+  return { total: row.total ?? stops + photos + finish + weekBonus + share, stops, photos, finish, weekBonus, share };
 }
 
 // One run's points, or null when it has none yet. RLS shows only the active couple's runs.
 export async function loadQuestPoints(runId: string): Promise<QuestPoints | null> {
   const { data, error } = await supabase
     .from("quest_points")
-    .select("stop_points, photo_points, finish_points, week_bonus, total")
+    .select("stop_points, photo_points, finish_points, week_bonus, share_points, total")
     .eq("run_id", runId)
     .maybeSingle();
   if (error) throw error;
@@ -109,6 +118,7 @@ export function pointsBreakdown(points: QuestPoints): string[] {
     [points.photos, "photos"],
     [points.finish, "finishing"],
     [points.weekBonus, "your first walk this week"],
+    [points.share, "sharing a photo"],
   ];
   return parts.filter(([n]) => n > 0).map(([n, what]) => `${n.toLocaleString("en-GB")} for ${what}`);
 }

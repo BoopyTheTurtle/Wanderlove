@@ -99,7 +99,14 @@ const pointsRow = (stops: number, photos: number, finish: number, bonus: number)
 describe("quest points", () => {
   it("maps the run's row", async () => {
     result = { data: pointsRow(50, 25, 100, 30), error: null };
-    expect(await loadQuestPoints("run-1")).toEqual({ total: 205, stops: 50, photos: 25, finish: 100, weekBonus: 30 });
+    expect(await loadQuestPoints("run-1")).toEqual({
+      total: 205,
+      stops: 50,
+      photos: 25,
+      finish: 100,
+      weekBonus: 30,
+      share: 0,
+    });
     expect(calls).toContainEqual({ method: "from", args: ["quest_points"] });
     expect(calls).toContainEqual({ method: "eq", args: ["run_id", "run-1"] });
   });
@@ -111,19 +118,24 @@ describe("quest points", () => {
   it("adds the parts when the total is missing", () => {
     expect(
       questPointsFromRow({ stop_points: 10, photo_points: null, finish_points: 100, week_bonus: 0, total: null }),
-    ).toEqual({ total: 110, stops: 10, photos: 0, finish: 100, weekBonus: 0 });
+    ).toEqual({ total: 110, stops: 10, photos: 0, finish: 100, weekBonus: 0, share: 0 });
   });
 
   it("lists only the parts that earned something", () => {
-    expect(pointsBreakdown({ total: 205, stops: 50, photos: 25, finish: 100, weekBonus: 30 })).toEqual([
+    expect(pointsBreakdown({ total: 205, stops: 50, photos: 25, finish: 100, weekBonus: 30, share: 0 })).toEqual([
       "50 for stops",
       "25 for photos",
       "100 for finishing",
       "30 for your first walk this week",
     ]);
-    expect(pointsBreakdown({ total: 150, stops: 50, photos: 0, finish: 100, weekBonus: 0 })).toEqual([
+    expect(pointsBreakdown({ total: 150, stops: 50, photos: 0, finish: 100, weekBonus: 0, share: 0 })).toEqual([
       "50 for stops",
       "100 for finishing",
+    ]);
+    expect(pointsBreakdown({ total: 170, stops: 50, photos: 0, finish: 100, weekBonus: 0, share: 20 })).toEqual([
+      "50 for stops",
+      "100 for finishing",
+      "20 for sharing a photo",
     ]);
   });
 });

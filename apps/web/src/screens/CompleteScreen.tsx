@@ -8,6 +8,8 @@ import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
 import { PlanNextWalk } from "../components/PlanNextWalk";
 import { ShareProposal } from "../components/ShareProposal";
+import { QuestBadges } from "../components/BadgeEarnedNote";
+import { QuestComment } from "../tester/QuestComment";
 import { stopFilePrefix } from "../lib/album";
 import { canAddPhotos, completedCount, journeyDay, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
 import { useRun } from "../lib/useRun";
@@ -158,7 +160,7 @@ export function CompleteScreen({
 
       <QuestPointsNote points={points} />
 
-      {/* Reserved: the badge note mounts here. */}
+      <QuestBadges run={past ? null : run} meId={meId} />
 
       <button type="button" className="btn-primary light" onClick={onLeave}>
         {past ? (
@@ -191,7 +193,12 @@ export function CompleteScreen({
         />
       )}
 
-      {/* Reserved: the tester comment card mounts here. */}
+      <QuestComment
+        runId={runId}
+        userId={meId}
+        mode={run.coupleId ? "together" : "solo"}
+        tasksDone={Object.keys(run.completions).length}
+      />
 
       {!removed && (
         <AlbumActions
