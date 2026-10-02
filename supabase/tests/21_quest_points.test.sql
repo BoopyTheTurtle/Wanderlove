@@ -191,8 +191,8 @@ select is((select points from public.couple_stats), 460, 'and the same total');
 select is(
   (select array_agg(key order by key) from public.quest_points q, jsonb_object_keys(to_jsonb(q)) key
    where q.run_id = '21212121-0000-0000-0000-0000000000a1'),
-  array['couple_id', 'finish_points', 'photo_points', 'run_id', 'stop_points', 'total', 'updated_at', 'week_bonus',
-        'week_start'],
+  array['couple_id', 'finish_points', 'photo_points', 'run_id', 'share_points', 'stop_points', 'total', 'updated_at',
+        'week_bonus', 'week_start'],
   'a row says how much, never who'
 );
 select throws_ok(
