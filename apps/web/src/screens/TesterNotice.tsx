@@ -38,6 +38,7 @@ export function TesterNotice() {
             <li>Your display name</li>
             <li>The stops you complete</li>
             <li>Your photos</li>
+            <li>Your couple name and points, once you link with a partner</li>
           </ul>
           <p>
             Your GPS position stays on your phone, except as described under &ldquo;Who sees your data&rdquo;. The app
@@ -59,6 +60,10 @@ export function TesterNotice() {
           <ul>
             <li>Your linked partner sees the trails you walk together and their photos.</li>
             <li>
+              If you both join the weekly leaderboard, about 30 other couples see your couple name and this week&rsquo;s
+              points, as described under &ldquo;Weekly leaderboard&rdquo;.
+            </li>
+            <li>
               Three companies process your data for me: Supabase stores the database and photos in Frankfurt (EU),
               Vercel hosts the app, and Resend sends sign-in emails from its EU region. Supabase and Vercel are US
               companies; where your data reaches the US, their contracts rely on the EU&ndash;US Data Privacy Framework
@@ -74,6 +79,18 @@ export function TesterNotice() {
             </li>
           </ul>
 
+          <h2>Weekly leaderboard</h2>
+          <p>
+            The leaderboard is opt-in: your couple joins only when both of you say yes. Either of you can leave alone,
+            at any time, and that takes your couple off the board at once.
+          </p>
+          <p>
+            Each week the app draws leagues of about 30 couples at random. The other couples in your league see two
+            things about you: your couple name and this week&rsquo;s points, which add up your three best quests
+            finished this week. They see no rank, display names, avatars, locations, or photos, and nothing on the board
+            links anywhere. A couple without a name stays off the board.
+          </p>
+
           <h2>Deleting photos</h2>
           <p>
             You can delete your own photos. A deleted photo disappears from the app for your partner too. Copies either
@@ -82,6 +99,11 @@ export function TesterNotice() {
 
           <h2>If you unlink</h2>
           <p>Each of you keeps the photos from trails you walked together.</p>
+          <p>
+            Unlinking takes your couple off the leaderboard at once. The server keeps your couple name, points, and
+            quest totals for 90 days after the unlink, then deletes them. If the same two people link again within those
+            90 days, these move to the new couple; the leaderboard still needs both of you to say yes again.
+          </p>
 
           <h2>How long I keep it</h2>
           <p>I keep your data until the test ends and delete all test data before public launch.</p>
