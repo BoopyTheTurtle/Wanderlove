@@ -67,8 +67,9 @@ The compliment nudge and the small reminders have separate switches, so a person
 
 ## 3. In-app feed kinds and push
 
-The in-app feed, built now, records six kinds of event, none of them partner activity: following the threat model (X1), it never says that a partner started or finished a quest. **No push fires because of something the partner did.** The
-feed keeps every kind; push takes none of them directly.
+The in-app feed, built now, records six kinds of event. Following the threat model (X1), none of them says that a
+partner started or finished a quest. **No push fires because of something the partner did.** The feed keeps every
+kind; push takes none of them directly.
 
 | Feed kind             | Push                                                                  | Why                                                                                    |
 | --------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
