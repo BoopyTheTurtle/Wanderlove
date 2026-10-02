@@ -262,6 +262,10 @@ rank. Nothing on it links anywhere; the query returns names and bands only. The 
 **Done when:** a stranger's view reveals nothing beyond the names and points shown, and opting out removes a couple at
 once.
 
+**Status, October 2:** merged (PRs 67, 72, 73). A League tab replaces Messages; the opt-in lives in Profile, and
+neither partner learns whether the other has said yes. The tester notice describes the board (`tester-v2`). pgTAP
+tests cover the stranger's view and the instant opt-out; the two-phone check is open.
+
 ### 9. Further gamification
 
 The features from A3's shortlist that survive its synthesis, one at a time.

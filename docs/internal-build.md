@@ -10,7 +10,7 @@ Tags follow the main spec: **[Agent]**, **[You]**, **[Legal]**.
 
 ## Progress
 
-Last updated October 1, 2026. Resume from **Next** below.
+Last updated October 2, 2026. Resume from **Next** below.
 
 **Done:**
 
@@ -118,6 +118,13 @@ stops, and a simulation script.
 - **UK and US starts (PR 64).** `--areas abroad` runs 10 starts each in Islington, Capitol Hill, Silver Lake, and Park
   Slope at local midday: 38 of 40 valid. Silver Lake loses two to H1 (few mapped crossings); one London start sat on
   a footway cut off from the network, 51 m from where the route began. Audit pack in `tools/route-sim/out/abroad/`.
+- **Stage 8 and the October 2 changes (PRs 66 to 70, 72, 73).** The weekly leaderboard: a database with opt-in,
+  random leagues of about 30, and each couple's best three quests; a League tab in place of Messages; and an opt-in
+  card in Profile. Both partners say yes, either leaves alone, and neither sees whether the other has said yes. Points
+  show on the totals card and after a couple's quest. Edgar chose to keep a couple's past for 90 days after an unlink:
+  the same two people relinking get their totals, quest points, and name back, while the leaderboard needs both yeses
+  again. Home moved to the "light trail" art, with no markers. The tester notice gained the leaderboard and the 90-day
+  archive and moved to `tester-v2`. The migrations deployed online.
 - **Stages 6, 7, and 11, built in three waves of parallel agents (PRs 59 to 63, 65).** Couple totals and name with a
   word filter, server-side points, stop reports that new routes avoid, and the journey map Home on Edgar's chosen
   concept. All verified in Chromium at 390 px against the local stack; the two-phone checks are Edgar's.
@@ -135,14 +142,16 @@ stops, and a simulation script.
 
 **Next:**
 
-1. **[Agent]** Wave 4 is building: the weekly leaderboard's database (stage 8) and points on the totals card and the
-   complete screen. Wave 5: the leaderboard screen, its opt-in in Settings, and the tester-notice paragraph.
-2. **[You]** Decide whether couple totals and map progress survive a relink with the same partner (stage 6 says yes,
-   stage 7 clears them on unlink).
+1. **[Agent]** Existing testers accepted `tester-v1`, and nothing asks them to accept `tester-v2`: the app checks only
+   that a tester accepted some version. A small gate should show the updated notice once to anyone on an older
+   version. A flaky route test ("street corners named after their streets") is being fixed on
+   `fix/routegen-flaky-corner-test`.
+2. **[You]** Pick the next stage: 9 (further gamification) or 10 (notifications); full-body avatars wait until the
+   other MVP basics are done.
 3. **[You]** Audit the 30 routes in `tools/route-sim/out/live4/audit/checklist.md` and the 24 in
    `tools/route-sim/out/abroad/audit/`, and say whether Līgatne's Brīvības iela really lacks a pavement.
 4. **[You]** On two phones: a Together quest shows the same tasks on both; a couple name suggested on one is agreed on
-   the other; the journey map and totals match; an avatar edit shows on the other phone; a new account that skips the
+   the other; the light-trail Home, totals, and points match; both join the league and see the same board; an avatar edit shows on the other phone; a new account that skips the
    avatar step gets one.
 5. **[You]** On one phone: report a stop, then dismiss the report in the dashboard (online reports affect testers'
    routes); the safety note, the after-sunset card, and the close "Skip photo" and "Skip this task" buttons.
