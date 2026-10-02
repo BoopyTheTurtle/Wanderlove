@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { StatusBar } from "../components/PhoneFrame";
 import { CoupleAvatar } from "../components/CoupleAvatar";
@@ -9,6 +10,9 @@ import { stopFilePrefix } from "../lib/album";
 import { canAddPhotos, completedCount, journeyDay, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
 import { useRun } from "../lib/useRun";
 import { useRunPhotos } from "../lib/useRunPhotos";
+import { loadQuestPointsSoon, pointsBreakdown } from "../lib/coupleStats";
+import type { QuestPoints } from "../lib/coupleStats";
+import "../components/couple.css";
 
 export function CompleteScreen({
   runId,
@@ -43,6 +47,13 @@ export function CompleteScreen({
   // The stack shows only photos this phone can display; encrypted ones join as they decrypt.
   const shown = photos.filter((p) => p.src !== null);
   const [left, main, right] = [shown[0], shown[shown.length - 1] ?? shown[0], shown[1] ?? shown[0]];
+  // Only a couple's run earns points; a Just me or solo run has no couple and shows nothing about them.
+  const points = useQuestPoints(
+    runId,
+    run?.coupleId != null,
+    run?.completedAt != null,
+    album.status === "ready" ? photos.length : null,
+  );
 
   async function handleShare() {
     if (!trail) return;
@@ -138,6 +149,8 @@ export function CompleteScreen({
         </div>
       </div>
 
+      <QuestPointsNote points={points} />
+
       <button type="button" className="btn-primary light" onClick={onLeave}>
         {past ? (
           <>
@@ -206,5 +219,44 @@ export function CompleteScreen({
           })}
       </section>
     </div>
+  );
+}
+
+// The points a couple's run earned, loaded once the run is known to be theirs; null while loading, for any other run,
+// or when none came. A new photo count loads them again, since a photo added after the walk earns points too.
+function useQuestPoints(
+  runId: string,
+  couple: boolean,
+  finished: boolean,
+  photoCount: number | null,
+): QuestPoints | null {
+  const [loaded, setLoaded] = useState<{ runId: string; points: QuestPoints | null } | null>(null);
+
+  useEffect(() => {
+    if (!couple) return;
+    let live = true;
+    void loadQuestPointsSoon(runId, finished).then((points) => {
+      // A failed reload keeps what the screen already shows.
+      if (live) setLoaded((old) => (points || old?.runId !== runId ? { runId, points } : old));
+    });
+    return () => {
+      live = false;
+    };
+  }, [runId, couple, finished, photoCount]);
+
+  return couple && loaded?.runId === runId ? loaded.points : null;
+}
+
+// Shown after the walk only: what the couple earned together, and a small breakdown. Nothing when there are no points.
+export function QuestPointsNote({ points }: { points: QuestPoints | null }) {
+  if (!points || points.total <= 0) return null;
+  return (
+    <section className="quest-points" aria-label="Points earned">
+      <p className="quest-points-total">
+        You earned <strong>{points.total.toLocaleString("en-GB")}</strong> {points.total === 1 ? "point" : "points"}{" "}
+        together
+      </p>
+      <p className="quest-points-parts">{pointsBreakdown(points).join(" · ")}</p>
+    </section>
   );
 }

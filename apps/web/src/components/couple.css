@@ -18,12 +18,14 @@
 .couple-totals dl {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Each column fits its label on one line and shares what is left, so "challenges done" never wraps at 390 px. */
+  grid-template-columns: repeat(4, minmax(min-content, 1fr));
 }
 .couple-totals dl > div {
   display: flex;
   flex-direction: column-reverse;
   gap: 1px;
+  padding: 0 4px;
 }
 .couple-totals dl > div + div {
   border-left: 1px solid #ffffff38;
@@ -38,6 +40,7 @@
   color: var(--on-bg-muted);
   font-size: 11.5px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* The couple name in Settings */
@@ -96,4 +99,24 @@
 }
 .couple-name-form .couple-name-error {
   margin: -4px 0 0;
+}
+
+/* What a couple's quest earned, on the complete screen under the walk's stats. */
+.quest-points {
+  margin: -6px 0 18px;
+  color: var(--on-bg);
+}
+.quest-points-total {
+  font-size: 16px;
+  font-weight: 700;
+}
+.quest-points-total strong {
+  font-weight: 800;
+}
+.quest-points-parts {
+  margin-top: 4px;
+  color: var(--on-bg-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
 }

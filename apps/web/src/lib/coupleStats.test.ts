@@ -1,7 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CoupleNameError,
   NO_TOTALS,
+  POINTS_ATTEMPTS,
+  POINTS_RETRY_MS,
+  loadQuestPoints,
+  loadQuestPointsSoon,
+  pointsBreakdown,
+  questPointsFromRow,
   agreeCoupleName,
   clearCoupleName,
   coupleNameFromRows,
@@ -17,12 +23,14 @@ import {
 // Records each call and resolves to the queued result.
 const calls: { method: string; args: unknown[] }[] = [];
 let result: { data: unknown; error: unknown } = { data: null, error: null };
+// Results for the next queries, in order, before falling back to result.
+const queued: { data: unknown; error: unknown }[] = [];
 
 type Chain = Record<string, (...args: never[]) => unknown>;
 
 function builder(): Chain {
   const chain: Chain = {};
-  for (const method of ["from", "select", "limit"]) {
+  for (const method of ["from", "select", "limit", "eq"]) {
     chain[method] = (...args: unknown[]) => {
       calls.push({ method, args });
       return chain;
@@ -30,7 +38,7 @@ function builder(): Chain {
   }
   chain.maybeSingle = () => {
     calls.push({ method: "maybeSingle", args: [] });
-    return Promise.resolve(result);
+    return Promise.resolve(queued.shift() ?? result);
   };
   return chain;
 }
@@ -49,14 +57,16 @@ const refusal = (message: string) => ({ code: "P0001", message, details: "", hin
 
 beforeEach(() => {
   calls.length = 0;
+  queued.length = 0;
   result = { data: null, error: null };
 });
 
 describe("totals", () => {
   it("maps the row", async () => {
-    result = { data: { quests_done: 3, photos_taken: 12, challenges_done: 9 }, error: null };
-    expect(await loadCoupleTotals()).toEqual({ questsDone: 3, photosTaken: 12, challengesDone: 9 });
+    result = { data: { quests_done: 3, photos_taken: 12, challenges_done: 9, points: 1240 }, error: null };
+    expect(await loadCoupleTotals()).toEqual({ questsDone: 3, photosTaken: 12, challengesDone: 9, points: 1240 });
     expect(calls).toContainEqual({ method: "from", args: ["couple_stats"] });
+    expect(calls).toContainEqual({ method: "select", args: ["quests_done, photos_taken, challenges_done, points"] });
   });
 
   it("reads no row as all zeros", async () => {
@@ -64,16 +74,92 @@ describe("totals", () => {
   });
 
   it("reads a null column as zero", () => {
-    expect(totalsFromRow({ quests_done: 2, photos_taken: null, challenges_done: null })).toEqual({
+    expect(totalsFromRow({ quests_done: 2, photos_taken: null, challenges_done: null, points: null })).toEqual({
       questsDone: 2,
       photosTaken: 0,
       challengesDone: 0,
+      points: 0,
     });
   });
 
   it("throws the server's error", async () => {
     result = { data: null, error: new Error("nope") };
     await expect(loadCoupleTotals()).rejects.toThrow("nope");
+  });
+});
+
+const pointsRow = (stops: number, photos: number, finish: number, bonus: number) => ({
+  stop_points: stops,
+  photo_points: photos,
+  finish_points: finish,
+  week_bonus: bonus,
+  total: stops + photos + finish + bonus,
+});
+
+describe("quest points", () => {
+  it("maps the run's row", async () => {
+    result = { data: pointsRow(50, 25, 100, 30), error: null };
+    expect(await loadQuestPoints("run-1")).toEqual({ total: 205, stops: 50, photos: 25, finish: 100, weekBonus: 30 });
+    expect(calls).toContainEqual({ method: "from", args: ["quest_points"] });
+    expect(calls).toContainEqual({ method: "eq", args: ["run_id", "run-1"] });
+  });
+
+  it("is null without a row", async () => {
+    expect(await loadQuestPoints("run-1")).toBeNull();
+  });
+
+  it("adds the parts when the total is missing", () => {
+    expect(
+      questPointsFromRow({ stop_points: 10, photo_points: null, finish_points: 100, week_bonus: 0, total: null }),
+    ).toEqual({ total: 110, stops: 10, photos: 0, finish: 100, weekBonus: 0 });
+  });
+
+  it("lists only the parts that earned something", () => {
+    expect(pointsBreakdown({ total: 205, stops: 50, photos: 25, finish: 100, weekBonus: 30 })).toEqual([
+      "50 for stops",
+      "25 for photos",
+      "100 for finishing",
+      "30 for your first walk this week",
+    ]);
+    expect(pointsBreakdown({ total: 150, stops: 50, photos: 0, finish: 100, weekBonus: 0 })).toEqual([
+      "50 for stops",
+      "100 for finishing",
+    ]);
+  });
+});
+
+describe("quest points after the walk", () => {
+  const noWait = vi.fn(() => Promise.resolve());
+
+  beforeEach(() => noWait.mockClear());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns at once when the row is there", async () => {
+    result = { data: pointsRow(50, 25, 100, 0), error: null };
+    expect((await loadQuestPointsSoon("run-1", true, noWait))?.total).toBe(175);
+    expect(noWait).not.toHaveBeenCalled();
+  });
+
+  it("tries again until the row arrives", async () => {
+    queued.push({ data: null, error: null }, { data: pointsRow(30, 0, 0, 0), error: null });
+    result = { data: pointsRow(30, 0, 100, 30), error: null };
+    // The second answer has no finish yet, so a finished run waits for the third.
+    expect((await loadQuestPointsSoon("run-1", true, noWait))?.total).toBe(160);
+    expect(noWait).toHaveBeenCalledTimes(2);
+    expect(noWait).toHaveBeenCalledWith(POINTS_RETRY_MS);
+  });
+
+  it("takes a left-early run's points without a finish", async () => {
+    result = { data: pointsRow(20, 5, 0, 0), error: null };
+    expect((await loadQuestPointsSoon("run-1", false, noWait))?.total).toBe(25);
+  });
+
+  it("gives up quietly after three tries", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    queued.push({ data: null, error: new Error("offline") });
+    expect(await loadQuestPointsSoon("run-1", true, noWait)).toBeNull();
+    expect(calls.filter((c) => c.method === "maybeSingle")).toHaveLength(POINTS_ATTEMPTS);
+    expect(noWait).toHaveBeenCalledTimes(POINTS_ATTEMPTS - 1);
   });
 });
 
