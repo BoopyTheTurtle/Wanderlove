@@ -6,6 +6,8 @@ import { LockedPhotosNote, PhotoGrid } from "../components/PhotoGrid";
 import { BackIcon, CompassIcon, ShareIcon } from "../components/Icons";
 import { AddStopPhoto } from "../components/AddStopPhoto";
 import { AlbumActions } from "../components/AlbumActions";
+import { PlanNextWalk } from "../components/PlanNextWalk";
+import { ShareProposal } from "../components/ShareProposal";
 import { stopFilePrefix } from "../lib/album";
 import { canAddPhotos, completedCount, journeyDay, PHOTOS_REMOVED_NOTE, photosRemoved, runEndedAt } from "../lib/runs";
 import { useRun } from "../lib/useRun";
@@ -47,13 +49,18 @@ export function CompleteScreen({
   // The stack shows only photos this phone can display; encrypted ones join as they decrypt.
   const shown = photos.filter((p) => p.src !== null);
   const [left, main, right] = [shown[0], shown[shown.length - 1] ?? shown[0], shown[1] ?? shown[0]];
+  // A confirmed share earns points after the walk, so it loads them again too.
+  const [shareTick, setShareTick] = useState(0);
   // Only a couple's run earns points; a Just me or solo run has no couple and shows nothing about them.
   const points = useQuestPoints(
     runId,
     run?.coupleId != null,
     run?.completedAt != null,
     album.status === "ready" ? photos.length : null,
+    shareTick,
   );
+  // The partner on a Together quest, while still linked: planning and sharing need both of them.
+  const together = run?.coupleId != null ? partnerName : null;
 
   async function handleShare() {
     if (!trail) return;
@@ -151,6 +158,8 @@ export function CompleteScreen({
 
       <QuestPointsNote points={points} />
 
+      {/* Reserved: the badge note mounts here. */}
+
       <button type="button" className="btn-primary light" onClick={onLeave}>
         {past ? (
           <>
@@ -169,6 +178,20 @@ export function CompleteScreen({
       )}
 
       {notice}
+
+      {together && !past && <PlanNextWalk partnerName={together} syncTick={syncTick} />}
+      {together && run.completedAt != null && (
+        <ShareProposal
+          runId={runId}
+          trailName={trail.name}
+          partnerName={together}
+          photos={photos}
+          syncTick={syncTick}
+          onPointsEarned={() => setShareTick((n) => n + 1)}
+        />
+      )}
+
+      {/* Reserved: the tester comment card mounts here. */}
 
       {!removed && (
         <AlbumActions
@@ -223,12 +246,13 @@ export function CompleteScreen({
 }
 
 // The points a couple's run earned, loaded once the run is known to be theirs; null while loading, for any other run,
-// or when none came. A new photo count loads them again, since a photo added after the walk earns points too.
+// or when none came. A new photo count or a confirmed share loads them again, since both earn points after the walk.
 function useQuestPoints(
   runId: string,
   couple: boolean,
   finished: boolean,
   photoCount: number | null,
+  shareTick: number,
 ): QuestPoints | null {
   const [loaded, setLoaded] = useState<{ runId: string; points: QuestPoints | null } | null>(null);
 
@@ -242,7 +266,7 @@ function useQuestPoints(
     return () => {
       live = false;
     };
-  }, [runId, couple, finished, photoCount]);
+  }, [runId, couple, finished, photoCount, shareTick]);
 
   return couple && loaded?.runId === runId ? loaded.points : null;
 }
