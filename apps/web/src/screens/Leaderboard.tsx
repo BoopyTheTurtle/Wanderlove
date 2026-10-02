@@ -93,11 +93,8 @@ export function LeaderboardScreen({
               Each week, see how your points compare with a league of other couples. They see only your couple name and
               weekly points.
             </p>
-            <p className="league-small">
-              {state.partnerYes
-                ? `${partner} has said yes. You join once you say yes too.`
-                : "You both say yes in Profile, and either of you can leave at any time."}
-            </p>
+            {/* Never says whether the partner has said yes: that would press the other to join (threat model, M4). */}
+            <p className="league-small">You both say yes in Profile, and either of you can leave at any time.</p>
             {profileButton("Open Profile")}
           </div>
         );
@@ -223,9 +220,16 @@ export function LeagueSettingsView({
       {error}
     </p>
   );
+  // Before the couple is in, the same call takes back my yes, so it reads Cancel.
   const leaveButton = (
     <button type="button" className="settings-outline" disabled={busy !== null} onClick={onLeave}>
-      {busy === "leave" ? "Leaving…" : "Leave"}
+      {typeof state === "object" && !state.inLeague
+        ? busy === "leave"
+          ? "Cancelling…"
+          : "Cancel"
+        : busy === "leave"
+          ? "Leaving…"
+          : "Leave"}
     </button>
   );
   const nameNote = <p className="settings-note">Your couple shows in the league only once it has a couple name.</p>;
@@ -242,7 +246,7 @@ export function LeagueSettingsView({
         </>
       );
     }
-    const { inLeague, myYes, partnerYes, needsName } = state as LeaderboardStatus;
+    const { inLeague, myYes, needsName } = state as LeaderboardStatus;
 
     if (inLeague) {
       return (
@@ -277,10 +281,9 @@ export function LeagueSettingsView({
           Each week, see how your points compare with a league of other couples. They see only your couple name and
           weekly points.
         </p>
+        {/* Never says whether the partner has said yes: that would press the other to join (threat model, M4). */}
         <p className="settings-note">
-          {partnerYes
-            ? `${partnerName} has said yes. You join once you say yes too.`
-            : `You join once you and ${partnerName} both say yes. Either of you can leave at any time.`}
+          You join once you and {partnerName} both say yes. Either of you can leave at any time.
         </p>
         {needsName && nameNote}
         {errorLine}

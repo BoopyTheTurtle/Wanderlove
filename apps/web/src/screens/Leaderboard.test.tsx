@@ -45,10 +45,8 @@ describe("LeaderboardScreen", () => {
     expect(buttons).toEqual(["Open Profile"]);
   });
 
-  it("says plainly when the partner has said yes", () => {
-    expect(screen({ kind: "out", partnerYes: true }).text).toContain(
-      "Emma has said yes. You join once you say yes too.",
-    );
+  it("never says whether the partner has said yes", () => {
+    expect(screen({ kind: "out", partnerYes: true }).text).toBe(screen({ kind: "out", partnerYes: false }).text);
   });
 
   it("waits for the partner without a button to nudge them", () => {
@@ -134,15 +132,15 @@ describe("LeagueSettingsView", () => {
     expect(buttons).toEqual(["Join the weekly league"]);
   });
 
-  it("says when the partner has said yes", () => {
-    expect(settings({ ...out, partnerYes: true }).text).toContain("Emma has said yes. You join once you say yes too.");
+  it("never says whether the partner has said yes", () => {
+    expect(settings({ ...out, partnerYes: true }).text).toBe(settings(out).text);
   });
 
-  it("waits for the partner and lets me take my yes back", () => {
+  it("waits for the partner and lets me cancel my yes", () => {
     const { text, buttons } = settings({ ...out, myYes: true });
     expect(text).toContain("You’ve said yes.");
     expect(text).toContain("Your couple joins once Emma says yes too.");
-    expect(buttons).toEqual(["Leave"]);
+    expect(buttons).toEqual(["Cancel"]);
   });
 
   it("shows the couple in the league with a Leave that needs no one else", () => {
