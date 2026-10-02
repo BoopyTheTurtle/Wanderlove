@@ -33,6 +33,17 @@ export function isOnboarded(row: ProfileRow): boolean {
   return Boolean(row.display_name && row.terms_accepted_at);
 }
 
+// An onboarded tester who accepted an older notice sees the current one once before going on.
+export function needsTermsUpdate(row: ProfileRow): boolean {
+  return isOnboarded(row) && row.terms_version !== TERMS_VERSION;
+}
+
+export async function acceptCurrentTerms(userId: string): Promise<ProfileRow> {
+  const { error } = await supabase.rpc("accept_terms", { p_version: TERMS_VERSION });
+  if (error) throw error;
+  return loadOwnProfile(userId);
+}
+
 export async function completeOnboarding(userId: string, displayName: string): Promise<ProfileRow> {
   const { error } = await supabase.from("profiles").update({ display_name: displayName.trim() }).eq("id", userId);
   if (error) throw error;

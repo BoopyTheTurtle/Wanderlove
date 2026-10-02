@@ -19,6 +19,7 @@ import { LinkInvite, LinkRequestDialog, LinkWaiting } from "./screens/LinkInvite
 import { Settings } from "./screens/Settings";
 import { SignIn } from "./screens/SignIn";
 import { ProfileSetup } from "./screens/ProfileSetup";
+import { TermsUpdate } from "./screens/TermsUpdate";
 import { AvatarCreator } from "./screens/AvatarCreator";
 import { KeyUnlock } from "./screens/KeyUnlock";
 import { PartnerKeyConfirm, PartnerKeyMismatch } from "./screens/PartnerKeyConfirm";
@@ -83,7 +84,7 @@ import { getStartPosition } from "./lib/startPosition";
 import { clearReportedPlaces, reportStop, surpriseRouteOptions } from "./lib/stopReports";
 import type { ReportReason } from "./lib/stopReports";
 import { signOut, signOutOtherDevices, useAuth } from "./lib/auth";
-import { isOnboarded, loadMobility, loadOwnProfile, saveMobility, toProfile } from "./lib/profile";
+import { isOnboarded, loadMobility, loadOwnProfile, needsTermsUpdate, saveMobility, toProfile } from "./lib/profile";
 import type { ProfileRow } from "./lib/profile";
 import { historyPartnerFor, questTaskFor, withQuestTasks } from "./lib/questTasks";
 import { loadTaskHistory, recordTask } from "./lib/taskHistory";
@@ -223,6 +224,18 @@ export default function App() {
     return (
       <PhoneFrame>
         <ProfileSetup
+          userId={auth.user.id}
+          onDone={(row) => setLoaded({ userId: auth.user.id, state: { status: "ready", row } })}
+          onSignOut={() => signOutAndClear(auth.user.id)}
+        />
+      </PhoneFrame>
+    );
+  }
+
+  if (needsTermsUpdate(profile.row)) {
+    return (
+      <PhoneFrame>
+        <TermsUpdate
           userId={auth.user.id}
           onDone={(row) => setLoaded({ userId: auth.user.id, state: { status: "ready", row } })}
           onSignOut={() => signOutAndClear(auth.user.id)}
