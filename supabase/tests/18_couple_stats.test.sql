@@ -157,7 +157,7 @@ select is((select count(*)::int from public.photos where run_id = '18181818-0000
 select is(pg_temp.totals(), array[1, 2, 2], 'the photo count outlives the photos');
 
 -- ---------------------------------------------------------------------------
--- Unlinking clears the totals, and nothing refills them
+-- Unlinking clears the couple's totals, and nothing refills them
 -- ---------------------------------------------------------------------------
 
 select pg_temp.login('18181818-0000-0000-0000-00000000000b');
@@ -171,13 +171,17 @@ reset role;
 select pg_temp.photo('0000000000a1', '0000000000f4');
 select is(pg_temp.totals(), null, 'a late row on an ended couple''s run counts nothing');
 
--- The same two people linking again start from zero.
+-- The same two people linking again within 90 days get their totals back (23_relink_restore tests the details).
 insert into public.couples (id) values ('18181818-0000-0000-0000-0000000000dd');
 insert into public.couple_members (couple_id, user_id) values
   ('18181818-0000-0000-0000-0000000000dd', '18181818-0000-0000-0000-00000000000a'),
   ('18181818-0000-0000-0000-0000000000dd', '18181818-0000-0000-0000-00000000000b');
 select pg_temp.login('18181818-0000-0000-0000-00000000000a');
-select is((select count(*)::int from public.couple_stats), 0, 'a new link starts with no totals');
+select is(
+  (select array[quests_done, photos_taken, challenges_done] from public.couple_stats),
+  (select array[1, 2, 2]),
+  'a relink restores the totals, without the late row'
+);
 
 select * from finish();
 rollback;

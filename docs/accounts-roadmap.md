@@ -176,6 +176,9 @@ Usernames stay only as a display name; nobody can search for them.
    message and gives no reason **[Legal]**.
 4. Both keep their past albums. Each can hide individual photos from their own album. An uploader can delete a photo
    they took, which removes it for both.
+5. The couple's totals, points, name, and leaderboard opt-in go into an archive nobody reads. If the same two people
+   link again within 90 days they get them back; otherwise the archive is deleted (mvp-roadmap.md, stage 7). The app
+   never mentions this when someone unlinks (abuse-threat-model.md, N2).
 
 ### 6.4 Trail run and photos
 

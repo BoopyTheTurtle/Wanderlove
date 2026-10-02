@@ -31,7 +31,7 @@ Research and design workflows run first, in parallel, because the build stages d
 | Points                 | Low, per A3: 100 per finished quest, 10 per stop reached, 5 per stored photo, 20 per partner-approved share (one per quest, three a week), 30 for the week's first quest, 50 for a special quest; tasks earn none; best three quests a week count for leagues |
 | Special-quest triggers | To be decided; holiday quests are certain; random and milestone triggers are candidates for surprise rewards                                                                                                                                                  |
 | Journey map            | Infinite: the path extends as the couple walks                                                                                                                                                                                                                |
-| Lifetime stats         | Per couple only: quests done, photos taken, challenges completed, points scored. Unlinking clears them, so a new pair starts fresh; per-user stats wait until the app supports other kinds of links                                                           |
+| Lifetime stats         | Per couple only: quests done, photos taken, challenges completed, points scored. Unlinking puts them away for 90 days: the same two people relinking get them back, anyone else starts fresh; per-user stats wait until the app supports other kinds of links |
 | Task pool              | 30 introductory, 60 silly games (two per quest), 30 deep tasks, 30 wrap-ups                                                                                                                                                                                   |
 | Strangers              | No task involves strangers; couples may still ask someone to take a photo on their own                                                                                                                                                                        |
 | Off-limits topics      | No chores, no debates about what is fair                                                                                                                                                                                                                      |
@@ -214,15 +214,20 @@ point and move one point per finished quest; the next point opens a quest. The s
 
 **Status, October 1:** merged (PR 65). Edgar picked the third concept (rich detail, markers set into the path). The art
 has nine markers; the couple stands on marker `quests_done mod 9` and a fresh copy of the scene follows every nine
-quests, until tiling art replaces the copy. Open: unlinking clears the totals (stage 7), so progress does not yet
-survive a relink.
+quests, until tiling art replaces the copy. Progress survives a relink within 90 days (see stage 7).
 
 ### 7. Couple name, stats, and points
 
 The couple chooses a name, checked against a word filter. The server keeps lifetime totals per couple:
 quests done, photos taken, challenges completed, and points scored. The totals live in their own table, because the
 photos themselves go after a month and the counts must outlive them; the journey map's position reads from them.
-Unlinking clears them.
+
+Unlinking hides the couple's totals, points, quest points, name, and leaderboard opt-in in an archive keyed by the two
+people, which nobody can read, the two included. If the same two people link again within 90 days, the new couple gets
+it all back, and this week's league seat too when the relink falls in the same week; the archive then goes. A partner
+who links with someone else gets nothing from it. After 90 days the archive is deleted: each link and unlink purges
+expired archives, since nothing runs on a schedule in the database, and a restore never takes an expired one. Deleting
+either account deletes it at once. Migration `20261002120000_relink_restore.sql` holds the rules.
 
 Points come from finished quests, uploaded photos, and, weighted heavily, photos shared to social media; A3 sets the
 amounts and adds further sources later. The server awards points only for what it can confirm: a finished quest and a
