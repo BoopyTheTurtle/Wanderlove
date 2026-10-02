@@ -17,7 +17,7 @@ export function TesterNotice() {
             <BrandMark /> Wannadoo
           </p>
           <h1>Tester notice</h1>
-          <p className="tester-notice-version">Version tester-v1 · September 29, 2026</p>
+          <p className="tester-notice-version">Version tester-v2 · October 2, 2026</p>
         </header>
 
         <article className="card tester-notice-body">
