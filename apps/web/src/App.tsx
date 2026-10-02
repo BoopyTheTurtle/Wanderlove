@@ -10,6 +10,7 @@ import { SherlockChallengeScreen } from "./screens/SherlockChallengeScreen";
 import { SherlockCompleteScreen } from "./screens/SherlockCompleteScreen";
 import { Home } from "./screens/Home";
 import { Feed } from "./screens/Feed";
+import { RhythmCard } from "./components/RhythmCard";
 import { loadUnreadCount } from "./lib/feed";
 import { Activity } from "./screens/Activity";
 import { Leaderboard } from "./screens/Leaderboard";
@@ -1387,6 +1388,7 @@ function SignedInApp({
             openQuest={run && isRunActive(run) ? run.trail.name : null}
             invite={inviteCard}
             feedUnread={feedUnread}
+            cards={<RhythmCard linked={partner !== null} refreshKey={syncTick} />}
             onStartQuest={handleStartQuest}
             onLinkPartner={() => setRoute({ name: "partner" })}
             onOpenFeed={() => setRoute({ name: "feed" })}

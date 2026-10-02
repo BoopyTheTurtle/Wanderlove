@@ -10,6 +10,7 @@ import { formatRecoveryCode } from "../lib/crypto";
 import { PairEmoji } from "./PartnerKeyConfirm";
 import { AppReviewCard } from "../tester/AppReviewCard";
 import { sendTesterReview } from "../tester/appReview";
+import { ShareConsentSection } from "../components/ShareConsentSection";
 import "../keys.css";
 import "../settings.css";
 
@@ -170,6 +171,8 @@ export function Settings({
       {partner && <CoupleNameSection key={partner.id} partnerName={partner.name} />}
 
       {partner && <LeagueSettingsSection key={partner.id} partnerName={partner.name} />}
+
+      {partner && <ShareConsentSection key={partner.id} partnerName={partner.name} />}
 
       <section className="card settings-card settings-devices" aria-labelledby="settings-quests-title">
         <p className="card-kicker" id="settings-quests-title">
